@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import UsersClient from "./users-client";
 import type { Profile } from "@/lib/types";
 
-export const metadata = { title: "Staff accounts · NSUK Asset Register" };
+export const metadata = { title: "Staff accounts" };
 export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
@@ -24,7 +24,7 @@ export default async function UsersPage() {
     <div className="mx-auto max-w-4xl space-y-4">
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Staff accounts</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-nsuk-muted">
           Create accounts and assign each person to the units they are responsible for. Staff see
           only their own units — assigning a faculty also covers its departments.
         </p>

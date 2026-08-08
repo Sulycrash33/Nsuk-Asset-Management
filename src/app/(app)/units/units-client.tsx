@@ -3,16 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import Modal from "@/components/ui/modal";
+import { useConfirm } from "@/components/ui/confirm";
+import { useToast } from "@/components/ui/toast";
 import { buildTree, type UnitNode } from "@/lib/tree";
 import { UNIT_TYPES, type Campus, type OrgUnit } from "@/lib/types";
 
@@ -22,6 +17,15 @@ type Draft = {
   unit_type: string;
   campus_id: string;
   parent_id: string | null;
+};
+
+const TYPE_TONE: Record<string, string> = {
+  Faculty: "border-nsuk-blue/25 bg-nsuk-blue-50 text-nsuk-blue",
+  Department: "border-nsuk-line bg-nsuk-cream text-nsuk-muted",
+  Directorate: "border-nsuk-green/25 bg-nsuk-green-50 text-nsuk-green",
+  Office: "border-nsuk-line bg-nsuk-cream text-nsuk-muted",
+  Clinic: "border-nsuk-gold/40 bg-nsuk-gold-50 text-nsuk-gold-deep",
+  Other: "border-nsuk-line bg-nsuk-cream text-nsuk-muted",
 };
 
 export default function UnitsClient({
@@ -34,11 +38,14 @@ export default function UnitsClient({
   assetCounts: Record<string, number>;
 }) {
   const router = useRouter();
+  const toast = useToast();
+  const confirm = useConfirm();
+
   const [term, setTerm] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
 
   const tree = useMemo(() => buildTree(units), [units]);
   const needle = term.trim().toLowerCase();
@@ -52,7 +59,7 @@ export default function UnitsClient({
   async function save() {
     if (!draft || !draft.name.trim()) return;
     setBusy(true);
-    setError(null);
+    setDraftError(null);
     const supabase = createClient();
 
     const payload = {
@@ -62,15 +69,17 @@ export default function UnitsClient({
       parent_id: draft.parent_id,
     };
 
-    const { error: saveError } = draft.id
+    const { error } = draft.id
       ? await supabase.from("org_units").update(payload).eq("id", draft.id)
       : await supabase.from("org_units").insert(payload);
 
     setBusy(false);
-    if (saveError) {
-      setError(saveError.message);
+    if (error) {
+      setDraftError(error.message);
       return;
     }
+
+    toast.success(draft.id ? "Unit updated" : "Unit added", payload.name);
     setDraft(null);
     router.refresh();
   }
@@ -78,30 +87,31 @@ export default function UnitsClient({
   async function remove(node: UnitNode) {
     const count = assetCounts[node.id] ?? 0;
     if (count > 0) {
-      alert(
-        `“${node.name}” still holds ${count} asset${count === 1 ? "" : "s"}. Transfer or delete them first.`,
+      toast.error(
+        "Unit still holds assets",
+        `“${node.name}” has ${count} asset${count === 1 ? "" : "s"}. Transfer or delete them first.`,
       );
       return;
     }
-    if (
-      !confirm(
-        `Remove “${node.name}”${node.children.length ? ` and its ${node.children.length} sub-unit(s)` : ""}? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+
+    const ok = await confirm({
+      title: `Remove “${node.name}”?`,
+      body: node.children.length
+        ? `This also removes its ${node.children.length} sub-unit${node.children.length === 1 ? "" : "s"}. This cannot be undone.`
+        : "This cannot be undone.",
+      confirmLabel: "Remove unit",
+    });
+    if (!ok) return;
 
     setBusy(true);
-    const { error: deleteError } = await createClient()
-      .from("org_units")
-      .delete()
-      .eq("id", node.id);
+    const { error } = await createClient().from("org_units").delete().eq("id", node.id);
     setBusy(false);
 
-    if (deleteError) {
-      setError(deleteError.message);
+    if (error) {
+      toast.error("Could not remove the unit", error.message);
       return;
     }
+    toast.success("Unit removed", node.name);
     router.refresh();
   }
 
@@ -113,8 +123,8 @@ export default function UnitsClient({
     return (
       <li key={node.id}>
         <div
-          className="flex items-center gap-2 border-b border-nsuk-line py-2.5"
-          style={{ paddingLeft: `${node.depth * 16}px` }}
+          className="group flex items-center gap-2 rounded-xl px-1 py-2 transition hover:bg-nsuk-cream"
+          style={{ paddingLeft: `${4 + node.depth * 18}px` }}
         >
           <button
             type="button"
@@ -126,10 +136,10 @@ export default function UnitsClient({
                 return next;
               })
             }
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-400 ${
-              node.children.length ? "hover:bg-nsuk-cream" : "invisible"
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-nsuk-faint transition ${
+              node.children.length ? "hover:bg-white hover:text-nsuk-blue" : "invisible"
             }`}
-            aria-label={isCollapsed ? "Expand" : "Collapse"}
+            aria-label={isCollapsed ? `Expand ${node.name}` : `Collapse ${node.name}`}
           >
             {isCollapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -139,23 +149,29 @@ export default function UnitsClient({
           </button>
 
           <div className="min-w-0 flex-1">
-            <p
-              className={`truncate text-sm ${
-                node.depth === 0 ? "font-semibold text-nsuk-blue" : "text-nsuk-ink"
-              }`}
-            >
-              {node.name}
-            </p>
-            <p className="truncate text-xs text-neutral-500">
-              {node.unit_type}
-              {node.code && ` · ${node.code}`}
+            <div className="flex flex-wrap items-center gap-2">
+              <p
+                className={`truncate text-sm ${
+                  node.depth === 0 ? "font-semibold text-nsuk-blue" : "text-nsuk-ink"
+                }`}
+              >
+                {node.name}
+              </p>
+              <span className={`chip ${TYPE_TONE[node.unit_type] ?? TYPE_TONE.Other}`}>
+                {node.unit_type}
+              </span>
+            </div>
+            <p className="truncate text-xs text-nsuk-faint">
+              {node.code && <span className="font-mono">{node.code}</span>}
               {count > 0 && ` · ${count} asset${count === 1 ? "" : "s"}`}
+              {node.children.length > 0 && ` · ${node.children.length} sub-unit${node.children.length === 1 ? "" : "s"}`}
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1">
+          {/* Always visible on touch; revealed on hover for pointer users. */}
+          <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100">
             {count > 0 && (
-              <Link href={`/assets?unit=${node.id}`} className="btn-ghost btn-sm">
+              <Link href={`/assets?unit=${node.id}`} className="btn-ghost btn-sm hidden sm:inline-flex">
                 View
               </Link>
             )}
@@ -168,7 +184,7 @@ export default function UnitsClient({
                   parent_id: node.id,
                 })
               }
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-nsuk-green hover:bg-nsuk-cream"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-nsuk-green transition hover:bg-nsuk-green-50"
               aria-label={`Add a sub-unit under ${node.name}`}
             >
               <Plus className="h-4 w-4" />
@@ -183,14 +199,14 @@ export default function UnitsClient({
                   parent_id: node.parent_id,
                 })
               }
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-nsuk-blue hover:bg-nsuk-cream"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-nsuk-blue transition hover:bg-nsuk-blue-50"
               aria-label={`Edit ${node.name}`}
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
               onClick={() => remove(node)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#B91C1C] hover:bg-[#B91C1C]/8"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-nsuk-danger transition hover:bg-nsuk-danger-soft"
               aria-label={`Remove ${node.name}`}
             >
               <Trash2 className="h-4 w-4" />
@@ -207,7 +223,7 @@ export default function UnitsClient({
     <div className="card space-y-3">
       <div className="flex flex-wrap gap-2">
         <div className="relative min-w-48 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-nsuk-faint" />
           <input
             className="field pl-10"
             value={term}
@@ -231,17 +247,28 @@ export default function UnitsClient({
         </button>
       </div>
 
-      {error && <p className="text-sm text-[#B91C1C]">{error}</p>}
+      <ul className="-mx-1">{tree.map(renderNode)}</ul>
 
-      <ul className="-mb-2.5">{tree.map(renderNode)}</ul>
-
-      {draft && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
-          <div className="w-full max-w-md space-y-4 rounded-t-2xl bg-white p-5 sm:rounded-2xl">
-            <h2 className="text-lg font-bold text-nsuk-blue">
-              {draft.id ? "Edit unit" : draft.parent_id ? "Add sub-unit" : "Add top-level unit"}
-            </h2>
-
+      <Modal
+        open={draft !== null}
+        onClose={() => {
+          setDraft(null);
+          setDraftError(null);
+        }}
+        title={draft?.id ? "Edit unit" : draft?.parent_id ? "Add sub-unit" : "Add top-level unit"}
+        footer={
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setDraft(null)} className="btn-ghost">
+              Cancel
+            </button>
+            <button onClick={save} className="btn-green" disabled={busy || !draft?.name.trim()}>
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Save
+            </button>
+          </div>
+        }
+      >
+        {draft && (
+          <div className="space-y-4 pb-2">
             <div>
               <label className="label" htmlFor="unit-name">
                 Name
@@ -251,58 +278,57 @@ export default function UnitsClient({
                 className="field"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                autoFocus
                 placeholder="e.g. Department of Statistics & Data Analytics"
               />
             </div>
 
-            <div>
-              <label className="label" htmlFor="unit-type">
-                Unit type
-              </label>
-              <select
-                id="unit-type"
-                className="field"
-                value={draft.unit_type}
-                onChange={(e) => setDraft({ ...draft, unit_type: e.target.value })}
-              >
-                {UNIT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label" htmlFor="unit-type">
+                  Unit type
+                </label>
+                <select
+                  id="unit-type"
+                  className="field"
+                  value={draft.unit_type}
+                  onChange={(e) => setDraft({ ...draft, unit_type: e.target.value })}
+                >
+                  {UNIT_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <p className="hint">A label for reporting — it does not change any behaviour.</p>
+              </div>
+
+              <div>
+                <label className="label" htmlFor="unit-campus">
+                  Campus
+                </label>
+                <select
+                  id="unit-campus"
+                  className="field"
+                  value={draft.campus_id}
+                  onChange={(e) => setDraft({ ...draft, campus_id: e.target.value })}
+                >
+                  {campuses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div>
-              <label className="label" htmlFor="unit-campus">
-                Campus
-              </label>
-              <select
-                id="unit-campus"
-                className="field"
-                value={draft.campus_id}
-                onChange={(e) => setDraft({ ...draft, campus_id: e.target.value })}
-              >
-                {campuses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setDraft(null)} className="btn-ghost">
-                Cancel
-              </button>
-              <button onClick={save} className="btn-green" disabled={busy || !draft.name.trim()}>
-                {busy && <Loader2 className="h-4 w-4 animate-spin" />} Save
-              </button>
-            </div>
+            {draftError && (
+              <p className="rounded-xl border border-nsuk-danger/25 bg-nsuk-danger-soft p-3 text-sm text-nsuk-danger">
+                {draftError}
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

@@ -22,7 +22,7 @@ export default function BarcodeImage({
     }
   }, [value, width, height]);
 
-  if (!svg) return <p className="text-xs text-neutral-500">Cannot render barcode for “{value}”.</p>;
+  if (!svg) return <p className="text-xs text-nsuk-faint">Cannot render barcode for “{value}”.</p>;
 
   return (
     <div

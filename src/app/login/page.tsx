@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import LoginForm from "./login-form";
 import type { Campus } from "@/lib/types";
 
-export const metadata = { title: "Login · NSUK Asset Register" };
+export const metadata = { title: "Login" };
 
 export default async function LoginPage() {
   const supabase = await createClient();
@@ -21,7 +21,7 @@ export default async function LoginPage() {
           <img src="/nsuk-logo.svg" alt="" className="h-11 w-11" />
           <div className="leading-tight">
             <p className="font-bold text-nsuk-blue">NSUK Asset Register</p>
-            <p className="text-xs text-neutral-500">Nasarawa State University, Keffi</p>
+            <p className="text-xs text-nsuk-faint">Nasarawa State University, Keffi</p>
           </div>
         </Link>
 
@@ -32,7 +32,7 @@ export default async function LoginPage() {
           />
         </Suspense>
 
-        <p className="mt-6 text-center text-xs text-neutral-500">
+        <p className="mt-6 text-center text-xs text-nsuk-faint">
           Staff accounts are created by a system administrator. Contact DICT if you cannot sign in.
         </p>
       </div>

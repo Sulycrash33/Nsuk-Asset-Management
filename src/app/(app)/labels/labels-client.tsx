@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Loader2, Printer } from "lucide-react";
 import UnitSelect from "@/components/unit-select";
+import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
 import type { AssetWithRefs, OrgUnit } from "@/lib/types";
@@ -24,6 +25,7 @@ export default function LabelsClient({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [term, setTerm] = useState("");
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   const visible = useMemo(() => {
     const needle = term.trim().toLowerCase();
@@ -69,6 +71,12 @@ export default function LabelsClient({
         }));
       const doc = await generateLabelSheet(labels);
       savePdf(doc, `nsuk-labels-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success(
+        "Label sheet ready",
+        `${labels.length.toLocaleString()} label${labels.length === 1 ? "" : "s"} across ${Math.ceil(labels.length / 12)} page${Math.ceil(labels.length / 12) === 1 ? "" : "s"}.`,
+      );
+    } catch {
+      toast.error("Could not build the label sheet", "Try selecting fewer assets.");
     } finally {
       setBusy(false);
     }
@@ -115,13 +123,13 @@ export default function LabelsClient({
             />
             Select all {visible.length.toLocaleString()} shown
           </label>
-          <span className="text-sm text-neutral-600">
+          <span className="text-sm text-nsuk-muted">
             {selected.size.toLocaleString()} selected
           </span>
         </div>
 
         {visible.length === 0 ? (
-          <p className="py-6 text-center text-sm text-neutral-500">
+          <p className="py-6 text-center text-sm text-nsuk-faint">
             No assets to label in this view.
           </p>
         ) : (
@@ -143,7 +151,7 @@ export default function LabelsClient({
                       {asset.barcode}
                     </span>
                   </span>
-                  <span className="shrink-0 text-xs text-neutral-500">
+                  <span className="shrink-0 text-xs text-nsuk-faint">
                     {asset.org_units?.name ?? ""}
                   </span>
                 </label>
@@ -153,7 +161,7 @@ export default function LabelsClient({
         )}
 
         {truncated && (
-          <p className="pt-3 text-xs text-neutral-500">
+          <p className="pt-3 text-xs text-nsuk-faint">
             Showing the 500 most recent assets. Filter by unit to reach older records.
           </p>
         )}

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import LabelsClient from "./labels-client";
 import type { AssetWithRefs } from "@/lib/types";
 
-export const metadata = { title: "Print labels · NSUK Asset Register" };
+export const metadata = { title: "Print labels" };
 export const dynamic = "force-dynamic";
 
 const MAX_ROWS = 500;
@@ -34,7 +34,7 @@ export default async function LabelsPage({
     <div className="mx-auto max-w-4xl space-y-4">
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Print labels</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-nsuk-muted">
           Pick the assets to tag, then download an A4 sheet of barcode and QR labels — 12 to a page.
         </p>
       </header>

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import AssetForm from "@/components/asset-form";
 import type { AssetCategory } from "@/lib/types";
 
-export const metadata = { title: "Add asset · NSUK Asset Register" };
+export const metadata = { title: "Add asset" };
 export const dynamic = "force-dynamic";
 
 export default async function NewAssetPage() {
@@ -18,7 +18,7 @@ export default async function NewAssetPage() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-nsuk-blue">Add an asset</h1>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-nsuk-muted">
             A barcode and QR code are generated the moment you save.
           </p>
         </div>
@@ -28,7 +28,7 @@ export default async function NewAssetPage() {
       </header>
 
       {!isAdmin && scopedUnitIds.length === 0 ? (
-        <p className="card text-sm text-neutral-600">
+        <p className="card text-sm text-nsuk-muted">
           You have not been assigned to a unit yet. Ask an administrator to assign you before
           recording assets.
         </p>

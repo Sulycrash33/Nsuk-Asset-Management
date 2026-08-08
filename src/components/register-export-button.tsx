@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FileDown, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import { generateRegisterPdf, savePdf } from "@/lib/pdf";
 import type { AssetWithRefs } from "@/lib/types";
 
@@ -18,6 +19,7 @@ export default function RegisterExportButton({
   generatedBy: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   function download() {
     setBusy(true);
@@ -25,6 +27,12 @@ export default function RegisterExportButton({
       const doc = generateRegisterPdf(assets, { unitName, campusName, generatedBy });
       const slug = unitName.replace(/[^a-z0-9]+/gi, "-").toLowerCase().slice(0, 60) || "register";
       savePdf(doc, `nsuk-asset-register-${slug}.pdf`);
+      toast.success(
+        "Register exported",
+        `${assets.length.toLocaleString()} asset${assets.length === 1 ? "" : "s"} for ${unitName}.`,
+      );
+    } catch {
+      toast.error("Could not build the register", "Try again with fewer rows in view.");
     } finally {
       setBusy(false);
     }
