@@ -87,7 +87,7 @@ export default function UnitSelect({
     const name = term.trim();
     if (!name) return;
     if (!newUnitCampus) {
-      setError("Add a campus first — every unit belongs to one.");
+      setError("Add a campus first. Every unit must belong to one.");
       return;
     }
     setCreating(true);

@@ -35,7 +35,8 @@ export default async function LabelsPage({
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Print labels</h1>
         <p className="text-sm text-nsuk-muted">
-          Pick the assets to tag, then download an A4 sheet of barcode and QR labels — 12 to a page.
+          Select the assets to be tagged, then download an A4 sheet of barcode and QR labels, twelve
+          to a page.
         </p>
       </header>
 

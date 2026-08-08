@@ -109,7 +109,7 @@ export default async function ActivityPage({
                     <p className="text-xs text-nsuk-muted">
                       {log.from_unit_id ? unitPath(log.from_unit_id, units) : "?"} →{" "}
                       {log.to_unit_id ? unitPath(log.to_unit_id, units) : "?"}
-                      {log.note && ` — ${log.note}`}
+                      {log.note && `. ${log.note}`}
                     </p>
                   )}
                   <p className="text-xs text-nsuk-faint">

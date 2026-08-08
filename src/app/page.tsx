@@ -11,49 +11,49 @@ import {
 } from "lucide-react";
 
 export const metadata = {
-  title: { absolute: "NSUK Asset Register — Nasarawa State University, Keffi" },
+  title: { absolute: "NSUK Asset Register | Nasarawa State University, Keffi" },
   description:
-    "Digital inventory and barcode tracking for every physical asset across Nasarawa State University, Keffi.",
+    "The official inventory of physical assets owned by Nasarawa State University, Keffi. Every item is registered, barcoded and traceable to the unit responsible for it.",
 };
 
 const STEPS = [
   {
     icon: ClipboardList,
     title: "Record the asset",
-    body: "Log it one-by-one from your phone, or upload a whole store room as a CSV. Faculty, department and category are pre-loaded, so it is mostly tapping, not typing.",
+    body: "Assets are entered individually from a mobile device, or imported in bulk from a spreadsheet. Faculties, departments and categories are pre-loaded, so most fields are selected rather than typed.",
   },
   {
     icon: QrCode,
-    title: "Get a barcode",
-    body: "Every asset is issued a unique NSUK code with a matching barcode and QR the moment it is saved — nothing needs to arrive pre-tagged.",
+    title: "Issue the asset code",
+    body: "A unique University asset code is generated the moment the record is saved, together with a matching barcode and QR code. No item needs to arrive pre-tagged.",
   },
   {
     icon: Printer,
-    title: "Print and stick",
-    body: "Print a single label or a whole sheet, then stick it on the AC unit, the vehicle, the desk, the generator.",
+    title: "Print and affix the label",
+    body: "Labels are printed singly or as a full sheet, then affixed to the item itself, whether an air conditioning unit, a vehicle, a desk or a generator.",
   },
   {
     icon: ScanLine,
-    title: "Scan to look it up",
-    body: "Point a phone camera or a handheld scanner at the label and the full record opens — location, condition, value, history.",
+    title: "Scan to retrieve the record",
+    body: "Scanning the label with a mobile camera or a handheld scanner opens the full record, showing the unit, location, condition, value and history of the item.",
   },
 ];
 
 const FEATURES = [
   {
     icon: Building2,
-    title: "Every unit, one structure",
-    body: "Faculties, departments, Registry, Bursary, DICT, Works, Transport, the Clinic — all recorded the same way, nested as deeply as you need.",
+    title: "One structure for every unit",
+    body: "Faculties, departments, directorates and offices are recorded under a single structure, nested to whatever depth the University requires.",
   },
   {
     icon: ShieldCheck,
-    title: "Staff see only their unit",
-    body: "Departmental staff manage their own assets. Administrators see the whole University, plus an audit trail of who changed what.",
+    title: "Access limited to assigned units",
+    body: "Departmental staff manage only the assets of the units assigned to them. Administrators hold University-wide access, together with a complete audit trail of every change.",
   },
   {
     icon: FileSpreadsheet,
-    title: "Audit-ready registers",
-    body: "Export a printable asset register for any unit — ready for Bursary, internal audit or verification exercises.",
+    title: "Registers prepared for audit",
+    body: "A printable asset register can be produced for any unit, suitable for submission to the Bursary, internal audit and verification exercises.",
   },
 ];
 
@@ -78,7 +78,7 @@ export default function LandingPage() {
             </div>
           </div>
           <Link href="/login" className="btn-primary btn-sm">
-            Login
+            Sign in
           </Link>
         </div>
       </header>
@@ -101,20 +101,21 @@ export default function LandingPage() {
           </p>
 
           <h1 className="mt-5 text-4xl leading-[1.08] font-bold tracking-tight text-nsuk-blue sm:text-6xl">
-            Every asset the University owns,
-            <span className="block text-nsuk-green">tagged, tracked and accounted for.</span>
+            A complete and verifiable record
+            <span className="block text-nsuk-green">of University property.</span>
           </h1>
 
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-nsuk-muted sm:text-lg">
-            A single register for all non-human physical property across NSUK — air conditioners,
-            vehicles, desks, computers, laboratory equipment, generators — from the Keffi main
-            campus to Lafia, Gudi and Pyanku. Each item gets a printed barcode, so verification
-            takes a scan instead of a search.
+            The NSUK Asset Register maintains a central inventory of all physical assets owned by
+            Nasarawa State University, Keffi. It covers air conditioning units, vehicles, office
+            furniture, computers, laboratory equipment and generators across the main campus at
+            Keffi and the campuses at Lafia, Gudi and Pyanku. Every recorded item carries a printed
+            barcode, so verification is carried out by scanning rather than by manual search.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link href="/login" className="btn-primary btn-lg w-full sm:w-auto">
-              Login to the register
+              Sign in to the Register
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a href="#how-it-works" className="btn-ghost btn-lg w-full sm:w-auto">
@@ -138,7 +139,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
           <h2 className="text-2xl font-bold text-nsuk-blue sm:text-3xl">How it works</h2>
           <p className="mt-1.5 text-sm text-nsuk-muted">
-            Four steps, done from a phone while standing in front of the item.
+            Four steps, each carried out from a mobile device in front of the item itself.
           </p>
 
           <ol className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -167,6 +168,10 @@ export default function LandingPage() {
         <h2 className="text-2xl font-bold text-nsuk-blue sm:text-3xl">
           Built for the whole University
         </h2>
+        <p className="mt-1.5 max-w-2xl text-sm text-nsuk-muted">
+          Academic and administrative units are treated alike, from the largest faculty to a single
+          office.
+        </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {FEATURES.map((f) => (
             <div key={f.title} className="card card-interactive">
@@ -180,7 +185,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---- CTA ---- */}
+      {/* ---- Access ---- */}
       <section className="mx-auto max-w-5xl px-4 pb-16">
         <div className="relative overflow-hidden rounded-2xl bg-nsuk-blue p-6 text-white shadow-[var(--shadow-e3)] sm:p-10">
           <div
@@ -189,20 +194,20 @@ export default function LandingPage() {
           />
           <div aria-hidden className="absolute inset-x-0 bottom-0 h-1 bg-nsuk-gold" />
           <div className="relative">
-            <h2 className="text-xl font-bold sm:text-2xl">Ready to start tagging?</h2>
+            <h2 className="text-xl font-bold sm:text-2xl">Access to the Register</h2>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/75">
-              Administrators manage the University-wide register and staff accounts. Unit staff sign
-              in to record and verify the assets in their own faculty, department or office.
+              Administrators maintain the University-wide register and issue staff accounts. Staff
+              sign in to record and verify the assets held by their faculty, department or office.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link href="/login" className="btn-gold w-full sm:w-auto">
-                Administrator login
+                Administrator sign in
               </Link>
               <Link
                 href="/login"
                 className="btn w-full border border-white/25 text-white hover:bg-white/10 sm:w-auto"
               >
-                Staff login
+                Staff sign in
               </Link>
             </div>
           </div>
@@ -212,7 +217,8 @@ export default function LandingPage() {
       <footer className="border-t border-nsuk-line bg-white">
         <div className="mx-auto max-w-5xl px-4 py-7 text-center text-xs text-nsuk-faint">
           <p className="font-semibold text-nsuk-blue">Nasarawa State University, Keffi</p>
-          <p className="mt-1">Knowledge for Development — Asset Management System</p>
+          <p className="mt-1">Knowledge for Development</p>
+          <p className="mt-2">Asset Management System, maintained by the ICT Directorate.</p>
         </div>
       </footer>
     </main>

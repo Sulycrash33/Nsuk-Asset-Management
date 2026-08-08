@@ -113,7 +113,7 @@ export default async function AssetsPage({
           <EmptyState
             icon={SearchX}
             title="No assets match these filters"
-            body="Try a different unit, category or condition — or clear the filters to see everything in your scope."
+            body="Try a different unit, category or condition, or clear the filters to see everything within your scope."
             action={
               <Link href="/assets" className="btn-ghost">
                 Clear all filters

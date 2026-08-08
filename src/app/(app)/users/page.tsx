@@ -26,7 +26,7 @@ export default async function UsersPage() {
         <h1 className="text-2xl font-bold text-nsuk-blue">Staff accounts</h1>
         <p className="text-sm text-nsuk-muted">
           Create accounts and assign each person to the units they are responsible for. Staff see
-          only their own units — assigning a faculty also covers its departments.
+          only their own units. Assigning a faculty also covers its departments.
         </p>
       </header>
 
