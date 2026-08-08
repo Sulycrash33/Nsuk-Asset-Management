@@ -125,9 +125,10 @@ export async function generateLabelSheet(labels: LabelInput[]): Promise<jsPDF> {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
     doc.setTextColor(90, 90, 90);
+    const unitLeaf = label.unitName.split("\u203a").pop()?.trim() || label.unitName;
     doc.text(
       doc.splitTextToSize(
-        [label.unitName, label.categoryName].filter(Boolean).join("  •  "),
+        [unitLeaf, label.categoryName].filter(Boolean).join("  \u2022  "),
         headerW,
       )[0] ?? "",
       textX,
@@ -194,7 +195,7 @@ export async function generateRegisterPdf(
 
   autoTable(doc, {
     startY: 34,
-    head: [["#", "Barcode", "Asset", "Category", "Unit", "Location", "Condition", "Serial", "Value (₦)"]],
+    head: [["#", "Barcode", "Asset", "Category", "Unit", "Location", "Condition", "Serial", "Value (NGN)"]],
     body: assets.map((a, i) => [
       String(i + 1),
       a.barcode,
