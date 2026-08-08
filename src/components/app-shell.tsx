@@ -142,7 +142,7 @@ export default function AppShell({
               className="flex items-center gap-3 border-b border-nsuk-line px-4 py-4"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/nsuk-logo.svg" alt="" className="h-10 w-10" />
+              <img src="/nsuk-crest.png" alt="" className="h-10 w-10" />
               <div className="leading-tight">
                 <p className="font-bold text-nsuk-blue">NSUK Assets</p>
                 <p className="flex items-center gap-1 text-[11px] text-nsuk-muted">
@@ -210,7 +210,7 @@ export default function AppShell({
               <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-8">
                 <Link href="/dashboard" className="flex items-center gap-2.5 lg:hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/nsuk-logo.svg" alt="" className="h-9 w-9" />
+                  <img src="/nsuk-crest.png" alt="" className="h-9 w-9" />
                   <div className="leading-tight">
                     <p className="text-sm font-bold text-nsuk-blue">NSUK Assets</p>
                     <p className="max-w-[40vw] truncate text-[11px] text-nsuk-faint">{scopeLabel}</p>

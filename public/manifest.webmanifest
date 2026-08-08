@@ -10,16 +10,10 @@
   "theme_color": "#1A3C6E",
   "icons": [
     {
-      "src": "/nsuk-logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/nsuk-crest.png",
+      "sizes": "219x230",
+      "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/icon-maskable.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
     }
   ]
 }

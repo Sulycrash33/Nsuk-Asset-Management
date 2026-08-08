@@ -71,7 +71,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/nsuk-logo.svg" alt="" className="h-9 w-9" />
+            <img src="/nsuk-crest.png" alt="" className="h-9 w-9" />
             <div className="leading-tight">
               <p className="text-sm font-bold text-nsuk-blue">NSUK Asset Register</p>
               <p className="text-[11px] text-nsuk-faint">Nasarawa State University, Keffi</p>
