@@ -14,6 +14,7 @@ import {
   CONDITIONS,
   type Asset,
   type AssetCategory,
+  type Campus,
   type Condition,
   type OrgUnit,
 } from "@/lib/types";
@@ -61,6 +62,7 @@ export default function AssetForm({
   scopedUnitIds,
   isAdmin,
   campusId,
+  campuses,
 }: {
   units: OrgUnit[];
   categories: AssetCategory[];
@@ -68,6 +70,7 @@ export default function AssetForm({
   scopedUnitIds: string[];
   isAdmin: boolean;
   campusId: string | null;
+  campuses: Campus[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -301,6 +304,7 @@ export default function AssetForm({
             value={form.org_unit_id || null}
             onChange={(id) => set("org_unit_id", id)}
             allowCreate={isAdmin}
+            campuses={campuses}
             campusId={campusId}
             onUnitCreated={(u) => setUnits((prev) => [...prev, u])}
             restrictTo={isAdmin ? undefined : scopedUnitIds}
