@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   applicationName: "NSUK Assets",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "NSUK Assets" },
-  icons: { icon: "/nsuk-logo.svg", apple: "/nsuk-logo.svg" },
+  icons: { icon: "/nsuk-crest.png", apple: "/nsuk-crest.png" },
   formatDetection: { telephone: false },
 };
 

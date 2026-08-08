@@ -21,10 +21,10 @@ export default function RegisterExportButton({
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
-  function download() {
+  async function download() {
     setBusy(true);
     try {
-      const doc = generateRegisterPdf(assets, { unitName, campusName, generatedBy });
+      const doc = await generateRegisterPdf(assets, { unitName, campusName, generatedBy });
       const slug = unitName.replace(/[^a-z0-9]+/gi, "-").toLowerCase().slice(0, 60) || "register";
       savePdf(doc, `nsuk-asset-register-${slug}.pdf`);
       toast.success(

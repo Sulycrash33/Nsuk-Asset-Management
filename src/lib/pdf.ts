@@ -37,6 +37,30 @@ function drawBarcode(
   }
 }
 
+/**
+ * The University crest as a data URL, fetched once and reused. jsPDF cannot
+ * take a URL directly, and printed asset tags carry more authority with the
+ * crest on them. Returns null if it cannot be loaded, so a failed fetch never
+ * blocks someone from printing labels.
+ */
+let crestPromise: Promise<string | null> | null = null;
+
+function crestDataUrl(): Promise<string | null> {
+  crestPromise ??= fetch("/nsuk-crest.png")
+    .then((response) => (response.ok ? response.blob() : Promise.reject()))
+    .then(
+      (blob) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        }),
+    )
+    .catch(() => null);
+  return crestPromise;
+}
+
 async function qrDataUrl(text: string): Promise<string> {
   return QRCode.toDataURL(text, {
     margin: 0,
@@ -53,6 +77,7 @@ async function qrDataUrl(text: string): Promise<string> {
  */
 export async function generateLabelSheet(labels: LabelInput[]): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const crest = await crestDataUrl();
 
   const cols = 2;
   const rows = 6;
@@ -80,24 +105,33 @@ export async function generateLabelSheet(labels: LabelInput[]): Promise<jsPDF> {
     const innerX = x + 6;
     const innerW = labelW - 10.5;
 
+    // The crest sits above the barcode, so the header text is inset to clear it.
+    const textX = crest ? innerX + 10 : innerX;
+    const headerW = innerW - 24 - (crest ? 10 : 0);
+
+    if (crest) {
+      doc.addImage(crest, "PNG", x + 5, y + 3.5, 8.6, 9);
+    }
+
     doc.setTextColor(...BLUE);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
-    doc.text("NSUK ASSET REGISTER", innerX, y + 6.5);
+    doc.text("NSUK ASSET REGISTER", textX, y + 6.5);
 
     doc.setTextColor(...INK);
     doc.setFontSize(9);
-    doc.text(doc.splitTextToSize(label.name, innerW - 24)[0] ?? "", innerX, y + 11.5);
+    doc.text(doc.splitTextToSize(label.name, headerW)[0] ?? "", textX, y + 11.5);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
     doc.setTextColor(90, 90, 90);
+    const unitLeaf = label.unitName.split("\u203a").pop()?.trim() || label.unitName;
     doc.text(
       doc.splitTextToSize(
-        [label.unitName, label.categoryName].filter(Boolean).join("  •  "),
-        innerW - 24,
+        [unitLeaf, label.categoryName].filter(Boolean).join("  \u2022  "),
+        headerW,
       )[0] ?? "",
-      innerX,
+      textX,
       y + 15.5,
     );
 
@@ -122,25 +156,31 @@ export async function generateSingleLabel(label: LabelInput): Promise<jsPDF> {
 }
 
 /** Printable asset register for audits / Bursary sign-off. */
-export function generateRegisterPdf(
+export async function generateRegisterPdf(
   assets: AssetWithRefs[],
   opts: { unitName: string; campusName?: string | null; generatedBy?: string | null },
-): jsPDF {
+): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const crest = await crestDataUrl();
   const total = assets.reduce((sum, a) => sum + Number(a.value ?? 0), 0);
 
   doc.setFillColor(...BLUE);
-  doc.rect(0, 0, 297, 24, "F");
+  doc.rect(0, 0, 297, 26, "F");
   doc.setFillColor(...GOLD);
-  doc.rect(0, 24, 297, 1.5, "F");
+  doc.rect(0, 26, 297, 1.5, "F");
+
+  const titleX = crest ? 32 : 12;
+  if (crest) {
+    doc.addImage(crest, "PNG", 11, 3, 19, 20);
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text("Nasarawa State University, Keffi", 12, 11);
+  doc.text("Nasarawa State University, Keffi", titleX, 12);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(`Asset Register — ${opts.unitName}`, 12, 18);
+  doc.text(`Asset Register — ${opts.unitName}`, titleX, 19);
 
   doc.setFontSize(8);
   const stamp = new Date().toLocaleString("en-NG");
@@ -149,13 +189,13 @@ export function generateRegisterPdf(
       .filter(Boolean)
       .join("   |   "),
     285,
-    18,
+    19,
     { align: "right" },
   );
 
   autoTable(doc, {
-    startY: 32,
-    head: [["#", "Barcode", "Asset", "Category", "Unit", "Location", "Condition", "Serial", "Value (₦)"]],
+    startY: 34,
+    head: [["#", "Barcode", "Asset", "Category", "Unit", "Location", "Condition", "Serial", "Value (NGN)"]],
     body: assets.map((a, i) => [
       String(i + 1),
       a.barcode,
