@@ -9,7 +9,7 @@ export const metadata = { title: "Add asset" };
 export const dynamic = "force-dynamic";
 
 export default async function NewAssetPage() {
-  const { profile, isAdmin, scopedUnitIds, units } = await requireSession();
+  const { profile, isAdmin, scopedUnitIds, units, campuses } = await requireSession();
   const supabase = await createClient();
   const { data: categories } = await supabase.from("asset_categories").select("*").order("name");
 
@@ -39,6 +39,7 @@ export default async function NewAssetPage() {
           scopedUnitIds={scopedUnitIds}
           isAdmin={isAdmin}
           campusId={profile.campus_id}
+        campuses={campuses}
         />
       )}
     </div>

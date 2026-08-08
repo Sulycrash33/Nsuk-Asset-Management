@@ -42,10 +42,12 @@ export default function LoginForm({
 
     try {
       if (mode === "bootstrap") {
+        // The first account is the University-wide administrator — no campus,
+        // because every campus is theirs.
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { name, campus_id: campusId, role: "admin" } },
+          options: { data: { name, role: "admin" } },
         });
         if (signUpError) throw signUpError;
 
@@ -63,15 +65,23 @@ export default function LoginForm({
         });
         if (signInError) throw signInError;
 
-        // The chosen campus is stamped on the profile so unit lists and exports
-        // default to where this person actually works.
+        // Staff belong to one campus, so the choice is stamped on their profile
+        // the first time they sign in. Administrators cover every campus and
+        // are deliberately left without one.
         const { data: userData } = await supabase.auth.getUser();
-        if (userData.user && campusId) {
-          await supabase
+        if (userData.user) {
+          const { data: existing } = await supabase
             .from("profiles")
-            .update({ campus_id: campusId })
+            .select("role,campus_id")
             .eq("id", userData.user.id)
-            .is("campus_id", null);
+            .single();
+
+          if (existing?.role === "staff" && !existing.campus_id && campusId) {
+            await supabase
+              .from("profiles")
+              .update({ campus_id: campusId })
+              .eq("id", userData.user.id);
+          }
         }
       }
 
@@ -189,23 +199,34 @@ export default function LoginForm({
         </div>
       </div>
 
-      <div>
-        <label className="label" htmlFor="campus">
-          Campus
-        </label>
-        <select
-          id="campus"
-          className="field"
-          value={campusId}
-          onChange={(e) => setCampusId(e.target.value)}
-        >
-          {campuses.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Only staff belong to a single campus. Administrators cover them all,
+          so asking them to pick one would be misleading. */}
+      {mode === "login" && role === "staff" ? (
+        <div>
+          <label className="label" htmlFor="campus">
+            Campus
+          </label>
+          <select
+            id="campus"
+            className="field"
+            value={campusId}
+            onChange={(e) => setCampusId(e.target.value)}
+          >
+            {campuses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <p className="hint">Where you are based. Your unit assignment decides what you can see.</p>
+        </div>
+      ) : (
+        <p className="flex items-start gap-2 rounded-xl border border-nsuk-gold/30 bg-nsuk-gold-50 p-3 text-sm text-nsuk-gold-deep">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+          Administrators cover every campus — Keffi, Lafia, Gudi and Pyanku — so there is no campus
+          to choose.
+        </p>
+      )}
 
       {error && (
         <p

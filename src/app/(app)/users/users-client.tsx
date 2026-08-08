@@ -25,7 +25,8 @@ function blankUser(campuses: Campus[]): NewUser {
     email: "",
     password: "",
     role: "staff",
-    campus_id: campuses[0]?.id ?? "",
+    campus_id:
+      (campuses.find((c) => c.name.startsWith("Keffi")) ?? campuses[0])?.id ?? "",
     unit_ids: [],
   };
 }
@@ -132,7 +133,10 @@ export default function UsersClient({
     const response = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        campus_id: form.role === "admin" ? null : form.campus_id,
+      }),
     });
     const result = await response.json();
     setBusy(false);
@@ -164,7 +168,12 @@ export default function UsersClient({
 
     const { error: roleError } = await supabase
       .from("profiles")
-      .update({ role: editRole })
+      .update({
+        role: editRole,
+        // A promotion to administrator makes every campus theirs, so the old
+        // single-campus stamp is cleared.
+        ...(editRole === "admin" ? { campus_id: null } : {}),
+      })
       .eq("id", editing.id);
     if (roleError) {
       setBusy(false);
@@ -380,23 +389,25 @@ export default function UsersClient({
                 <option value="admin">Administrator</option>
               </select>
             </div>
-            <div>
-              <label className="label" htmlFor="new-campus">
-                Campus
-              </label>
-              <select
-                id="new-campus"
-                className="field"
-                value={form.campus_id}
-                onChange={(e) => setForm({ ...form, campus_id: e.target.value })}
-              >
-                {campuses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {form.role === "staff" && (
+              <div>
+                <label className="label" htmlFor="new-campus">
+                  Campus
+                </label>
+                <select
+                  id="new-campus"
+                  className="field"
+                  value={form.campus_id}
+                  onChange={(e) => setForm({ ...form, campus_id: e.target.value })}
+                >
+                  {campuses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {form.role === "staff" ? (
@@ -410,7 +421,8 @@ export default function UsersClient({
             </div>
           ) : (
             <p className="rounded-xl border border-nsuk-gold/30 bg-nsuk-gold-50 p-3 text-sm text-nsuk-gold-deep">
-              Administrators see and manage every unit in the University — no assignment needed.
+              Administrators cover every campus and every unit in the University — no campus or
+              unit assignment needed.
             </p>
           )}
 

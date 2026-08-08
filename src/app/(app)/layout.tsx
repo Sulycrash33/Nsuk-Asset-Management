@@ -13,7 +13,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           .map((u) => u.name)
           .join(", ") || "Assigned units";
 
-  const campusName = campuses.find((c) => c.id === profile.campus_id)?.name ?? null;
+  // An administrator's reach is the whole University, so no single campus is
+  // theirs — say so rather than showing a stale or empty campus.
+  const campusName = isAdmin
+    ? "All campuses"
+    : (campuses.find((c) => c.id === profile.campus_id)?.name ?? null);
 
   return (
     <AppShell

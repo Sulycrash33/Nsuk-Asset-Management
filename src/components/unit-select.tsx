@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Loader2, Plus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { buildTree, flattenTree, unitPath } from "@/lib/tree";
-import type { OrgUnit } from "@/lib/types";
+import type { Campus, OrgUnit } from "@/lib/types";
 
 /**
  * Typeahead over the org tree. Indentation shows nesting, and administrators can
@@ -15,6 +15,7 @@ export default function UnitSelect({
   value,
   onChange,
   allowCreate = false,
+  campuses = [],
   campusId,
   onUnitCreated,
   placeholder = "Select a unit",
@@ -25,6 +26,9 @@ export default function UnitSelect({
   value: string | null;
   onChange: (unitId: string) => void;
   allowCreate?: boolean;
+  /** Campuses a newly created unit can belong to. */
+  campuses?: Campus[];
+  /** Preselected campus for inline creation. Administrators have none. */
   campusId?: string | null;
   onUnitCreated?: (unit: OrgUnit) => void;
   placeholder?: string;
@@ -37,6 +41,16 @@ export default function UnitSelect({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+
+  // An administrator has no campus of their own, so inline creation asks which
+  // campus the new unit belongs to rather than guessing.
+  const [newUnitCampus, setNewUnitCampus] = useState(
+    () =>
+      campusId ??
+      campuses.find((c) => c.name.startsWith("Keffi"))?.id ??
+      campuses[0]?.id ??
+      "",
+  );
 
   const ordered = useMemo(() => flattenTree(buildTree(units)), [units]);
   const allowed = useMemo(
@@ -71,8 +85,9 @@ export default function UnitSelect({
 
   async function createUnit() {
     const name = term.trim();
-    if (!name || !campusId) {
-      setError("Pick a campus before creating a new unit.");
+    if (!name) return;
+    if (!newUnitCampus) {
+      setError("Add a campus first — every unit belongs to one.");
       return;
     }
     setCreating(true);
@@ -80,7 +95,7 @@ export default function UnitSelect({
     const supabase = createClient();
     const { data, error: insertError } = await supabase
       .from("org_units")
-      .insert({ name, campus_id: campusId, parent_id: null, unit_type: "Other" })
+      .insert({ name, campus_id: newUnitCampus, parent_id: null, unit_type: "Other" })
       .select("*")
       .single();
     setCreating(false);
@@ -151,19 +166,37 @@ export default function UnitSelect({
           </ul>
 
           {allowCreate && term.trim() && !exactExists && (
-            <button
-              type="button"
-              onClick={createUnit}
-              disabled={creating}
-              className="flex w-full items-center gap-2 border-t border-nsuk-line px-3 py-3 text-left text-sm font-semibold text-nsuk-green hover:bg-nsuk-cream disabled:opacity-60"
-            >
-              {creating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
+            <div className="border-t border-nsuk-line p-2">
+              {campuses.length > 1 && (
+                <label className="mb-2 flex items-center gap-2 px-1 text-xs text-nsuk-muted">
+                  <span className="shrink-0">Campus</span>
+                  <select
+                    value={newUnitCampus}
+                    onChange={(e) => setNewUnitCampus(e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-nsuk-line bg-white px-2 py-1.5 text-sm outline-none focus:border-nsuk-blue"
+                  >
+                    {campuses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               )}
-              Add new unit “{term.trim()}”
-            </button>
+              <button
+                type="button"
+                onClick={createUnit}
+                disabled={creating}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm font-semibold text-nsuk-green hover:bg-nsuk-cream disabled:opacity-60"
+              >
+                {creating ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4 shrink-0" />
+                )}
+                <span className="truncate">Add new unit “{term.trim()}”</span>
+              </button>
+            </div>
           )}
 
           {error && <p className="px-3 py-2 text-xs text-nsuk-danger">{error}</p>}

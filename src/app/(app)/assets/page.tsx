@@ -85,7 +85,11 @@ export default async function AssetsPage({
           <RegisterExportButton
             assets={rows}
             unitName={scopeName}
-            campusName={campuses.find((c) => c.id === profile.campus_id)?.name ?? null}
+            campusName={
+              isAdmin
+                ? "All campuses"
+                : (campuses.find((c) => c.id === profile.campus_id)?.name ?? null)
+            }
             generatedBy={profile.name || profile.email}
           />
           <Link href="/assets/new" className="btn-green btn-sm">
