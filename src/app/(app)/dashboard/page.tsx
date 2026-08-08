@@ -21,38 +21,62 @@ import { unitPath } from "@/lib/tree";
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
+/** Shape returned by the `dashboard_stats()` database function. */
+type DashboardStats = {
+  total_assets?: number;
+  total_value?: number;
+  by_condition?: Partial<Record<Condition, number>>;
+  top_units?: { org_unit_id: string; count: number; value: number }[];
+};
+
 const ACTIONS = [
-  { href: "/scan", label: "Scan asset", hint: "Camera or scanner", icon: ScanLine, cls: "btn-gold" },
+  {
+    href: "/scan",
+    label: "Scan asset",
+    hint: "Camera or scanner",
+    icon: ScanLine,
+    cls: "btn-gold",
+  },
   { href: "/assets/new", label: "Add asset", hint: "One at a time", icon: Plus, cls: "btn-green" },
-  { href: "/assets/import", label: "Bulk import", hint: "Upload a CSV", icon: Upload, cls: "btn-ghost" },
-  { href: "/labels", label: "Print labels", hint: "A4 label sheet", icon: Printer, cls: "btn-ghost" },
+  {
+    href: "/assets/import",
+    label: "Bulk import",
+    hint: "Upload a CSV",
+    icon: Upload,
+    cls: "btn-ghost",
+  },
+  {
+    href: "/labels",
+    label: "Print labels",
+    hint: "A4 label sheet",
+    icon: Printer,
+    cls: "btn-ghost",
+  },
 ];
 
 export default async function DashboardPage() {
-  const { profile, isAdmin, scopedUnitIds, units } = await requireSession();
+  // No unit filter is passed: dashboard_stats() runs as the caller, so row
+  // level security narrows the figures to a staff member's own units.
+  const { profile, isAdmin, units } = await requireSession();
   const supabase = await createClient();
 
-  // RLS already limits rows to the caller's scope; the explicit filter keeps the
-  // query cheap for staff assigned to a small part of a large tree.
-  let query = supabase.from("assets").select("id,value,condition,org_unit_id,created_at");
-  if (!isAdmin) query = query.in("org_unit_id", scopedUnitIds.length ? scopedUnitIds : ["-"]);
-  const { data: assets } = await query;
+  // Every figure on this page is aggregated in the database and comes back as a
+  // few hundred bytes. Reading the asset rows to add them up in JavaScript made
+  // the page slower with every item recorded, which is the wrong way round for
+  // a register meant to hold the whole University.
+  const { data: stats } = await supabase.rpc("dashboard_stats");
+  const summary = (stats ?? {}) as DashboardStats;
 
-  const rows = assets ?? [];
-  const totalValue = rows.reduce((sum, a) => sum + Number(a.value ?? 0), 0);
+  const totalAssets = Number(summary.total_assets ?? 0);
+  const totalValue = Number(summary.total_value ?? 0);
 
   const byCondition = Object.fromEntries(
-    CONDITIONS.map((c) => [c, rows.filter((a) => a.condition === c).length]),
+    CONDITIONS.map((c) => [c, Number(summary.by_condition?.[c] ?? 0)]),
   ) as Record<Condition, number>;
 
-  const perUnit = new Map<string, { count: number; value: number }>();
-  for (const a of rows) {
-    const entry = perUnit.get(a.org_unit_id) ?? { count: 0, value: 0 };
-    entry.count += 1;
-    entry.value += Number(a.value ?? 0);
-    perUnit.set(a.org_unit_id, entry);
-  }
-  const topUnits = [...perUnit.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 8);
+  const topUnits = (summary.top_units ?? []).map(
+    (u) => [u.org_unit_id, { count: Number(u.count), value: Number(u.value) }] as const,
+  );
   const busiest = topUnits[0]?.[1].count ?? 1;
 
   const attention = byCondition.Faulty + byCondition["Under Repair"] + byCondition.Missing;
@@ -99,7 +123,7 @@ export default async function DashboardPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
           label="Total assets"
-          value={rows.length}
+          value={totalAssets}
           format="count"
           icon={<Boxes className="h-5 w-5" />}
           tone="blue"
@@ -125,13 +149,13 @@ export default async function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card">
           <h2 className="section-title">Condition breakdown</h2>
-          {rows.length === 0 ? (
+          {totalAssets === 0 ? (
             <p className="py-8 text-center text-sm text-nsuk-muted">
               No assets recorded yet. The breakdown appears once items are entered.
             </p>
           ) : (
             <div className="mt-4">
-              <ConditionDonut counts={byCondition} total={rows.length} />
+              <ConditionDonut counts={byCondition} total={totalAssets} />
             </div>
           )}
         </section>
@@ -187,7 +211,7 @@ export default async function DashboardPage() {
         </section>
       </div>
 
-      {rows.length === 0 && (
+      {totalAssets === 0 && (
         <EmptyState
           icon={Boxes}
           title="The register is empty"

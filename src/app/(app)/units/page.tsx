@@ -11,14 +11,16 @@ export default async function UnitsPage() {
   const { units, campuses } = await requireAdmin();
   const supabase = await createClient();
 
+  // Counted in the database. Reading every asset row to tally them in
+  // JavaScript is affordable for a store room and not for a University.
   const [{ data: categories }, { data: counts }] = await Promise.all([
     supabase.from("asset_categories").select("*").order("name"),
-    supabase.from("assets").select("org_unit_id"),
+    supabase.rpc("unit_asset_counts"),
   ]);
 
   const assetCounts: Record<string, number> = {};
-  for (const row of counts ?? []) {
-    assetCounts[row.org_unit_id] = (assetCounts[row.org_unit_id] ?? 0) + 1;
+  for (const row of (counts ?? []) as { org_unit_id: string; count: number }[]) {
+    assetCounts[row.org_unit_id] = Number(row.count);
   }
 
   return (

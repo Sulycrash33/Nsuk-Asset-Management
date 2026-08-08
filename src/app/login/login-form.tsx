@@ -46,9 +46,7 @@ export default function LoginForm({
   const params = useSearchParams();
   const nextPath = params.get("next") || "/dashboard";
 
-  const [mode, setMode] = useState<"login" | "bootstrap">(
-    needsBootstrap ? "bootstrap" : "login",
-  );
+  const [mode, setMode] = useState<"login" | "bootstrap">(needsBootstrap ? "bootstrap" : "login");
   const [role, setRole] = useState<Role>("staff");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -116,6 +114,33 @@ export default function LoginForm({
 
       router.replace(nextPath);
       router.refresh();
+    } catch (err) {
+      setError(readableAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Sends the recovery email. The reply is deliberately the same whether or not
+   * the address exists, so the form cannot be used to discover who holds an
+   * account on the system.
+   */
+  async function handleReset() {
+    if (!email) {
+      setError("Enter your email address first, then choose Forgotten password.");
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      await createClient().auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+      setNotice(
+        `If an account exists for ${email}, a link to set a new password has been sent to it. The link is valid for one hour.`,
+      );
     } catch (err) {
       setError(readableAuthError(err));
     } finally {
@@ -270,6 +295,17 @@ export default function LoginForm({
         {busy && <Loader2 className="h-4 w-4 animate-spin" />}
         {mode === "bootstrap" ? "Create administrator account" : "Sign in"}
       </button>
+
+      {mode === "login" && (
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={busy}
+          className="w-full text-center text-sm font-semibold text-nsuk-blue hover:underline disabled:opacity-50"
+        >
+          Forgotten password
+        </button>
+      )}
     </form>
   );
 }
