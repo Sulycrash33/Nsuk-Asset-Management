@@ -6,6 +6,35 @@ import { AlertCircle, Eye, EyeOff, Loader2, ShieldCheck, UserRound } from "lucid
 import { createClient } from "@/lib/supabase/client";
 import type { Campus, Role } from "@/lib/types";
 
+/**
+ * Supabase returns terse technical strings. These are the ones a person signing
+ * in can actually act on, rewritten so they say what to do next.
+ */
+function readableAuthError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "";
+  const text = raw.toLowerCase();
+
+  if (text.includes("email not confirmed")) {
+    return "This account has not been confirmed yet. Open the confirmation link sent to your email address, or ask the system administrator to confirm the account for you.";
+  }
+  if (text.includes("invalid login credentials")) {
+    return "The email address or password is incorrect. Please check both and try again.";
+  }
+  if (text.includes("email address") && text.includes("invalid")) {
+    return "That email address is not valid. Please check it and try again.";
+  }
+  if (text.includes("already registered") || text.includes("already been registered")) {
+    return "An account already exists for this email address. Sign in instead.";
+  }
+  if (text.includes("rate limit") || text.includes("too many")) {
+    return "Too many attempts have been made. Please wait a few minutes and try again.";
+  }
+  if (text.includes("password") && text.includes("short")) {
+    return "The password must be at least eight characters long.";
+  }
+  return raw || "Sign in was unsuccessful. Please try again.";
+}
+
 export default function LoginForm({
   campuses,
   needsBootstrap,
@@ -88,7 +117,7 @@ export default function LoginForm({
       router.replace(nextPath);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in was unsuccessful. Please try again.");
+      setError(readableAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -199,9 +228,9 @@ export default function LoginForm({
         </div>
       </div>
 
-      {/* Only staff belong to a single campus. Administrators cover them all,
-          so asking them to pick one would be misleading. */}
-      {mode === "login" && role === "staff" ? (
+      {/* Only staff belong to a single campus, so the field is theirs alone.
+          Administrators simply see nothing here. */}
+      {mode === "login" && role === "staff" && (
         <div>
           <label className="label" htmlFor="campus">
             Campus
@@ -218,16 +247,7 @@ export default function LoginForm({
               </option>
             ))}
           </select>
-          <p className="hint">
-            Select the campus where you are based. Access to assets is determined by your unit
-            assignment.
-          </p>
         </div>
-      ) : (
-        <p className="flex items-start gap-2 rounded-xl border border-nsuk-gold/30 bg-nsuk-gold-50 p-3 text-sm text-nsuk-gold-deep">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-          Administrators have access to all four campuses. No campus selection is required.
-        </p>
       )}
 
       {error && (

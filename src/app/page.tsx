@@ -20,7 +20,7 @@ const STEPS = [
   {
     icon: ClipboardList,
     title: "Record the asset",
-    body: "Assets are entered individually from a mobile device, or imported in bulk from a spreadsheet. Faculties, departments and categories are pre-loaded, so most fields are selected rather than typed.",
+    body: "Assets are entered individually from a phone, tablet or computer, or imported in bulk from a spreadsheet. Faculties, departments and categories are pre-loaded, so most fields are selected rather than typed.",
   },
   {
     icon: QrCode,
@@ -30,12 +30,12 @@ const STEPS = [
   {
     icon: Printer,
     title: "Print and affix the label",
-    body: "Labels are printed singly or as a full sheet, then affixed to the item itself, whether an air conditioning unit, a vehicle, a desk or a generator.",
+    body: "Labels are printed singly or as a full sheet, then affixed to the item itself.",
   },
   {
     icon: ScanLine,
     title: "Scan to retrieve the record",
-    body: "Scanning the label with a mobile camera or a handheld scanner opens the full record, showing the unit, location, condition, value and history of the item.",
+    body: "Scanning the label with a device camera or a handheld scanner opens the full record, showing the unit, location, condition, value and history of the item.",
   },
 ];
 
@@ -106,40 +106,30 @@ export default function LandingPage() {
           </h1>
 
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-nsuk-muted sm:text-lg">
-            The NSUK Asset Register maintains a central inventory of all physical assets owned by
-            Nasarawa State University, Keffi. It covers air conditioning units, vehicles, office
-            furniture, computers, laboratory equipment and generators across the main campus at
-            Keffi and the campuses at Lafia, Gudi and Pyanku. Every recorded item carries a printed
-            barcode, so verification is carried out by scanning rather than by manual search.
+            The NSUK Asset Register maintains a central inventory of the physical assets owned by
+            Nasarawa State University, Keffi, across every campus, faculty and administrative unit.
+            Each recorded item carries a printed barcode, so verification is carried out by scanning
+            rather than by manual search.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link href="/login" className="btn-primary btn-lg w-full sm:w-auto">
-              Sign in to the Register
+              Sign in
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a href="#how-it-works" className="btn-ghost btn-lg w-full sm:w-auto">
               How it works
             </a>
           </div>
-
-          <dl className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {STATS.map(([value, label]) => (
-              <div key={label} className="card">
-                <dt className="tabular text-3xl leading-none font-bold text-nsuk-blue">{value}</dt>
-                <dd className="mt-1.5 text-xs text-nsuk-muted">{label}</dd>
-              </div>
-            ))}
-          </dl>
         </div>
       </section>
 
-      {/* ---- How it works ---- */}
+      {/* ---- How it works, immediately after the introduction ---- */}
       <section id="how-it-works" className="scroll-mt-16 border-y border-nsuk-line bg-white">
         <div className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
           <h2 className="text-2xl font-bold text-nsuk-blue sm:text-3xl">How it works</h2>
           <p className="mt-1.5 text-sm text-nsuk-muted">
-            Four steps, each carried out from a mobile device in front of the item itself.
+            Four steps, from first entry to verification.
           </p>
 
           <ol className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -163,7 +153,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---- Features ---- */}
+      {/* ---- Coverage ---- */}
       <section className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
         <h2 className="text-2xl font-bold text-nsuk-blue sm:text-3xl">
           Built for the whole University
@@ -172,7 +162,17 @@ export default function LandingPage() {
           Academic and administrative units are treated alike, from the largest faculty to a single
           office.
         </p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+
+        <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {STATS.map(([value, label]) => (
+            <div key={label} className="card">
+              <dt className="tabular text-3xl leading-none font-bold text-nsuk-blue">{value}</dt>
+              <dd className="mt-1.5 text-xs text-nsuk-muted">{label}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {FEATURES.map((f) => (
             <div key={f.title} className="card card-interactive">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-nsuk-green-50">
@@ -185,40 +185,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---- Access ---- */}
-      <section className="mx-auto max-w-5xl px-4 pb-16">
-        <div className="relative overflow-hidden rounded-2xl bg-nsuk-blue p-6 text-white shadow-[var(--shadow-e3)] sm:p-10">
-          <div
-            aria-hidden
-            className="absolute -top-20 -right-16 h-64 w-64 rounded-full bg-nsuk-blue-light/40 blur-3xl"
-          />
-          <div aria-hidden className="absolute inset-x-0 bottom-0 h-1 bg-nsuk-gold" />
-          <div className="relative">
-            <h2 className="text-xl font-bold sm:text-2xl">Access to the Register</h2>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/75">
-              Administrators maintain the University-wide register and issue staff accounts. Staff
-              sign in to record and verify the assets held by their faculty, department or office.
-            </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link href="/login" className="btn-gold w-full sm:w-auto">
-                Administrator sign in
-              </Link>
-              <Link
-                href="/login"
-                className="btn w-full border border-white/25 text-white hover:bg-white/10 sm:w-auto"
-              >
-                Staff sign in
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <footer className="border-t border-nsuk-line bg-white">
         <div className="mx-auto max-w-5xl px-4 py-7 text-center text-xs text-nsuk-faint">
           <p className="font-semibold text-nsuk-blue">Nasarawa State University, Keffi</p>
           <p className="mt-1">Knowledge for Development</p>
-          <p className="mt-2">Asset Management System, maintained by the ICT Directorate.</p>
+          <p className="mt-2">Asset Management System</p>
         </div>
       </footer>
     </main>
