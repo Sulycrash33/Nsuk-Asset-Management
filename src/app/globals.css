@@ -1,94 +1,321 @@
 @import "tailwindcss";
 
-/* NSUK brand system — taken from the university badge. */
+/* ===========================================================================
+   NSUK design system
+   Colours are taken from the University badge. Everything else — elevation,
+   radii, motion — is defined once here so the whole app moves and layers the
+   same way, on a phone in a store room or on a desktop in the Bursary.
+   =========================================================================== */
+
 @theme {
+  /* Brand */
   --color-nsuk-blue: #1a3c6e;
   --color-nsuk-blue-dark: #12294c;
   --color-nsuk-blue-light: #2b5a9e;
+  --color-nsuk-blue-50: #f1f5fb;
+  --color-nsuk-blue-100: #dde8f5;
+
   --color-nsuk-green: #1f7a3d;
   --color-nsuk-green-dark: #165c2d;
+  --color-nsuk-green-50: #f1f8f3;
+  --color-nsuk-green-100: #dcefe3;
+
   --color-nsuk-gold: #f2b705;
   --color-nsuk-gold-dark: #c99700;
-  --color-nsuk-ink: #111111;
-  --color-nsuk-cream: #faf7f0;
-  --color-nsuk-line: #e5ded0;
+  --color-nsuk-gold-deep: #8a6a00;
+  --color-nsuk-gold-50: #fef8e6;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-nsuk-ink: #111111;
+  --color-nsuk-muted: #5c5f66;
+  --color-nsuk-faint: #8b8f97;
+  --color-nsuk-cream: #faf7f0;
+  --color-nsuk-line: #e7e0d2;
+  --color-nsuk-line-soft: #f0ebe0;
+
+  /* Status */
+  --color-nsuk-danger: #b91c1c;
+  --color-nsuk-danger-soft: #fdf0f0;
+  --color-nsuk-warn: #c2410c;
+
+  /* Type */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", monospace;
+
+  /* Elevation — two-part shadows so cards lift without looking muddy */
+  --shadow-e1: 0 1px 2px rgba(17, 17, 17, 0.05), 0 1px 3px rgba(17, 17, 17, 0.03);
+  --shadow-e2: 0 2px 4px rgba(17, 17, 17, 0.04), 0 8px 20px -12px rgba(17, 17, 17, 0.18);
+  --shadow-e3: 0 4px 8px rgba(17, 17, 17, 0.05), 0 18px 40px -16px rgba(17, 17, 17, 0.28);
+  --shadow-key: 0 -2px 12px rgba(17, 17, 17, 0.06);
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 :root {
   color-scheme: light;
+  --tap: 44px; /* minimum comfortable touch target */
 }
 
-html,
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: var(--color-nsuk-cream);
   color: var(--color-nsuk-ink);
   -webkit-tap-highlight-color: transparent;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  text-rendering: optimizeLegibility;
 }
 
-body {
-  /* Room for the fixed mobile tab bar. */
-  padding-bottom: env(safe-area-inset-bottom);
+/* Keyboard users get a clear ring; pointer users never see it. */
+:focus-visible {
+  outline: 2px solid var(--color-nsuk-blue);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
-/* Inputs are sized for thumbs first: 16px prevents iOS zoom-on-focus. */
+::selection {
+  background: color-mix(in srgb, var(--color-nsuk-gold) 40%, transparent);
+}
+
+/* Numbers line up in tables and value columns. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
 @layer components {
+  /* ---- Form controls ------------------------------------------------- */
+  /* 16px minimum stops iOS zooming the viewport on focus. */
   .field {
     @apply w-full rounded-xl border border-nsuk-line bg-white px-4 py-3 text-base
-           text-nsuk-ink outline-none transition
-           placeholder:text-neutral-400
-           focus:border-nsuk-blue focus:ring-2 focus:ring-nsuk-blue/20;
+           text-nsuk-ink shadow-[var(--shadow-e1)] outline-none
+           transition-[border-color,box-shadow,background-color] duration-150
+           placeholder:text-nsuk-faint
+           hover:border-nsuk-blue/35
+           focus:border-nsuk-blue focus:ring-4 focus:ring-nsuk-blue/12;
+  }
+
+  .field:disabled {
+    @apply cursor-not-allowed bg-nsuk-cream text-nsuk-faint;
   }
 
   .label {
     @apply mb-1.5 block text-sm font-semibold text-nsuk-blue;
   }
 
-  /* Tailwind v4 cannot @apply a custom class, so every button variant shares
-     this base rule instead of extending `.btn`. */
+  .hint {
+    @apply mt-1.5 text-xs leading-relaxed text-nsuk-muted;
+  }
+
+  /* ---- Buttons -------------------------------------------------------- */
+  /* Tailwind v4 cannot @apply a custom class, so the variants share this
+     base rule rather than extending `.btn`. */
   .btn,
   .btn-primary,
   .btn-green,
   .btn-gold,
-  .btn-ghost {
-    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3
-           text-base font-semibold transition active:scale-[0.98]
-           disabled:pointer-events-none disabled:opacity-50;
+  .btn-ghost,
+  .btn-danger {
+    @apply relative inline-flex min-h-12 items-center justify-center gap-2 rounded-xl
+           px-5 py-3 text-base leading-none font-semibold whitespace-nowrap
+           transition-all duration-150 ease-[var(--ease-out-soft)]
+           active:translate-y-px active:scale-[0.985]
+           disabled:pointer-events-none disabled:opacity-45;
   }
 
   .btn-primary {
-    @apply bg-nsuk-blue text-white hover:bg-nsuk-blue-dark;
+    @apply bg-nsuk-blue text-white shadow-[var(--shadow-e2)]
+           hover:bg-nsuk-blue-dark hover:shadow-[var(--shadow-e3)];
   }
 
   .btn-green {
-    @apply bg-nsuk-green text-white hover:bg-nsuk-green-dark;
+    @apply bg-nsuk-green text-white shadow-[var(--shadow-e2)]
+           hover:bg-nsuk-green-dark hover:shadow-[var(--shadow-e3)];
   }
 
   .btn-gold {
-    @apply bg-nsuk-gold text-nsuk-ink hover:bg-nsuk-gold-dark;
+    @apply bg-nsuk-gold text-nsuk-ink shadow-[var(--shadow-e2)]
+           hover:bg-nsuk-gold-dark hover:shadow-[var(--shadow-e3)];
   }
 
   .btn-ghost {
-    @apply border border-nsuk-line bg-white text-nsuk-blue hover:bg-nsuk-cream;
+    @apply border border-nsuk-line bg-white text-nsuk-blue shadow-[var(--shadow-e1)]
+           hover:border-nsuk-blue/30 hover:bg-nsuk-blue-50;
+  }
+
+  .btn-danger {
+    @apply border border-nsuk-danger/25 bg-white text-nsuk-danger
+           hover:border-nsuk-danger/45 hover:bg-nsuk-danger-soft;
   }
 
   .btn-sm {
-    @apply min-h-9 rounded-lg px-3 py-1.5 text-sm;
+    @apply min-h-10 rounded-lg px-3.5 py-2 text-sm;
   }
 
+  .btn-lg {
+    @apply min-h-14 rounded-2xl px-7 text-lg;
+  }
+
+  /* ---- Surfaces ------------------------------------------------------- */
   .card {
-    @apply rounded-2xl border border-nsuk-line bg-white p-4 shadow-[0_1px_2px_rgba(17,17,17,0.04)];
+    @apply rounded-2xl border border-nsuk-line bg-white p-4 shadow-[var(--shadow-e1)];
+  }
+
+  /* Cards that are themselves links or buttons. */
+  .card-interactive {
+    @apply transition-all duration-200 ease-[var(--ease-out-soft)]
+           hover:-translate-y-0.5 hover:border-nsuk-blue/25 hover:shadow-[var(--shadow-e2)]
+           active:translate-y-0 active:scale-[0.995];
+  }
+
+  .panel {
+    @apply rounded-2xl border border-nsuk-line bg-white shadow-[var(--shadow-e1)];
   }
 
   .chip {
-    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold;
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1
+           text-xs leading-none font-semibold;
   }
+
+  .section-title {
+    @apply text-sm font-bold tracking-wide text-nsuk-blue uppercase;
+  }
+
+  /* ---- Skeletons ------------------------------------------------------ */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-nsuk-line-soft;
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.75),
+      transparent
+    );
+    animation: shimmer 1.4s infinite;
+  }
+}
+
+/* ---- Animation utilities ---------------------------------------------- */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.45s var(--ease-out-soft) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s var(--ease-out-soft) both;
+}
+
+.animate-sheet-up {
+  animation: sheet-up 0.28s var(--ease-out-soft) both;
+}
+
+.animate-pop-in {
+  animation: pop-in 0.22s var(--ease-spring) both;
+}
+
+/* Staggers a list so rows arrive in sequence rather than all at once. */
+.stagger > * {
+  animation: fade-up 0.4s var(--ease-out-soft) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.05s; }
+.stagger > *:nth-child(3) { animation-delay: 0.08s; }
+.stagger > *:nth-child(4) { animation-delay: 0.11s; }
+.stagger > *:nth-child(5) { animation-delay: 0.14s; }
+.stagger > *:nth-child(6) { animation-delay: 0.17s; }
+.stagger > *:nth-child(7) { animation-delay: 0.2s; }
+.stagger > *:nth-child(8) { animation-delay: 0.23s; }
+
+/* Anyone who asks for less motion gets none of it. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Thin scrollbars inside scrollable panels. */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-nsuk-line) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--color-nsuk-line);
+  border-radius: 999px;
 }
 
 /* Label sheets and register exports print without app chrome. */
 @media print {
   .no-print {
     display: none !important;
+  }
+  body {
+    background: #fff;
   }
 }

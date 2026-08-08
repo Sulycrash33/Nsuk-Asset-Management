@@ -1,12 +1,32 @@
 import Link from "next/link";
-import { Boxes, Building2, Plus, Printer, ScanLine, TriangleAlert, Upload } from "lucide-react";
+import {
+  ArrowUpRight,
+  Boxes,
+  Building2,
+  Coins,
+  Plus,
+  Printer,
+  ScanLine,
+  TriangleAlert,
+  Upload,
+} from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { CONDITIONS, CONDITION_STYLES, formatNaira, type Condition } from "@/lib/types";
+import StatCard from "@/components/ui/stat-card";
+import ConditionDonut from "@/components/condition-donut";
+import EmptyState from "@/components/ui/empty-state";
+import { CONDITIONS, formatNaira, type Condition } from "@/lib/types";
 import { unitPath } from "@/lib/tree";
 
-export const metadata = { title: "Dashboard · NSUK Asset Register" };
+export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
+
+const ACTIONS = [
+  { href: "/scan", label: "Scan asset", hint: "Camera or scanner", icon: ScanLine, cls: "btn-gold" },
+  { href: "/assets/new", label: "Add asset", hint: "One at a time", icon: Plus, cls: "btn-green" },
+  { href: "/assets/import", label: "Bulk import", hint: "Upload a CSV", icon: Upload, cls: "btn-ghost" },
+  { href: "/labels", label: "Print labels", hint: "A4 label sheet", icon: Printer, cls: "btn-ghost" },
+];
 
 export default async function DashboardPage() {
   const { profile, isAdmin, scopedUnitIds, units } = await requireSession();
@@ -32,140 +52,158 @@ export default async function DashboardPage() {
     entry.value += Number(a.value ?? 0);
     perUnit.set(a.org_unit_id, entry);
   }
-  const topUnits = [...perUnit.entries()]
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 8);
+  const topUnits = [...perUnit.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 8);
+  const busiest = topUnits[0]?.[1].count ?? 1;
 
   const attention = byCondition.Faulty + byCondition["Under Repair"] + byCondition.Missing;
+  const firstName = (profile.name || profile.email).split(/[\s@]/)[0];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-nsuk-blue">
-          Welcome, {(profile.name || profile.email).split(" ")[0]}
-        </h1>
-        <p className="text-sm text-neutral-600">
-          {isAdmin
-            ? "University-wide asset position across every campus and unit."
-            : "Asset position for the units assigned to you."}
-        </p>
+      {/* ---- Greeting banner ---- */}
+      <header className="relative overflow-hidden rounded-2xl bg-nsuk-blue px-5 py-6 text-white shadow-[var(--shadow-e2)] sm:px-7 sm:py-8">
+        <div
+          aria-hidden
+          className="absolute -top-16 -right-10 h-48 w-48 rounded-full bg-nsuk-blue-light/40 blur-2xl"
+        />
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-1 bg-nsuk-gold" />
+        <div className="relative">
+          <p className="text-xs font-semibold tracking-wide text-nsuk-gold uppercase">
+            {isAdmin ? "University-wide register" : "Your units"}
+          </p>
+          <h1 className="mt-1.5 text-2xl font-bold sm:text-3xl">Welcome, {firstName}</h1>
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-white/75">
+            {isAdmin
+              ? "Every asset recorded across all campuses, faculties and administrative units."
+              : "Everything recorded in the units assigned to you, including their sub-units."}
+          </p>
+        </div>
       </header>
 
-      {/* Primary actions sit above the fold — this is the field workflow. */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Link href="/scan" className="btn-gold flex-col !items-start gap-1 !px-4 py-4 text-left">
-          <ScanLine className="h-5 w-5" />
-          <span>Scan asset</span>
-        </Link>
-        <Link href="/assets/new" className="btn-green flex-col !items-start gap-1 !px-4 py-4 text-left">
-          <Plus className="h-5 w-5" />
-          <span>Add asset</span>
-        </Link>
-        <Link href="/assets/import" className="btn-ghost flex-col !items-start gap-1 !px-4 py-4 text-left">
-          <Upload className="h-5 w-5" />
-          <span>Bulk import</span>
-        </Link>
-        <Link href="/labels" className="btn-ghost flex-col !items-start gap-1 !px-4 py-4 text-left">
-          <Printer className="h-5 w-5" />
-          <span>Print labels</span>
-        </Link>
+      {/* ---- Primary actions: the field workflow, above the fold ---- */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {ACTIONS.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className={`${action.cls} h-auto flex-col !items-start gap-1 !px-4 py-4 text-left`}
+          >
+            <action.icon className="h-5 w-5" />
+            <span className="text-base">{action.label}</span>
+            <span className="text-xs font-normal opacity-70">{action.hint}</span>
+          </Link>
+        ))}
       </div>
 
+      {/* ---- Headline numbers ---- */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="card">
-          <div className="flex items-center gap-2 text-neutral-500">
-            <Boxes className="h-4 w-4" />
-            <p className="text-xs font-semibold tracking-wide uppercase">Total assets</p>
-          </div>
-          <p className="mt-2 text-3xl font-bold text-nsuk-blue">{rows.length.toLocaleString()}</p>
-        </div>
-        <div className="card">
-          <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
-            Total recorded value
-          </p>
-          <p className="mt-2 text-3xl font-bold text-nsuk-green">{formatNaira(totalValue)}</p>
-        </div>
-        <div className="card">
-          <div className="flex items-center gap-2 text-neutral-500">
-            <TriangleAlert className="h-4 w-4" />
-            <p className="text-xs font-semibold tracking-wide uppercase">Needs attention</p>
-          </div>
-          <p className="mt-2 text-3xl font-bold text-nsuk-gold-dark">{attention.toLocaleString()}</p>
-          <p className="text-xs text-neutral-500">Faulty, under repair or missing</p>
-        </div>
+        <StatCard
+          label="Total assets"
+          value={rows.length}
+          format={(n) => Math.round(n).toLocaleString()}
+          icon={Boxes}
+          tone="blue"
+        />
+        <StatCard
+          label="Recorded value"
+          value={totalValue}
+          format={(n) => formatNaira(n)}
+          icon={Coins}
+          tone="green"
+        />
+        <StatCard
+          label="Needs attention"
+          value={attention}
+          format={(n) => Math.round(n).toLocaleString()}
+          icon={TriangleAlert}
+          tone="gold"
+          caption="Faulty, under repair or missing"
+        />
       </div>
 
-      <section className="card">
-        <h2 className="font-semibold text-nsuk-blue">Condition breakdown</h2>
-        <div className="mt-4 space-y-3">
-          {CONDITIONS.map((condition) => {
-            const count = byCondition[condition];
-            const pct = rows.length ? (count / rows.length) * 100 : 0;
-            return (
-              <Link
-                key={condition}
-                href={`/assets?condition=${encodeURIComponent(condition)}`}
-                className="block"
-              >
-                <div className="flex items-center justify-between text-sm">
-                  <span className={`chip ${CONDITION_STYLES[condition]}`}>{condition}</span>
-                  <span className="font-semibold text-nsuk-ink">
-                    {count.toLocaleString()}{" "}
-                    <span className="font-normal text-neutral-500">({pct.toFixed(0)}%)</span>
-                  </span>
-                </div>
-                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-nsuk-cream">
-                  <div
-                    className="h-full rounded-full bg-nsuk-blue"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+      {/* ---- Condition + units ---- */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="card">
+          <h2 className="section-title">Condition breakdown</h2>
+          {rows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-nsuk-muted">
+              Nothing recorded yet — the breakdown appears once assets exist.
+            </p>
+          ) : (
+            <div className="mt-4">
+              <ConditionDonut counts={byCondition} total={rows.length} />
+            </div>
+          )}
+        </section>
 
-      <section className="card">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-nsuk-blue" />
-          <h2 className="font-semibold text-nsuk-blue">
-            {isAdmin ? "Units with the most assets" : "Your units"}
-          </h2>
-        </div>
-        {topUnits.length === 0 ? (
-          <p className="mt-3 text-sm text-neutral-500">
-            No assets recorded yet.{" "}
-            <Link href="/assets/new" className="font-semibold text-nsuk-green underline">
-              Add the first one
+        <section className="card">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="section-title flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              {isAdmin ? "Busiest units" : "Your units"}
+            </h2>
+            <Link
+              href="/assets"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-nsuk-blue hover:underline"
+            >
+              All assets <ArrowUpRight className="h-3 w-3" />
             </Link>
-            .
-          </p>
-        ) : (
-          <ul className="mt-3 divide-y divide-nsuk-line">
-            {topUnits.map(([unitId, stat]) => (
-              <li key={unitId}>
-                <Link
-                  href={`/assets?unit=${unitId}`}
-                  className="flex items-center justify-between gap-3 py-3"
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm text-nsuk-ink">
-                    {unitPath(unitId, units) || "Unknown unit"}
-                  </span>
-                  <span className="shrink-0 text-right">
-                    <span className="block text-sm font-semibold text-nsuk-blue">
-                      {stat.count.toLocaleString()}
-                    </span>
-                    <span className="block text-xs text-neutral-500">
-                      {formatNaira(stat.value)}
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          </div>
+
+          {topUnits.length === 0 ? (
+            <p className="py-8 text-center text-sm text-nsuk-muted">No assets recorded yet.</p>
+          ) : (
+            <ul className="stagger mt-3 space-y-1">
+              {topUnits.map(([unitId, stat]) => (
+                <li key={unitId}>
+                  <Link
+                    href={`/assets?unit=${unitId}`}
+                    className="block rounded-xl px-2 py-2 transition hover:bg-nsuk-cream"
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 flex-1 truncate text-sm text-nsuk-ink">
+                        {unitPath(unitId, units) || "Unknown unit"}
+                      </span>
+                      <span className="tabular shrink-0 text-sm font-semibold text-nsuk-blue">
+                        {stat.count.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-nsuk-line-soft">
+                        <div
+                          className="h-full rounded-full bg-nsuk-blue transition-all duration-500"
+                          style={{ width: `${(stat.count / busiest) * 100}%` }}
+                        />
+                      </div>
+                      <span className="tabular shrink-0 text-xs text-nsuk-faint">
+                        {formatNaira(stat.value)}
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      {rows.length === 0 && (
+        <EmptyState
+          icon={Boxes}
+          title="The register is empty"
+          body="Record your first asset and the system will issue its barcode and QR code straight away — or upload a whole store room as a CSV."
+          action={
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link href="/assets/new" className="btn-green">
+                <Plus className="h-4 w-4" /> Add an asset
+              </Link>
+              <Link href="/assets/import" className="btn-ghost">
+                <Upload className="h-4 w-4" /> Import a CSV
+              </Link>
+            </div>
+          }
+        />
+      )}
     </div>
   );
 }

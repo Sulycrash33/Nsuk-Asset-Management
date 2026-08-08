@@ -6,6 +6,7 @@ import Papa from "papaparse";
 import { AlertCircle, Check, Download, FileUp, Loader2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import UnitSelect from "@/components/unit-select";
+import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
 import { CONDITIONS, type Asset, type AssetCategory, type Condition, type OrgUnit } from "@/lib/types";
@@ -97,6 +98,7 @@ export default function ImportClient({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState<Asset[] | null>(null);
+  const toast = useToast();
 
   const selectableUnits = isAdmin ? undefined : scopedUnitIds;
 
@@ -238,6 +240,10 @@ export default function ImportClient({
     setBusy(false);
     setImported(created);
     setStep(3);
+    toast.success(
+      `${created.length.toLocaleString()} asset${created.length === 1 ? "" : "s"} imported`,
+      "Every one now has a barcode and QR code.",
+    );
   }
 
   async function printBatch(assets: Asset[]) {
@@ -265,19 +271,19 @@ export default function ImportClient({
   if (step === 3 && imported) {
     return (
       <div className="card space-y-4 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-nsuk-green/12">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-nsuk-green-50">
           <Check className="h-7 w-7 text-nsuk-green" />
         </div>
         <div>
           <h2 className="text-lg font-bold text-nsuk-blue">
             {imported.length.toLocaleString()} asset{imported.length === 1 ? "" : "s"} imported
           </h2>
-          <p className="mt-1 text-sm text-neutral-600">
+          <p className="mt-1 text-sm text-nsuk-muted">
             Every one has a barcode and QR code. Print the batch and tag the items.
           </p>
         </div>
 
-        {error && <p className="text-sm text-[#B91C1C]">{error}</p>}
+        {error && <p className="text-sm text-nsuk-danger">{error}</p>}
 
         <div className="grid gap-2 sm:grid-cols-2">
           <button onClick={() => printBatch(imported)} className="btn-gold">
@@ -319,7 +325,7 @@ export default function ImportClient({
           <span className="text-sm font-semibold text-nsuk-blue">
             {fileName || "Choose a CSV file"}
           </span>
-          <span className="text-xs text-neutral-500">
+          <span className="text-xs text-nsuk-faint">
             First row must be the column headings
           </span>
           <input
@@ -382,7 +388,7 @@ export default function ImportClient({
 
           <div className="card space-y-3">
             <h2 className="font-semibold text-nsuk-blue">3. Check the preview</h2>
-            <p className="text-sm text-neutral-600">
+            <p className="text-sm text-nsuk-muted">
               {importable.length.toLocaleString()} of {prepared.length.toLocaleString()} rows are
               ready to import
               {blocked.length > 0 && `, ${blocked.length.toLocaleString()} need attention`}.
@@ -391,7 +397,7 @@ export default function ImportClient({
             <div className="-mx-4 overflow-x-auto px-4">
               <table className="min-w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-nsuk-line text-xs tracking-wide text-neutral-500 uppercase">
+                  <tr className="border-b border-nsuk-line text-xs tracking-wide text-nsuk-faint uppercase">
                     <th className="py-2 pr-3">#</th>
                     <th className="py-2 pr-3">Name</th>
                     <th className="py-2 pr-3">Unit</th>
@@ -402,17 +408,17 @@ export default function ImportClient({
                 </thead>
                 <tbody className="divide-y divide-nsuk-line">
                   {prepared.slice(0, 25).map((row) => (
-                    <tr key={row.index} className={blocked.includes(row) ? "bg-[#B91C1C]/5" : ""}>
-                      <td className="py-2 pr-3 text-neutral-500">{row.index + 1}</td>
+                    <tr key={row.index} className={blocked.includes(row) ? "bg-nsuk-danger/5" : ""}>
+                      <td className="py-2 pr-3 text-nsuk-faint">{row.index + 1}</td>
                       <td className="py-2 pr-3 font-medium">{row.name || "—"}</td>
-                      <td className="py-2 pr-3 text-neutral-600">
+                      <td className="py-2 pr-3 text-nsuk-muted">
                         {row.org_unit_id ? unitPath(row.org_unit_id, units) : "—"}
                       </td>
-                      <td className="py-2 pr-3 text-neutral-600">{row.condition}</td>
-                      <td className="py-2 pr-3 text-neutral-600">
+                      <td className="py-2 pr-3 text-nsuk-muted">{row.condition}</td>
+                      <td className="py-2 pr-3 text-nsuk-muted">
                         {row.value.toLocaleString("en-NG")}
                       </td>
-                      <td className="py-2 text-xs text-[#B91C1C]">
+                      <td className="py-2 text-xs text-nsuk-danger">
                         {row.problems.join("; ") || ""}
                       </td>
                     </tr>
@@ -420,7 +426,7 @@ export default function ImportClient({
                 </tbody>
               </table>
               {prepared.length > 25 && (
-                <p className="pt-2 text-xs text-neutral-500">
+                <p className="pt-2 text-xs text-nsuk-faint">
                   Showing the first 25 of {prepared.length.toLocaleString()} rows.
                 </p>
               )}
@@ -428,7 +434,7 @@ export default function ImportClient({
           </div>
 
           {error && (
-            <p className="flex items-start gap-2 rounded-xl border border-[#B91C1C]/30 bg-[#B91C1C]/8 p-3 text-sm text-[#B91C1C]">
+            <p className="flex items-start gap-2 rounded-xl border border-nsuk-danger/25 bg-nsuk-danger-soft p-3 text-sm text-nsuk-danger">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               {error}
             </p>

@@ -4,7 +4,7 @@ import UnitsClient from "./units-client";
 import CatalogueClient from "./catalogue-client";
 import type { AssetCategory } from "@/lib/types";
 
-export const metadata = { title: "Org units · NSUK Asset Register" };
+export const metadata = { title: "Org units" };
 export const dynamic = "force-dynamic";
 
 export default async function UnitsPage() {
@@ -25,7 +25,7 @@ export default async function UnitsPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Organisational units</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-nsuk-muted">
           Faculties, departments, directorates and offices — nested as deeply as the University
           needs. Every unit uses the same structure.
         </p>

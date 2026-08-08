@@ -6,7 +6,8 @@ import { useState } from "react";
 import { AlertCircle, Camera, Check, Loader2, Plus, Printer, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import UnitSelect from "@/components/unit-select";
-import BarcodeImage from "@/components/barcode-image";
+import BarcodeImage, { QrImage } from "@/components/barcode-image";
+import { useToast } from "@/components/ui/toast";
 import { generateSingleLabel, savePdf } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
 import {
@@ -28,6 +29,14 @@ type FormState = {
   acquisition_date: string;
   notes: string;
   photo_url: string;
+};
+
+/** Condition buttons carry their own colour so the choice reads at a glance. */
+const CONDITION_TONE: Record<Condition, string> = {
+  Working: "border-nsuk-green bg-nsuk-green text-white",
+  Faulty: "border-nsuk-warn bg-nsuk-warn text-white",
+  "Under Repair": "border-nsuk-gold bg-nsuk-gold text-nsuk-ink",
+  Missing: "border-nsuk-danger bg-nsuk-danger text-white",
 };
 
 function initialState(asset: Asset | null, defaultUnitId: string): FormState {
@@ -61,12 +70,15 @@ export default function AssetForm({
   campusId: string | null;
 }) {
   const router = useRouter();
+  const toast = useToast();
+
   const [units, setUnits] = useState(initialUnits);
   const [form, setForm] = useState<FormState>(() =>
     initialState(asset, scopedUnitIds.length === 1 ? scopedUnitIds[0] : ""),
   );
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Asset | null>(null);
 
@@ -85,7 +97,7 @@ export default function AssetForm({
       .upload(path, file, { cacheControl: "3600", upsert: false });
 
     if (uploadError) {
-      setError(`Photo upload failed: ${uploadError.message}`);
+      toast.error("Photo upload failed", uploadError.message);
     } else {
       const { data } = supabase.storage.from("asset-photos").getPublicUrl(path);
       set("photo_url", data.publicUrl);
@@ -133,15 +145,18 @@ export default function AssetForm({
           return;
         }
       }
+
       const { error: updateError } = await supabase
         .from("assets")
         .update(payload)
         .eq("id", asset.id);
       setBusy(false);
+
       if (updateError) {
         setError(updateError.message);
         return;
       }
+      toast.success("Changes saved", asset.barcode);
       router.push(`/assets/${asset.id}`);
       router.refresh();
       return;
@@ -158,53 +173,79 @@ export default function AssetForm({
       setError(insertError?.message ?? "Could not save the asset.");
       return;
     }
+
     setCreated(data as Asset);
+    toast.success("Asset recorded", `Barcode ${(data as Asset).barcode} issued.`);
     router.refresh();
   }
 
   async function printLabel(target: Asset) {
-    const doc = await generateSingleLabel({
-      barcode: target.barcode,
-      name: target.name,
-      unitName: unitPath(target.org_unit_id, units),
-      categoryName: categories.find((c) => c.id === target.category_id)?.name ?? null,
-    });
-    savePdf(doc, `${target.barcode}.pdf`);
+    setPrinting(true);
+    try {
+      const doc = await generateSingleLabel({
+        barcode: target.barcode,
+        name: target.name,
+        unitName: unitPath(target.org_unit_id, units),
+        categoryName: categories.find((c) => c.id === target.category_id)?.name ?? null,
+      });
+      savePdf(doc, `${target.barcode}.pdf`);
+      toast.success("Label ready", `${target.barcode}.pdf has been downloaded.`);
+    } catch {
+      toast.error("Could not generate the label", "Try again from the asset record.");
+    } finally {
+      setPrinting(false);
+    }
   }
 
-  // Step 2 of one-by-one entry: the barcode exists, print it and stick it on.
+  // Step 2 of one-by-one entry: the barcode exists — print it and tag the item.
   if (created) {
     return (
-      <div className="card space-y-5 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-nsuk-green/12">
-          <Check className="h-7 w-7 text-nsuk-green" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-nsuk-blue">Asset recorded</h2>
-          <p className="mt-1 text-sm text-neutral-600">{created.name}</p>
+      <div className="card animate-pop-in space-y-5 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-nsuk-green-50">
+          <Check className="h-8 w-8 text-nsuk-green" />
         </div>
 
-        <div className="rounded-xl border border-nsuk-line bg-white p-4">
-          <BarcodeImage value={created.barcode} />
-          <p className="mt-2 font-mono text-base font-bold tracking-wider text-nsuk-ink">
-            {created.barcode}
+        <div>
+          <h2 className="text-xl font-bold text-nsuk-blue">Asset recorded</h2>
+          <p className="mt-1 text-sm text-nsuk-muted">{created.name}</p>
+        </div>
+
+        <div className="rounded-2xl border border-nsuk-line bg-nsuk-cream p-4">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <div>
+              <BarcodeImage value={created.barcode} />
+              <p className="mt-2 font-mono text-base font-bold tracking-wider text-nsuk-ink">
+                {created.barcode}
+              </p>
+            </div>
+            <QrImage value={created.qr_payload} size={104} />
+          </div>
+          <p className="mt-3 text-xs text-nsuk-muted">
+            Print this label and stick it on the item. Scanning it will open this record.
           </p>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
-          <button onClick={() => printLabel(created)} className="btn-gold">
-            <Printer className="h-4 w-4" /> Print label
+          <button onClick={() => printLabel(created)} disabled={printing} className="btn-gold">
+            {printing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
+            Print label
           </button>
           <button
             onClick={() => {
               setCreated(null);
               setForm(initialState(null, form.org_unit_id));
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             className="btn-green"
           >
             <Plus className="h-4 w-4" /> Add another
           </button>
         </div>
+
         <Link href={`/assets/${created.id}`} className="btn-ghost w-full">
           Open asset record
         </Link>
@@ -214,7 +255,9 @@ export default function AssetForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="card space-y-4">
+      <section className="card space-y-4">
+        <h2 className="section-title">Identity</h2>
+
         <div>
           <label className="label" htmlFor="name">
             Asset name *
@@ -263,9 +306,7 @@ export default function AssetForm({
             restrictTo={isAdmin ? undefined : scopedUnitIds}
           />
           {!isAdmin && (
-            <p className="mt-1 text-xs text-neutral-500">
-              You can only record assets in the units assigned to you.
-            </p>
+            <p className="hint">You can only record assets in the units assigned to you.</p>
           )}
         </div>
 
@@ -281,9 +322,11 @@ export default function AssetForm({
             placeholder="e.g. Block B, Room 14"
           />
         </div>
-      </div>
+      </section>
 
-      <div className="card space-y-4">
+      <section className="card space-y-4">
+        <h2 className="section-title">Condition & value</h2>
+
         <div>
           <span className="label">Condition</span>
           <div className="grid grid-cols-2 gap-2">
@@ -292,10 +335,11 @@ export default function AssetForm({
                 key={c}
                 type="button"
                 onClick={() => set("condition", c)}
-                className={`min-h-12 rounded-xl border text-sm font-semibold transition ${
+                aria-pressed={form.condition === c}
+                className={`min-h-12 rounded-xl border text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${
                   form.condition === c
-                    ? "border-nsuk-blue bg-nsuk-blue text-white"
-                    : "border-nsuk-line bg-white text-neutral-700"
+                    ? `${CONDITION_TONE[c]} shadow-[var(--shadow-e2)]`
+                    : "border-nsuk-line bg-white text-nsuk-muted hover:border-nsuk-blue/30 hover:text-nsuk-ink"
                 }`}
               >
                 {c}
@@ -311,7 +355,7 @@ export default function AssetForm({
             </label>
             <input
               id="value"
-              className="field"
+              className="field tabular"
               value={form.value}
               onChange={(e) => set("value", e.target.value)}
               inputMode="decimal"
@@ -327,7 +371,7 @@ export default function AssetForm({
             </label>
             <input
               id="serial"
-              className="field"
+              className="field font-mono"
               value={form.serial_number}
               onChange={(e) => set("serial_number", e.target.value)}
               placeholder="Manufacturer serial, if any"
@@ -347,11 +391,12 @@ export default function AssetForm({
             onChange={(e) => set("acquisition_date", e.target.value)}
           />
         </div>
-      </div>
+      </section>
 
-      <div className="card space-y-4">
+      <section className="card space-y-4">
+        <h2 className="section-title">Photo & notes</h2>
+
         <div>
-          <span className="label">Photo</span>
           {form.photo_url ? (
             <div className="relative overflow-hidden rounded-xl border border-nsuk-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -360,19 +405,22 @@ export default function AssetForm({
                 type="button"
                 onClick={() => set("photo_url", "")}
                 aria-label="Remove photo"
-                className="absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white"
+                className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-nsuk-ink/65 text-white backdrop-blur transition hover:bg-nsuk-ink/85"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           ) : (
-            <label className="btn-ghost w-full cursor-pointer">
+            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-nsuk-line bg-nsuk-cream px-4 py-7 text-center transition hover:border-nsuk-blue/40 hover:bg-nsuk-blue-50">
               {uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-6 w-6 animate-spin text-nsuk-blue" />
               ) : (
-                <Camera className="h-4 w-4" />
+                <Camera className="h-6 w-6 text-nsuk-blue" />
               )}
-              {uploading ? "Uploading…" : "Take or choose a photo"}
+              <span className="text-sm font-semibold text-nsuk-blue">
+                {uploading ? "Uploading…" : "Take or choose a photo"}
+              </span>
+              <span className="text-xs text-nsuk-faint">Opens the camera on a phone</span>
               <input
                 type="file"
                 accept="image/*"
@@ -393,23 +441,31 @@ export default function AssetForm({
           </label>
           <textarea
             id="notes"
-            className="field min-h-24"
+            className="field min-h-24 resize-y"
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
             placeholder="Anything worth recording about this item"
           />
         </div>
-      </div>
+      </section>
 
       {error && (
-        <p className="flex items-start gap-2 rounded-xl border border-[#B91C1C]/30 bg-[#B91C1C]/8 p-3 text-sm text-[#B91C1C]">
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-xl border border-nsuk-danger/25 bg-nsuk-danger-soft p-3 text-sm text-nsuk-danger"
+        >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
         </p>
       )}
 
+      {/* Save stays within thumb reach while scrolling a long form. */}
       <div className="sticky bottom-24 z-10 lg:static">
-        <button type="submit" className="btn-green w-full shadow-lg lg:shadow-none" disabled={busy || uploading}>
+        <button
+          type="submit"
+          className="btn-green w-full shadow-[var(--shadow-e3)] lg:shadow-[var(--shadow-e2)]"
+          disabled={busy || uploading}
+        >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
           {asset ? "Save changes" : "Save & generate barcode"}
         </button>

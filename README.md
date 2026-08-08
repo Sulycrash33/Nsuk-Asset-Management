@@ -123,7 +123,28 @@ It is installable as a PWA, and the data layer is structured so offline sync can
 without restructuring.
 
 Brand colours are taken from the University badge: NSUK Blue `#1A3C6E`, Green `#1F7A3D`,
-Gold `#F2B705`, on a cream `#FAF7F0` ground.
+Gold `#F2B705`, on a cream `#FAF7F0` ground. Type is Inter for the interface and JetBrains Mono for
+barcodes and serial numbers, where the exact string has to be read or retyped.
+
+The design system lives in one place, `src/app/globals.css`: colour, elevation, radii and motion
+tokens, plus the shared `.btn` / `.card` / `.field` component classes. Everything layers and moves
+the same way as a result.
+
+Shared interaction primitives are in `src/components/ui/`:
+
+| Primitive | Replaces |
+|---|---|
+| `toast` | silent successes and inline-only errors |
+| `confirm` | `window.confirm` / `window.alert` |
+| `modal` | ad-hoc dialogs — bottom sheet on phones, centred from `sm`, with Escape, scroll lock and focus handling |
+| `skeleton` | blank waits while a server component streams |
+| `empty-state` | bare "no results" text |
+| `stat-card` | static dashboard figures (counts animate on mount) |
+
+Every route has a `loading.tsx` skeleton, and there are `error.tsx` and `not-found.tsx` fallbacks.
+`Ctrl`/`⌘`+`K` opens a command palette that jumps to any screen or finds an asset by name, barcode
+or serial. Motion is disabled wholesale under `prefers-reduced-motion`, focus rings are visible for
+keyboard users only, and dialogs carry proper `role`/`aria-modal` semantics.
 
 ---
 

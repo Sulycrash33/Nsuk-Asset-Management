@@ -4,11 +4,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Camera, CameraOff, Keyboard, Loader2, SwitchCamera } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/toast";
 
 type Status = "idle" | "starting" | "scanning" | "looking-up" | "error";
 
 export default function ScanClient() {
   const router = useRouter();
+  const toast = useToast();
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const busyRef = useRef(false);
@@ -29,7 +32,7 @@ export default function ScanClient() {
 
       const { data, error } = await createClient()
         .from("assets")
-        .select("id")
+        .select("id,name")
         .or(`barcode.eq.${code},qr_payload.eq.${code}`)
         .limit(1)
         .maybeSingle();
@@ -40,19 +43,24 @@ export default function ScanClient() {
         busyRef.current = false;
         return;
       }
+
       if (!data) {
         setStatus("error");
         setMessage(
-          `No asset found for “${code}”. It may belong to a unit outside your access, or the code may not be registered.`,
+          `No asset found for “${code}”. It may belong to a unit outside your access, or the code may not be registered yet.`,
         );
+        // Vibrate on a miss so the failure registers without looking at the screen.
+        navigator.vibrate?.(120);
         busyRef.current = false;
         return;
       }
 
+      navigator.vibrate?.(40);
+      toast.success("Asset found", data.name as string);
       controlsRef.current?.stop();
       router.push(`/assets/${data.id}`);
     },
-    [router],
+    [router, toast],
   );
 
   const stopCamera = useCallback(() => {
@@ -84,7 +92,7 @@ export default function ScanClient() {
       setStatus("error");
       setMessage(
         err instanceof Error && err.name === "NotAllowedError"
-          ? "Camera permission was denied. Allow camera access, or type the code below."
+          ? "Camera permission was denied. Allow camera access in your browser settings, or type the code below."
           : "Could not start the camera on this device. Type the code below instead.",
       );
     }
@@ -105,20 +113,45 @@ export default function ScanClient() {
             muted
             aria-label="Camera preview"
           />
-          {!scanning && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/70">
-              <CameraOff className="h-8 w-8" />
+
+          {!scanning && status !== "looking-up" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/60">
+              <CameraOff className="h-9 w-9" />
               <p className="text-sm">Camera is off</p>
             </div>
           )}
-          {status === "scanning" && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-32 w-4/5 rounded-xl border-2 border-nsuk-gold shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+
+          {status === "starting" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-nsuk-ink/70 text-white">
+              <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           )}
+
+          {status === "scanning" && (
+            <>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="relative h-36 w-[82%] rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+                  {/* Corner brackets read as a target without boxing the view in. */}
+                  {[
+                    "top-0 left-0 border-t-4 border-l-4 rounded-tl-2xl",
+                    "top-0 right-0 border-t-4 border-r-4 rounded-tr-2xl",
+                    "bottom-0 left-0 border-b-4 border-l-4 rounded-bl-2xl",
+                    "bottom-0 right-0 border-b-4 border-r-4 rounded-br-2xl",
+                  ].map((cls) => (
+                    <span key={cls} className={`absolute h-7 w-7 border-nsuk-gold ${cls}`} />
+                  ))}
+                </div>
+              </div>
+              <p className="absolute inset-x-0 bottom-3 text-center text-xs font-medium text-white/85">
+                Line the barcode or QR code up inside the frame
+              </p>
+            </>
+          )}
+
           {status === "looking-up" && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-nsuk-ink/75 text-white">
               <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="text-sm">Looking up…</p>
             </div>
           )}
         </div>
@@ -161,16 +194,20 @@ export default function ScanClient() {
         </label>
         <input
           id="manual-code"
-          className="field font-mono"
+          className="field font-mono text-lg tracking-wider"
           value={manualCode}
           onChange={(e) => setManualCode(e.target.value)}
           placeholder="NSUK-CS-0001"
           autoComplete="off"
           autoCapitalize="characters"
+          spellCheck={false}
           // Handheld scanners emulate a keyboard and finish with Enter, which
           // submits this form — no special integration required.
           autoFocus
         />
+        <p className="hint">
+          A handheld scanner types straight into this box and submits on its own.
+        </p>
         <button type="submit" className="btn-primary w-full" disabled={status === "looking-up"}>
           {status === "looking-up" && <Loader2 className="h-4 w-4 animate-spin" />}
           Look up asset
@@ -178,7 +215,10 @@ export default function ScanClient() {
       </form>
 
       {message && (
-        <p className="flex items-start gap-2 rounded-xl border border-[#B91C1C]/30 bg-[#B91C1C]/8 p-3 text-sm text-[#B91C1C]">
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-xl border border-nsuk-danger/25 bg-nsuk-danger-soft p-3 text-sm text-nsuk-danger"
+        >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {message}
         </p>

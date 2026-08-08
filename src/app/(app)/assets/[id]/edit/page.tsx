@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import AssetForm from "@/components/asset-form";
 import type { Asset, AssetCategory } from "@/lib/types";
 
-export const metadata = { title: "Edit asset · NSUK Asset Register" };
+export const metadata = { title: "Edit asset" };
 export const dynamic = "force-dynamic";
 
 export default async function EditAssetPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,7 +32,7 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
       </Link>
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Edit asset</h1>
-        <p className="font-mono text-sm text-neutral-600">{asset.barcode}</p>
+        <p className="font-mono text-sm text-nsuk-muted">{asset.barcode}</p>
       </header>
 
       <AssetForm

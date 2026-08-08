@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { AlertCircle, Loader2, ShieldCheck, UserRound } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2, ShieldCheck, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Campus, Role } from "@/lib/types";
 
@@ -23,6 +23,7 @@ export default function LoginForm({
   const [role, setRole] = useState<Role>("staff");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [campusId, setCampusId] = useState(campuses[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export default function LoginForm({
           options: { data: { name, campus_id: campusId, role: "admin" } },
         });
         if (signUpError) throw signUpError;
+
         if (!data.session) {
           setNotice(
             "Account created. Check your inbox to confirm the email address, then sign in.",
@@ -80,12 +82,12 @@ export default function LoginForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card space-y-4">
+    <form onSubmit={handleSubmit} className="card animate-fade-up space-y-4">
       <div>
         <h1 className="text-xl font-bold text-nsuk-blue">
           {mode === "bootstrap" ? "Create the first administrator" : "Sign in"}
         </h1>
-        <p className="mt-1 text-sm text-neutral-600">
+        <p className="mt-1 text-sm leading-relaxed text-nsuk-muted">
           {mode === "bootstrap"
             ? "No accounts exist yet. This one-time screen creates the University-wide administrator."
             : "Use the credentials issued for the asset register."}
@@ -93,7 +95,11 @@ export default function LoginForm({
       </div>
 
       {mode === "login" && (
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-nsuk-cream p-1">
+        <div
+          role="tablist"
+          aria-label="Account type"
+          className="relative grid grid-cols-2 gap-1 rounded-xl bg-nsuk-cream p-1"
+        >
           {(
             [
               ["staff", "Staff", UserRound],
@@ -103,10 +109,12 @@ export default function LoginForm({
             <button
               key={value}
               type="button"
+              role="tab"
+              aria-selected={role === value}
               onClick={() => setRole(value)}
-              className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition ${
+              className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
                 role === value
-                  ? "bg-nsuk-blue text-white shadow-sm"
+                  ? "bg-nsuk-blue text-white shadow-[var(--shadow-e2)]"
                   : "text-nsuk-blue hover:bg-white"
               }`}
             >
@@ -155,17 +163,27 @@ export default function LoginForm({
         <label className="label" htmlFor="password">
           Password
         </label>
-        <input
-          id="password"
-          type="password"
-          className="field"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={8}
-          autoComplete={mode === "bootstrap" ? "new-password" : "current-password"}
-          placeholder="••••••••"
-        />
+        <div className="relative">
+          <input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            className="field pr-12"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete={mode === "bootstrap" ? "new-password" : "current-password"}
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((s) => !s)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute top-1/2 right-2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-nsuk-faint transition hover:bg-nsuk-cream hover:text-nsuk-ink"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
 
       <div>
@@ -187,13 +205,17 @@ export default function LoginForm({
       </div>
 
       {error && (
-        <p className="flex items-start gap-2 rounded-xl border border-[#B91C1C]/30 bg-[#B91C1C]/8 p-3 text-sm text-[#B91C1C]">
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-xl border border-nsuk-danger/25 bg-nsuk-danger-soft p-3 text-sm text-nsuk-danger"
+        >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
         </p>
       )}
+
       {notice && (
-        <p className="rounded-xl border border-nsuk-green/30 bg-nsuk-green/10 p-3 text-sm text-nsuk-green-dark">
+        <p className="rounded-xl border border-nsuk-green/25 bg-nsuk-green-50 p-3 text-sm text-nsuk-green-dark">
           {notice}
         </p>
       )}

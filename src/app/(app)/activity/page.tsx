@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { unitPath } from "@/lib/tree";
 import type { AssetLog, Profile } from "@/lib/types";
 
-export const metadata = { title: "Activity log · NSUK Asset Register" };
+export const metadata = { title: "Activity log" };
 export const dynamic = "force-dynamic";
 
 const ACTIONS = ["created", "edited", "moved", "deleted"] as const;
@@ -14,7 +14,7 @@ const DOT: Record<string, string> = {
   created: "bg-nsuk-green",
   edited: "bg-nsuk-blue",
   moved: "bg-nsuk-gold",
-  deleted: "bg-[#B91C1C]",
+  deleted: "bg-nsuk-danger",
 };
 
 export default async function ActivityPage({
@@ -55,7 +55,7 @@ export default async function ActivityPage({
     <div className="mx-auto max-w-4xl space-y-4">
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Activity log</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-nsuk-muted">
           Every asset created, edited, transferred or deleted across the University.
         </p>
       </header>
@@ -63,7 +63,7 @@ export default async function ActivityPage({
       <div className="flex flex-wrap gap-2">
         <Link
           href="/activity"
-          className={`chip ${!action ? "border-nsuk-blue bg-nsuk-blue text-white" : "border-nsuk-line bg-white text-neutral-700"}`}
+          className={`chip ${!action ? "border-nsuk-blue bg-nsuk-blue text-white" : "border-nsuk-line bg-white text-nsuk-ink/80"}`}
         >
           All
         </Link>
@@ -74,7 +74,7 @@ export default async function ActivityPage({
             className={`chip capitalize ${
               action === a
                 ? "border-nsuk-blue bg-nsuk-blue text-white"
-                : "border-nsuk-line bg-white text-neutral-700"
+                : "border-nsuk-line bg-white text-nsuk-ink/80"
             }`}
           >
             {a}
@@ -84,7 +84,7 @@ export default async function ActivityPage({
 
       <div className="card">
         {rows.length === 0 ? (
-          <p className="py-6 text-center text-sm text-neutral-500">Nothing recorded yet.</p>
+          <p className="py-6 text-center text-sm text-nsuk-faint">Nothing recorded yet.</p>
         ) : (
           <ul className="divide-y divide-nsuk-line">
             {rows.map((log) => (
@@ -106,13 +106,13 @@ export default async function ActivityPage({
                     by {actorName(log.performed_by)}
                   </p>
                   {log.action === "moved" && (
-                    <p className="text-xs text-neutral-600">
+                    <p className="text-xs text-nsuk-muted">
                       {log.from_unit_id ? unitPath(log.from_unit_id, units) : "?"} →{" "}
                       {log.to_unit_id ? unitPath(log.to_unit_id, units) : "?"}
                       {log.note && ` — ${log.note}`}
                     </p>
                   )}
-                  <p className="text-xs text-neutral-500">
+                  <p className="text-xs text-nsuk-faint">
                     {log.asset_barcode && (
                       <span className="font-mono">{log.asset_barcode} · </span>
                     )}
@@ -124,7 +124,7 @@ export default async function ActivityPage({
           </ul>
         )}
         {rows.length === PAGE_SIZE && (
-          <p className="pt-3 text-xs text-neutral-500">
+          <p className="pt-3 text-xs text-nsuk-faint">
             Showing the {PAGE_SIZE} most recent entries.
           </p>
         )}
