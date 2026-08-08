@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { LucideIcon } from "lucide-react";
+import { formatNaira } from "@/lib/types";
 
 /**
  * Counts up to `value` on mount. Static for anyone who prefers reduced motion,
@@ -39,19 +39,29 @@ function useCountUp(value: number, duration = 900) {
   return display;
 }
 
+/**
+ * Named formats rather than a callback. The cards are rendered from server
+ * components, and a function cannot cross the server/client boundary — React
+ * elements can, which is why `icon` is a node rather than a component.
+ */
+const FORMATTERS = {
+  count: (n: number) => Math.round(n).toLocaleString(),
+  naira: (n: number) => formatNaira(n),
+} as const;
+
 export default function StatCard({
   label,
   value,
-  format,
-  icon: Icon,
+  format = "count",
+  icon,
   tone = "blue",
   caption,
 }: {
   label: string;
   value: number;
-  /** Renders the animating number; receives the in-flight value. */
-  format: (n: number) => string;
-  icon?: LucideIcon;
+  /** How the animating number is rendered. */
+  format?: keyof typeof FORMATTERS;
+  icon?: React.ReactNode;
   tone?: "blue" | "green" | "gold";
   caption?: string;
 }) {
@@ -75,13 +85,15 @@ export default function StatCard({
         <div className="min-w-0">
           <p className="text-xs font-semibold tracking-wide text-nsuk-muted uppercase">{label}</p>
           <p className={`tabular mt-2 text-3xl leading-none font-bold ${toneClass}`}>
-            {format(animated)}
+            {FORMATTERS[format](animated)}
           </p>
           {caption && <p className="mt-1.5 text-xs text-nsuk-faint">{caption}</p>}
         </div>
-        {Icon && (
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
-            <Icon className="h-5 w-5" />
+        {icon && (
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}
+          >
+            {icon}
           </span>
         )}
       </div>

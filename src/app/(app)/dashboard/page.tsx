@@ -100,22 +100,22 @@ export default async function DashboardPage() {
         <StatCard
           label="Total assets"
           value={rows.length}
-          format={(n) => Math.round(n).toLocaleString()}
-          icon={Boxes}
+          format="count"
+          icon={<Boxes className="h-5 w-5" />}
           tone="blue"
         />
         <StatCard
           label="Recorded value"
           value={totalValue}
-          format={(n) => formatNaira(n)}
-          icon={Coins}
+          format="naira"
+          icon={<Coins className="h-5 w-5" />}
           tone="green"
         />
         <StatCard
           label="Needs attention"
           value={attention}
-          format={(n) => Math.round(n).toLocaleString()}
-          icon={TriangleAlert}
+          format="count"
+          icon={<TriangleAlert className="h-5 w-5" />}
           tone="gold"
           caption="Faulty, under repair or missing"
         />
