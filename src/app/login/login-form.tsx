@@ -53,7 +53,7 @@ export default function LoginForm({
 
         if (!data.session) {
           setNotice(
-            "Account created. Check your inbox to confirm the email address, then sign in.",
+            "The account has been created. Confirm the email address from your inbox, then sign in.",
           );
           setMode("login");
           return;
@@ -88,7 +88,7 @@ export default function LoginForm({
       router.replace(nextPath);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in. Please try again.");
+      setError(err instanceof Error ? err.message : "Sign in was unsuccessful. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -102,8 +102,8 @@ export default function LoginForm({
         </h1>
         <p className="mt-1 text-sm leading-relaxed text-nsuk-muted">
           {mode === "bootstrap"
-            ? "No accounts exist yet. This one-time screen creates the University-wide administrator."
-            : "Use the credentials issued for the asset register."}
+            ? "No account exists on the system yet. This screen appears once, and creates the University-wide administrator."
+            : "Enter the credentials issued to you by the system administrator."}
         </p>
       </div>
 
@@ -218,13 +218,15 @@ export default function LoginForm({
               </option>
             ))}
           </select>
-          <p className="hint">Where you are based. Your unit assignment decides what you can see.</p>
+          <p className="hint">
+            Select the campus where you are based. Access to assets is determined by your unit
+            assignment.
+          </p>
         </div>
       ) : (
         <p className="flex items-start gap-2 rounded-xl border border-nsuk-gold/30 bg-nsuk-gold-50 p-3 text-sm text-nsuk-gold-deep">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-          Administrators cover every campus — Keffi, Lafia, Gudi and Pyanku — so there is no campus
-          to choose.
+          Administrators have access to all four campuses. No campus selection is required.
         </p>
       )}
 

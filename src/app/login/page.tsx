@@ -33,7 +33,8 @@ export default async function LoginPage() {
         </Suspense>
 
         <p className="mt-6 text-center text-xs text-nsuk-faint">
-          Staff accounts are created by a system administrator. Contact DICT if you cannot sign in.
+          Staff accounts are issued by the system administrator. Contact the ICT Directorate if
+          you are unable to sign in.
         </p>
       </div>
     </main>

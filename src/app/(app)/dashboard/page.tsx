@@ -127,7 +127,7 @@ export default async function DashboardPage() {
           <h2 className="section-title">Condition breakdown</h2>
           {rows.length === 0 ? (
             <p className="py-8 text-center text-sm text-nsuk-muted">
-              Nothing recorded yet — the breakdown appears once assets exist.
+              No assets recorded yet. The breakdown appears once items are entered.
             </p>
           ) : (
             <div className="mt-4">
@@ -191,7 +191,7 @@ export default async function DashboardPage() {
         <EmptyState
           icon={Boxes}
           title="The register is empty"
-          body="Record your first asset and the system will issue its barcode and QR code straight away — or upload a whole store room as a CSV."
+          body="Record the first asset and the system will issue its barcode and QR code immediately. A full store room may also be imported from a spreadsheet."
           action={
             <div className="flex flex-col gap-2 sm:flex-row">
               <Link href="/assets/new" className="btn-green">

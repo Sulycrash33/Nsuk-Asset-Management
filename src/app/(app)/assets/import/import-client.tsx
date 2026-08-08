@@ -136,7 +136,7 @@ export default function ImportClient({
         if (!match) problems.push(`Unknown unit “${unitRaw}”`);
         else unitId = match.id;
       }
-      if (!unitId) problems.push("No unit — pick a default unit above");
+      if (!unitId) problems.push("No unit. Select a default unit above");
       else if (allowed && !allowed.has(unitId)) problems.push("Unit is outside your access");
 
       const conditionRaw = get("condition");
@@ -144,7 +144,7 @@ export default function ImportClient({
         ? (conditionRaw as Condition)
         : "Working";
       if (conditionRaw && condition !== conditionRaw) {
-        problems.push(`Unknown condition “${conditionRaw}” — defaulting to Working`);
+        problems.push(`Unknown condition “${conditionRaw}”. Defaulting to Working`);
       }
 
       const valueRaw = get("value").replace(/[₦,\s]/g, "");
@@ -374,7 +374,7 @@ export default function ImportClient({
                       setMapping((m) => ({ ...m, [field.key]: e.target.value || undefined }))
                     }
                   >
-                    <option value="">— not in file —</option>
+                    <option value="">Not in file</option>
                     {headers.map((h) => (
                       <option key={h} value={h}>
                         {h}

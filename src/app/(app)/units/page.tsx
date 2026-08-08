@@ -26,7 +26,7 @@ export default async function UnitsPage() {
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Organisational units</h1>
         <p className="text-sm text-nsuk-muted">
-          Faculties, departments, directorates and offices — nested as deeply as the University
+          Faculties, departments, directorates and offices, nested as deeply as the University
           needs. Every unit uses the same structure.
         </p>
       </header>

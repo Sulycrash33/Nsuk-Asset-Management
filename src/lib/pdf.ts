@@ -180,7 +180,7 @@ export async function generateRegisterPdf(
   doc.text("Nasarawa State University, Keffi", titleX, 12);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(`Asset Register — ${opts.unitName}`, titleX, 19);
+  doc.text(`Asset Register: ${opts.unitName}`, titleX, 19);
 
   doc.setFontSize(8);
   const stamp = new Date().toLocaleString("en-NG");

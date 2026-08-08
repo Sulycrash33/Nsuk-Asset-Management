@@ -299,7 +299,7 @@ export default function UnitsClient({
                     </option>
                   ))}
                 </select>
-                <p className="hint">A label for reporting — it does not change any behaviour.</p>
+                <p className="hint">Used for reporting only. It does not change any behaviour.</p>
               </div>
 
               <div>

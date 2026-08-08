@@ -202,7 +202,7 @@ export default function UsersClient({
   async function deleteUser(user: Profile) {
     const ok = await confirm({
       title: "Delete this account?",
-      body: `${user.name || user.email} will lose access immediately. This cannot be undone — the assets they recorded stay in the register.`,
+      body: `${user.name || user.email} will lose access immediately. This cannot be undone. Assets they recorded remain in the register.`,
       confirmLabel: "Delete account",
     });
     if (!ok) return;
@@ -421,8 +421,8 @@ export default function UsersClient({
             </div>
           ) : (
             <p className="rounded-xl border border-nsuk-gold/30 bg-nsuk-gold-50 p-3 text-sm text-nsuk-gold-deep">
-              Administrators cover every campus and every unit in the University — no campus or
-              unit assignment needed.
+              Administrators have access to every campus and every unit in the University. No
+              campus or unit assignment is required.
             </p>
           )}
 
@@ -470,7 +470,8 @@ export default function UsersClient({
               </select>
               {editing.id === currentUserId && (
                 <p className="hint">
-                  You cannot change your own role — this stops the University locking itself out.
+                  You cannot change your own role. This prevents the University from losing
+                  administrative access.
                 </p>
               )}
             </div>

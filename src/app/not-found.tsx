@@ -10,8 +10,8 @@ export default function NotFound() {
         </span>
         <h1 className="mt-4 text-xl font-bold text-nsuk-blue">Page not found</h1>
         <p className="mt-2 text-sm leading-relaxed text-nsuk-muted">
-          That address does not exist — or the asset it pointed to has been removed or moved to a
-          unit outside your access.
+          This address does not exist. The asset it referred to may have been removed, or moved to
+          a unit outside your access.
         </p>
         <div className="mt-6 grid gap-2 sm:grid-cols-2">
           <Link href="/dashboard" className="btn-primary">

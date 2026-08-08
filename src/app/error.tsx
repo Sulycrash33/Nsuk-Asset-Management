@@ -23,8 +23,8 @@ export default function GlobalError({
         </span>
         <h1 className="mt-4 text-xl font-bold text-nsuk-blue">Something went wrong</h1>
         <p className="mt-2 text-sm leading-relaxed text-nsuk-muted">
-          The page could not be loaded. Try again — if it keeps happening, note what you were doing
-          and contact DICT.
+          The page could not be loaded. Please try again. If the problem persists, note what you
+          were doing and contact the ICT Directorate.
         </p>
         {error.digest && (
           <p className="mt-3 font-mono text-xs text-nsuk-faint">Reference: {error.digest}</p>
