@@ -68,7 +68,7 @@ export default function LandingPage() {
   return (
     <main className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-nsuk-line/70 bg-nsuk-cream/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/nsuk-crest.png" alt="" className="h-9 w-9" />
@@ -77,9 +77,6 @@ export default function LandingPage() {
               <p className="text-[11px] text-nsuk-faint">Nasarawa State University, Keffi</p>
             </div>
           </div>
-          <Link href="/login" className="btn-primary btn-sm">
-            Sign in
-          </Link>
         </div>
       </header>
 
