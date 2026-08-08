@@ -116,7 +116,7 @@ export async function generateLabelSheet(labels: LabelInput[]): Promise<jsPDF> {
     doc.setTextColor(...BLUE);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
-    doc.text("NSUK ASSET REGISTER", textX, y + 6.5);
+    doc.text("NSUK ASSET MANAGEMENT SYSTEM", textX, y + 6.5);
 
     doc.setTextColor(...INK);
     doc.setFontSize(9);

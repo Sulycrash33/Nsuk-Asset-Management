@@ -19,8 +19,8 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "NSUK Asset Register",
-    template: "%s · NSUK Asset Register",
+    default: "NSUK Asset Management System",
+    template: "%s · NSUK Asset Management System",
   },
   description:
     "Digital inventory and barcode tracking for every physical asset across Nasarawa State University, Keffi.",
