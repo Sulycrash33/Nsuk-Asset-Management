@@ -31,11 +31,6 @@ export default async function LoginPage() {
             needsBootstrap={needsBootstrap === true}
           />
         </Suspense>
-
-        <p className="mt-6 text-center text-xs text-nsuk-faint">
-          Staff accounts are issued by the system administrator. Contact the ICT Directorate if
-          you are unable to sign in.
-        </p>
       </div>
     </main>
   );
