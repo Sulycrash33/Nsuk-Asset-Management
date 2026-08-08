@@ -1,0 +1,41 @@
+import Link from "next/link";
+import { Suspense } from "react";
+import { createClient } from "@/lib/supabase/server";
+import LoginForm from "./login-form";
+import type { Campus } from "@/lib/types";
+
+export const metadata = { title: "Login · NSUK Asset Register" };
+
+export default async function LoginPage() {
+  const supabase = await createClient();
+  const [{ data: campuses }, { data: needsBootstrap }] = await Promise.all([
+    supabase.from("campuses").select("id,name").order("name"),
+    supabase.rpc("needs_bootstrap"),
+  ]);
+
+  return (
+    <main className="flex min-h-dvh flex-col">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
+        <Link href="/" className="mb-8 flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/nsuk-logo.svg" alt="" className="h-11 w-11" />
+          <div className="leading-tight">
+            <p className="font-bold text-nsuk-blue">NSUK Asset Register</p>
+            <p className="text-xs text-neutral-500">Nasarawa State University, Keffi</p>
+          </div>
+        </Link>
+
+        <Suspense fallback={<div className="card h-96 animate-pulse" />}>
+          <LoginForm
+            campuses={(campuses ?? []) as Campus[]}
+            needsBootstrap={needsBootstrap === true}
+          />
+        </Suspense>
+
+        <p className="mt-6 text-center text-xs text-neutral-500">
+          Staff accounts are created by a system administrator. Contact DICT if you cannot sign in.
+        </p>
+      </div>
+    </main>
+  );
+}

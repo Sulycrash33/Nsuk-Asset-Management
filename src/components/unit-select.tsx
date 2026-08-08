@@ -1,0 +1,174 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Loader2, Plus, Search } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { buildTree, flattenTree, unitPath } from "@/lib/tree";
+import type { OrgUnit } from "@/lib/types";
+
+/**
+ * Typeahead over the org tree. Indentation shows nesting, and administrators can
+ * create a missing unit inline rather than leaving the form to go and add it.
+ */
+export default function UnitSelect({
+  units,
+  value,
+  onChange,
+  allowCreate = false,
+  campusId,
+  onUnitCreated,
+  placeholder = "Select a unit",
+  restrictTo,
+  id,
+}: {
+  units: OrgUnit[];
+  value: string | null;
+  onChange: (unitId: string) => void;
+  allowCreate?: boolean;
+  campusId?: string | null;
+  onUnitCreated?: (unit: OrgUnit) => void;
+  placeholder?: string;
+  /** When given, only these unit ids are selectable (staff scoping). */
+  restrictTo?: string[];
+  id?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  const ordered = useMemo(() => flattenTree(buildTree(units)), [units]);
+  const allowed = useMemo(
+    () => (restrictTo ? new Set(restrictTo) : null),
+    [restrictTo],
+  );
+
+  const matches = useMemo(() => {
+    const needle = term.trim().toLowerCase();
+    return ordered.filter((u) => {
+      if (allowed && !allowed.has(u.id)) return false;
+      if (!needle) return true;
+      return (
+        u.name.toLowerCase().includes(needle) ||
+        (u.code ?? "").toLowerCase().includes(needle) ||
+        unitPath(u.id, units).toLowerCase().includes(needle)
+      );
+    });
+  }, [ordered, term, allowed, units]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const selectedLabel = value ? unitPath(value, units) : "";
+  const exactExists = matches.some((u) => u.name.toLowerCase() === term.trim().toLowerCase());
+
+  async function createUnit() {
+    const name = term.trim();
+    if (!name || !campusId) {
+      setError("Pick a campus before creating a new unit.");
+      return;
+    }
+    setCreating(true);
+    setError(null);
+    const supabase = createClient();
+    const { data, error: insertError } = await supabase
+      .from("org_units")
+      .insert({ name, campus_id: campusId, parent_id: null, unit_type: "Other" })
+      .select("*")
+      .single();
+    setCreating(false);
+
+    if (insertError || !data) {
+      setError(insertError?.message ?? "Could not create the unit.");
+      return;
+    }
+    onUnitCreated?.(data as OrgUnit);
+    onChange(data.id);
+    setTerm("");
+    setOpen(false);
+  }
+
+  return (
+    <div ref={boxRef} className="relative">
+      <button
+        id={id}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="field flex items-center justify-between gap-2 text-left"
+      >
+        <span className={selectedLabel ? "truncate text-nsuk-ink" : "truncate text-neutral-400"}>
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400" />
+      </button>
+
+      {open && (
+        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-nsuk-line bg-white shadow-xl">
+          <div className="flex items-center gap-2 border-b border-nsuk-line px-3 py-2">
+            <Search className="h-4 w-4 shrink-0 text-neutral-400" />
+            <input
+              autoFocus
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Search faculties, departments, offices…"
+              className="w-full bg-transparent py-1.5 text-base outline-none"
+            />
+          </div>
+
+          <ul className="max-h-72 overflow-y-auto py-1">
+            {matches.map((u) => (
+              <li key={u.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(u.id);
+                    setOpen(false);
+                    setTerm("");
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-nsuk-cream"
+                  style={{ paddingLeft: `${12 + u.depth * 14}px` }}
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className={u.depth === 0 ? "font-semibold text-nsuk-blue" : ""}>
+                      {u.name}
+                    </span>
+                    <span className="ml-2 text-xs text-neutral-400">{u.unit_type}</span>
+                  </span>
+                  {value === u.id && <Check className="h-4 w-4 shrink-0 text-nsuk-green" />}
+                </button>
+              </li>
+            ))}
+            {matches.length === 0 && (
+              <li className="px-3 py-4 text-sm text-neutral-500">No matching unit.</li>
+            )}
+          </ul>
+
+          {allowCreate && term.trim() && !exactExists && (
+            <button
+              type="button"
+              onClick={createUnit}
+              disabled={creating}
+              className="flex w-full items-center gap-2 border-t border-nsuk-line px-3 py-3 text-left text-sm font-semibold text-nsuk-green hover:bg-nsuk-cream disabled:opacity-60"
+            >
+              {creating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Add new unit “{term.trim()}”
+            </button>
+          )}
+
+          {error && <p className="px-3 py-2 text-xs text-[#B91C1C]">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}

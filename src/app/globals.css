@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/* NSUK brand system — taken from the university badge. */
+@theme {
+  --color-nsuk-blue: #1a3c6e;
+  --color-nsuk-blue-dark: #12294c;
+  --color-nsuk-blue-light: #2b5a9e;
+  --color-nsuk-green: #1f7a3d;
+  --color-nsuk-green-dark: #165c2d;
+  --color-nsuk-gold: #f2b705;
+  --color-nsuk-gold-dark: #c99700;
+  --color-nsuk-ink: #111111;
+  --color-nsuk-cream: #faf7f0;
+  --color-nsuk-line: #e5ded0;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: var(--color-nsuk-cream);
+  color: var(--color-nsuk-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  /* Room for the fixed mobile tab bar. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Inputs are sized for thumbs first: 16px prevents iOS zoom-on-focus. */
+@layer components {
+  .field {
+    @apply w-full rounded-xl border border-nsuk-line bg-white px-4 py-3 text-base
+           text-nsuk-ink outline-none transition
+           placeholder:text-neutral-400
+           focus:border-nsuk-blue focus:ring-2 focus:ring-nsuk-blue/20;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-nsuk-blue;
+  }
+
+  /* Tailwind v4 cannot @apply a custom class, so every button variant shares
+     this base rule instead of extending `.btn`. */
+  .btn,
+  .btn-primary,
+  .btn-green,
+  .btn-gold,
+  .btn-ghost {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3
+           text-base font-semibold transition active:scale-[0.98]
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-nsuk-blue text-white hover:bg-nsuk-blue-dark;
+  }
+
+  .btn-green {
+    @apply bg-nsuk-green text-white hover:bg-nsuk-green-dark;
+  }
+
+  .btn-gold {
+    @apply bg-nsuk-gold text-nsuk-ink hover:bg-nsuk-gold-dark;
+  }
+
+  .btn-ghost {
+    @apply border border-nsuk-line bg-white text-nsuk-blue hover:bg-nsuk-cream;
+  }
+
+  .btn-sm {
+    @apply min-h-9 rounded-lg px-3 py-1.5 text-sm;
+  }
+
+  .card {
+    @apply rounded-2xl border border-nsuk-line bg-white p-4 shadow-[0_1px_2px_rgba(17,17,17,0.04)];
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold;
+  }
+}
+
+/* Label sheets and register exports print without app chrome. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
