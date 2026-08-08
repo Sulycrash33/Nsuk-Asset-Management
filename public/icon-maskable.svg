@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="NSUK Asset Register">
+  <rect width="192" height="192" fill="#1A3C6E"/>
+  <rect x="36" y="58" width="120" height="8" rx="4" fill="#F2B705"/>
+  <text x="96" y="48" font-family="Georgia, serif" font-size="30" font-weight="bold" fill="#FFFFFF" text-anchor="middle">NSUK</text>
+  <g fill="#FFFFFF">
+    <rect x="46" y="80" width="8" height="60"/>
+    <rect x="60" y="80" width="5" height="60"/>
+    <rect x="72" y="80" width="10" height="60"/>
+    <rect x="89" y="80" width="5" height="60"/>
+    <rect x="101" y="80" width="8" height="60"/>
+    <rect x="116" y="80" width="5" height="60"/>
+    <rect x="128" y="80" width="10" height="60"/>
+  </g>
+  <rect x="36" y="152" width="120" height="6" rx="3" fill="#1F7A3D"/>
+</svg>
