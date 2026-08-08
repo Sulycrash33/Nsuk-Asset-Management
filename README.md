@@ -1,4 +1,4 @@
-# NSUK Asset Register
+# NSUK Asset Management System
 
 Asset inventory and barcode-tracking system for **Nasarawa State University, Keffi**.
 

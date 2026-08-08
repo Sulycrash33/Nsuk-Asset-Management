@@ -20,7 +20,7 @@ export default async function LoginPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/nsuk-crest.png" alt="" className="h-11 w-11" />
           <div className="leading-tight">
-            <p className="font-bold text-nsuk-blue">NSUK Asset Register</p>
+            <p className="font-bold text-nsuk-blue">NSUK Asset Management System</p>
             <p className="text-xs text-nsuk-faint">Nasarawa State University, Keffi</p>
           </div>
         </Link>

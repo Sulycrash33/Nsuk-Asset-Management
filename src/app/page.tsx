@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 export const metadata = {
-  title: { absolute: "NSUK Asset Register | Nasarawa State University, Keffi" },
+  title: { absolute: "NSUK Asset Management System | Nasarawa State University, Keffi" },
   description:
     "The official inventory of physical assets owned by Nasarawa State University, Keffi. Every item is registered, barcoded and traceable to the unit responsible for it.",
 };
@@ -73,7 +73,7 @@ export default function LandingPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/nsuk-crest.png" alt="" className="h-9 w-9" />
             <div className="leading-tight">
-              <p className="text-sm font-bold text-nsuk-blue">NSUK Asset Register</p>
+              <p className="text-sm font-bold text-nsuk-blue">NSUK Asset Management System</p>
               <p className="text-[11px] text-nsuk-faint">Nasarawa State University, Keffi</p>
             </div>
           </div>
@@ -103,10 +103,10 @@ export default function LandingPage() {
           </h1>
 
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-nsuk-muted sm:text-lg">
-            The NSUK Asset Register maintains a central inventory of the physical assets owned by
-            Nasarawa State University, Keffi, across every campus, faculty and administrative unit.
-            Each recorded item carries a printed barcode, so verification is carried out by scanning
-            rather than by manual search.
+            The NSUK Asset Management System maintains a central inventory of the physical assets
+            owned by Nasarawa State University, Keffi, across every campus, faculty and
+            administrative unit. Each recorded item carries a printed barcode, so verification is
+            carried out by scanning rather than by manual search.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">

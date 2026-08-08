@@ -8,6 +8,7 @@ import {
   Boxes,
   Building2,
   ChevronRight,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -30,7 +31,7 @@ type NavItem = { href: string; label: string; icon: typeof Boxes; adminOnly?: bo
 
 const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
   {
-    heading: "Register",
+    heading: "Overview",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/assets", label: "Assets", icon: Boxes },
@@ -144,7 +145,7 @@ export default function AppShell({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/nsuk-crest.png" alt="" className="h-10 w-10" />
               <div className="leading-tight">
-                <p className="font-bold text-nsuk-blue">NSUK Assets</p>
+                <p className="font-bold text-nsuk-blue">NSUK Asset Management</p>
                 <p className="flex items-center gap-1 text-[11px] text-nsuk-muted">
                   {isAdmin ? (
                     <ShieldCheck className="h-3 w-3 text-nsuk-gold-dark" />
@@ -198,6 +199,9 @@ export default function AppShell({
                 <p className="mt-0.5 line-clamp-2 text-xs text-nsuk-green">{scopeLabel}</p>
                 {campusName && <p className="text-xs text-nsuk-faint">{campusName} campus</p>}
               </div>
+              <Link href="/account" className="btn-ghost btn-sm w-full">
+                <KeyRound className="h-4 w-4" /> My account
+              </Link>
               <button onClick={signOut} disabled={signingOut} className="btn-ghost btn-sm w-full">
                 <LogOut className="h-4 w-4" /> Sign out
               </button>
@@ -212,8 +216,10 @@ export default function AppShell({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/nsuk-crest.png" alt="" className="h-9 w-9" />
                   <div className="leading-tight">
-                    <p className="text-sm font-bold text-nsuk-blue">NSUK Assets</p>
-                    <p className="max-w-[40vw] truncate text-[11px] text-nsuk-faint">{scopeLabel}</p>
+                    <p className="text-sm font-bold text-nsuk-blue">NSUK Asset Management</p>
+                    <p className="max-w-[40vw] truncate text-[11px] text-nsuk-faint">
+                      {scopeLabel}
+                    </p>
                   </div>
                 </Link>
 
@@ -348,7 +354,10 @@ export default function AppShell({
                   ))}
                 </nav>
 
-                <div className="border-t border-nsuk-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="space-y-2 border-t border-nsuk-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                  <Link href="/account" className="btn-ghost w-full">
+                    <KeyRound className="h-4 w-4" /> My account
+                  </Link>
                   <button onClick={signOut} disabled={signingOut} className="btn-ghost w-full">
                     <LogOut className="h-4 w-4" /> Sign out
                   </button>

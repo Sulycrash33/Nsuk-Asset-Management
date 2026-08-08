@@ -1,5 +1,5 @@
 {
-  "name": "NSUK Asset Register",
+  "name": "NSUK Asset Management System",
   "short_name": "NSUK Assets",
   "description": "Asset inventory and barcode tracking for Nasarawa State University, Keffi.",
   "start_url": "/dashboard",
