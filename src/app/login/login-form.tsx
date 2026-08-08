@@ -25,7 +25,10 @@ export default function LoginForm({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
-  const [campusId, setCampusId] = useState(campuses[0]?.id ?? "");
+  // Default to the main campus rather than whichever sorts first alphabetically.
+  const [campusId, setCampusId] = useState(
+    (campuses.find((c) => c.name.startsWith("Keffi")) ?? campuses[0])?.id ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
