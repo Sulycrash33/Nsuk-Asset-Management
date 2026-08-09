@@ -33,11 +33,21 @@ export default function Modal({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Callers pass an inline arrow, so onClose is a different function on every
+  // render. Held in a ref, it can be called from the effect without the effect
+  // depending on it. When it was a dependency the effect re-ran on every
+  // keystroke and moved focus to the top of the dialog, which on a phone closed
+  // the keyboard after each character typed.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKeyDown);
 
@@ -45,6 +55,7 @@ export default function Modal({
     document.body.style.overflow = "hidden";
 
     // Focus the first control so keyboard and screen-reader users land inside.
+    // Runs once per opening, never again while the dialog stays open.
     const focusable = panelRef.current?.querySelector<HTMLElement>(
       'input:not([type="hidden"]), select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
     );
@@ -54,7 +65,7 @@ export default function Modal({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
