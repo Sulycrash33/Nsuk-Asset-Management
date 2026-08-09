@@ -166,6 +166,50 @@ export async function POST(request: Request) {
   return NextResponse.json({ id: userId, needsEmailConfirmation, invited: invite });
 }
 
+/**
+ * Set a new password on someone else's account.
+ *
+ * Needed because this University sends account details by hand rather than by
+ * email, so "Forgotten password" cannot reach anyone. Without this an
+ * administrator has no way to help a member of staff who is locked out, and
+ * the only remedy is editing the database.
+ */
+export async function PATCH(request: Request) {
+  const guard = await requireAdminCaller();
+  if ("error" in guard) return guard.error;
+
+  let body: { id?: string; password?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const id = (body.id ?? "").trim();
+  const password = body.password ?? "";
+
+  if (!id) return NextResponse.json({ error: "Missing user id." }, { status: 400 });
+  if (password.length < 8) {
+    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+  }
+
+  const admin = serviceClient();
+  if (!admin) {
+    return NextResponse.json(
+      {
+        error:
+          "Setting someone else's password needs SUPABASE_SERVICE_ROLE_KEY to be configured on the server.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(id, { password });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  return NextResponse.json({ ok: true });
+}
+
 /** Remove a staff account entirely. Requires the service role key. */
 export async function DELETE(request: Request) {
   const guard = await requireAdminCaller();
