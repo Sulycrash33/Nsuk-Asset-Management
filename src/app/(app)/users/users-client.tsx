@@ -2,7 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Check, Loader2, Plus, Search, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import {
+  Check,
+  KeyRound,
+  Loader2,
+  Mail,
+  Plus,
+  Search,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/ui/modal";
 import { useConfirm } from "@/components/ui/confirm";
@@ -25,8 +35,7 @@ function blankUser(campuses: Campus[]): NewUser {
     email: "",
     password: "",
     role: "staff",
-    campus_id:
-      (campuses.find((c) => c.name.startsWith("Keffi")) ?? campuses[0])?.id ?? "",
+    campus_id: (campuses.find((c) => c.name.startsWith("Keffi")) ?? campuses[0])?.id ?? "",
     unit_ids: [],
   };
 }
@@ -43,9 +52,7 @@ function UnitPicker({
 }) {
   const [term, setTerm] = useState("");
   const needle = term.trim().toLowerCase();
-  const visible = needle
-    ? ordered.filter((u) => u.name.toLowerCase().includes(needle))
-    : ordered;
+  const visible = needle ? ordered.filter((u) => u.name.toLowerCase().includes(needle)) : ordered;
 
   return (
     <div className="overflow-hidden rounded-xl border border-nsuk-line">
@@ -119,6 +126,7 @@ export default function UsersClient({
   const [formError, setFormError] = useState<string | null>(null);
 
   const [form, setForm] = useState<NewUser>(() => blankUser(campuses));
+  const [access, setAccess] = useState<"invite" | "password">("invite");
   const [editUnits, setEditUnits] = useState<string[]>([]);
   const [editRole, setEditRole] = useState<Role>("staff");
 
@@ -136,6 +144,10 @@ export default function UsersClient({
       body: JSON.stringify({
         ...form,
         campus_id: form.role === "admin" ? null : form.campus_id,
+        invite: access === "invite",
+        // Sent so the invitation link points back at whichever address this
+        // site is being used on, rather than a domain baked in at build time.
+        origin: window.location.origin,
       }),
     });
     const result = await response.json();
@@ -146,7 +158,9 @@ export default function UsersClient({
       return;
     }
 
-    if (result.needsEmailConfirmation) {
+    if (result.invited) {
+      toast.success(`Invitation sent to ${form.email}`, "They choose their own password.");
+    } else if (result.needsEmailConfirmation) {
       toast.info(
         `${form.name} was created`,
         "They must confirm their email address before they can sign in.",
@@ -157,6 +171,7 @@ export default function UsersClient({
 
     setCreating(false);
     setForm(blankUser(campuses));
+    setAccess("invite");
     router.refresh();
   }
 
@@ -277,9 +292,7 @@ export default function UsersClient({
                   {user.role === "admin"
                     ? "University-wide administrator"
                     : assigned.length
-                      ? assigned
-                          .map((id) => unitPath(id, units).split(" › ").pop())
-                          .join(", ")
+                      ? assigned.map((id) => unitPath(id, units).split(" › ").pop()).join(", ")
                       : "No unit assigned"}
                 </p>
               </div>
@@ -319,13 +332,9 @@ export default function UsersClient({
         title="New account"
         description="The person signs in with this email and password. Ask them to change the password after their first sign-in."
         footer={
-          <button
-            type="submit"
-            form="new-user-form"
-            className="btn-green w-full"
-            disabled={busy}
-          >
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />} Create account
+          <button type="submit" form="new-user-form" className="btn-green w-full" disabled={busy}>
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
+            {access === "invite" ? "Send invitation" : "Create account"}
           </button>
         }
       >
@@ -359,20 +368,62 @@ export default function UsersClient({
             />
           </div>
 
+          {/* Inviting is the normal route: no password is invented, sent or
+              known by anyone but the person themselves. Setting one by hand
+              stays available for when email cannot reach them. */}
           <div>
-            <label className="label" htmlFor="new-password">
-              Temporary password
-            </label>
-            <input
-              id="new-password"
-              className="field font-mono"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              minLength={8}
-              required
-              placeholder="At least 8 characters"
-            />
+            <span className="label">How they get in</span>
+            <div
+              role="radiogroup"
+              aria-label="How they get in"
+              className="grid gap-1 rounded-xl bg-nsuk-cream p-1 sm:grid-cols-2"
+            >
+              {(
+                [
+                  ["invite", "Send an invitation", Mail],
+                  ["password", "Set a password", KeyRound],
+                ] as const
+              ).map(([value, label, Icon]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={access === value}
+                  onClick={() => setAccess(value)}
+                  className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                    access === value
+                      ? "bg-nsuk-blue text-white shadow-[var(--shadow-e2)]"
+                      : "text-nsuk-blue hover:bg-white"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="hint">
+              {access === "invite"
+                ? "They receive an email and choose their own password. You never see it."
+                : "You choose the password and pass it on yourself. Use this if email cannot reach them."}
+            </p>
           </div>
+
+          {access === "password" && (
+            <div>
+              <label className="label" htmlFor="new-password">
+                Temporary password
+              </label>
+              <input
+                id="new-password"
+                className="field font-mono"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                minLength={8}
+                required
+                placeholder="At least 8 characters"
+              />
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -421,8 +472,8 @@ export default function UsersClient({
             </div>
           ) : (
             <p className="rounded-xl border border-nsuk-gold/30 bg-nsuk-gold-50 p-3 text-sm text-nsuk-gold-deep">
-              Administrators have access to every campus and every unit in the University. No
-              campus or unit assignment is required.
+              Administrators have access to every campus and every unit in the University. No campus
+              or unit assignment is required.
             </p>
           )}
 

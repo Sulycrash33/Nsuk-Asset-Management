@@ -46,6 +46,8 @@ export async function POST(request: Request) {
     role?: "admin" | "staff";
     campus_id?: string | null;
     unit_ids?: string[];
+    invite?: boolean;
+    origin?: string;
   };
   try {
     body = await request.json();
@@ -59,18 +61,55 @@ export async function POST(request: Request) {
   const role = body.role === "admin" ? "admin" : "staff";
   const unitIds = body.unit_ids ?? [];
 
-  if (!email || !password || !name) {
-    return NextResponse.json({ error: "Name, email and password are all required." }, { status: 400 });
+  const invite = body.invite === true;
+
+  if (!email || !name) {
+    return NextResponse.json({ error: "Name and email are both required." }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+  if (!invite) {
+    if (!password) {
+      return NextResponse.json({ error: "A password is required." }, { status: 400 });
+    }
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters." },
+        { status: 400 },
+      );
+    }
   }
 
   const admin = serviceClient();
   let userId: string;
   let needsEmailConfirmation = false;
 
-  if (admin) {
+  if (invite) {
+    // Inviting sends a link and never sets a password, so nobody but the
+    // recipient ever knows one. It needs the service key: there is no way to
+    // send an invitation with the public key, by design.
+    if (!admin) {
+      return NextResponse.json(
+        {
+          error:
+            "Invitations need SUPABASE_SERVICE_ROLE_KEY to be configured on the server. Set a password for this account instead.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const origin = typeof body.origin === "string" ? body.origin : new URL(request.url).origin;
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: { name },
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/reset-password?welcome=1")}`,
+    });
+
+    if (error || !data.user) {
+      return NextResponse.json(
+        { error: error?.message ?? "Could not send the invitation." },
+        { status: 400 },
+      );
+    }
+    userId = data.user.id;
+  } else if (admin) {
     const { data, error } = await admin.auth.admin.createUser({
       email,
       password,
@@ -78,7 +117,10 @@ export async function POST(request: Request) {
       user_metadata: { name, role, campus_id: body.campus_id ?? null },
     });
     if (error || !data.user) {
-      return NextResponse.json({ error: error?.message ?? "Could not create the account." }, { status: 400 });
+      return NextResponse.json(
+        { error: error?.message ?? "Could not create the account." },
+        { status: 400 },
+      );
     }
     userId = data.user.id;
   } else {
@@ -93,7 +135,10 @@ export async function POST(request: Request) {
       options: { data: { name, role, campus_id: body.campus_id ?? null } },
     });
     if (error || !data.user) {
-      return NextResponse.json({ error: error?.message ?? "Could not create the account." }, { status: 400 });
+      return NextResponse.json(
+        { error: error?.message ?? "Could not create the account." },
+        { status: 400 },
+      );
     }
     userId = data.user.id;
     needsEmailConfirmation = !data.session;
@@ -118,7 +163,7 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ id: userId, needsEmailConfirmation });
+  return NextResponse.json({ id: userId, needsEmailConfirmation, invited: invite });
 }
 
 /** Remove a staff account entirely. Requires the service role key. */

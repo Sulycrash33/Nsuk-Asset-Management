@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
@@ -10,6 +10,9 @@ const MIN_LENGTH = 8;
 
 export default function ResetForm() {
   const router = useRouter();
+  // An invited person has never had a password, so telling them to reset one
+  // would be confusing. Same screen, different words.
+  const welcome = useSearchParams().get("welcome") === "1";
 
   const [ready, setReady] = useState<"checking" | "valid" | "invalid">("checking");
   const [password, setPassword] = useState("");
@@ -71,8 +74,9 @@ export default function ResetForm() {
       <div className="card space-y-4">
         <h1 className="text-xl font-bold text-nsuk-blue">This link is no longer valid</h1>
         <p className="text-sm leading-relaxed text-nsuk-muted">
-          Password links expire after one hour and can be used only once. Request a new one from the
-          sign-in screen.
+          {welcome
+            ? "Invitation links expire and can be used only once. Ask the system administrator to send you another."
+            : "Password links expire after one hour and can be used only once. Request a new one from the sign-in screen."}
         </p>
         <Link href="/login" className="btn-primary w-full">
           Back to sign in
@@ -96,9 +100,13 @@ export default function ResetForm() {
   return (
     <form onSubmit={handleSubmit} className="card animate-fade-up space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-nsuk-blue">Set a new password</h1>
+        <h1 className="text-xl font-bold text-nsuk-blue">
+          {welcome ? "Welcome to the NSUK Asset Management System" : "Set a new password"}
+        </h1>
         <p className="mt-1 text-sm leading-relaxed text-nsuk-muted">
-          Choose a password of at least {MIN_LENGTH} characters that you do not use anywhere else.
+          {welcome
+            ? `Choose a password to finish setting up your account. Use at least ${MIN_LENGTH} characters, and one you do not use anywhere else.`
+            : `Choose a password of at least ${MIN_LENGTH} characters that you do not use anywhere else.`}
         </p>
       </div>
 
