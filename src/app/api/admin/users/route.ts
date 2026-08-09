@@ -125,9 +125,41 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const guard = await requireAdminCaller();
   if ("error" in guard) return guard.error;
+  const { supabase } = guard;
 
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing user id." }, { status: 400 });
+
+  // The screen hides the option, but the endpoint is reachable on its own, so
+  // the rule is enforced here too rather than trusted to the browser.
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser();
+  if (caller?.id === id) {
+    return NextResponse.json(
+      { error: "You cannot delete your own account. Ask another administrator to do it." },
+      { status: 400 },
+    );
+  }
+
+  // Deleting the auth user cascades to the profile, which would slip past the
+  // database trigger that protects the last administrator, so check first.
+  const { data: target } = await supabase.from("profiles").select("role").eq("id", id).single();
+  if (target?.role === "admin") {
+    const { count } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin");
+    if ((count ?? 0) <= 1) {
+      return NextResponse.json(
+        {
+          error:
+            "This is the only administrator on the system. Appoint another administrator first, or the University would be locked out of its own register.",
+        },
+        { status: 400 },
+      );
+    }
+  }
 
   const admin = serviceClient();
   if (!admin) {
