@@ -4,7 +4,10 @@ import { NextResponse, type NextRequest } from "next/server";
 // /reset-password is reachable signed out on purpose: when a recovery link has
 // expired there is no session, and the page needs to say so rather than bounce
 // someone to a bare sign-in screen with no explanation.
-const PUBLIC_PATHS = ["/", "/login", "/auth", "/reset-password"];
+// /offline is what the service worker shows when a page has never been opened
+// on this device. It must render without a session, or someone with no signal
+// gets bounced to a sign-in screen that cannot reach the server either.
+const PUBLIC_PATHS = ["/", "/login", "/auth", "/reset-password", "/offline"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

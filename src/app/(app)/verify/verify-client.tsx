@@ -7,20 +7,31 @@ import {
   CameraOff,
   CheckCircle2,
   ClipboardCheck,
+  CloudOff,
   Loader2,
   MapPinOff,
   Play,
+  RefreshCw,
   Square,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
+import {
+  cacheExpected,
+  forgetExpected,
+  forgetScan,
+  isOnline,
+  pendingScans,
+  queueScan,
+  readExpected,
+} from "@/lib/offline";
 import type { flattenTree } from "@/lib/tree";
 
 type Unit = ReturnType<typeof flattenTree>[number];
 type Session = { id: string; org_unit_id: string; started_at: string; closed_at?: string | null };
 
-type Outcome = "expected" | "elsewhere" | "unknown" | "repeat";
+type Outcome = "expected" | "elsewhere" | "unknown" | "repeat" | "queued";
 type ScanLine = { outcome: Outcome; barcode: string; name: string | null; at: number };
 
 type Result = {
@@ -38,6 +49,9 @@ const OUTCOME = {
   elsewhere: { label: "Belongs to another unit", tone: "text-nsuk-gold-deep", buzz: 90 },
   unknown: { label: "Not in the register", tone: "text-nsuk-danger", buzz: 200 },
   repeat: { label: "Already scanned", tone: "text-nsuk-muted", buzz: 0 },
+  // Judged against the list downloaded when the verification started. It will
+  // be confirmed against the register the moment the signal returns.
+  queued: { label: "Saved, no signal", tone: "text-nsuk-blue", buzz: 40 },
 } as const;
 
 export default function VerifyClient({
@@ -62,6 +76,9 @@ export default function VerifyClient({
   const [manual, setManual] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [online, setOnline] = useState(true);
+  const [queued, setQueued] = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
@@ -76,20 +93,39 @@ export default function VerifyClient({
       if (!barcode || !current || inFlight.current) return;
       inFlight.current = true;
 
+      const show = (outcome: Outcome, name: string | null) => {
+        navigator.vibrate?.(OUTCOME[outcome].buzz);
+        setLines((prev) => [{ outcome, barcode, name, at: Date.now() }, ...prev]);
+      };
+
+      // Nothing is attempted over a dead network: it would stall the scanner
+      // for the whole timeout while somebody stands there waiting.
+      if (!isOnline()) {
+        await queueScan(current.id, barcode);
+        const known = (await readExpected(current.id)).find((a) => a.barcode === barcode);
+        show("queued", known?.name ?? null);
+        setQueued((n) => n + 1);
+        setTimeout(() => {
+          inFlight.current = false;
+        }, 700);
+        return;
+      }
+
       const { data, error } = await createClient().rpc("record_verification_scan", {
         p_session_id: current.id,
         p_barcode: barcode,
       });
 
       if (error) {
-        toast.error("Could not record that scan", error.message);
+        // The signal can drop between the check above and the request itself,
+        // so a failure here is queued rather than reported as lost.
+        await queueScan(current.id, barcode);
+        const known = (await readExpected(current.id)).find((a) => a.barcode === barcode);
+        show("queued", known?.name ?? null);
+        setQueued((n) => n + 1);
       } else {
         const row = data as { outcome: Outcome; asset_name: string | null };
-        navigator.vibrate?.(OUTCOME[row.outcome].buzz);
-        setLines((prev) => [
-          { outcome: row.outcome, barcode, name: row.asset_name, at: Date.now() },
-          ...prev,
-        ]);
+        show(row.outcome, row.asset_name);
       }
       // Brief pause so the camera does not fire the same code repeatedly.
       setTimeout(() => {
@@ -127,6 +163,78 @@ export default function VerifyClient({
     }
   }, [record]);
 
+  /** Send everything that was scanned while the signal was gone. */
+  const flush = useCallback(async () => {
+    const current = sessionRef.current;
+    if (!current || !isOnline()) return;
+
+    const waiting = await pendingScans(current.id);
+    if (waiting.length === 0) {
+      setQueued(0);
+      return;
+    }
+
+    setSyncing(true);
+    const supabase = createClient();
+    let sent = 0;
+
+    for (const scan of waiting) {
+      const { error } = await supabase.rpc("record_verification_scan", {
+        p_session_id: scan.sessionId,
+        p_barcode: scan.barcode,
+      });
+      // Only forget a scan once the server has it. A failure leaves it queued
+      // for the next attempt rather than losing it quietly.
+      if (!error) {
+        await forgetScan(scan.key);
+        sent += 1;
+      }
+    }
+
+    setQueued((await pendingScans(current.id)).length);
+    setSyncing(false);
+    if (sent > 0) {
+      toast.success(
+        `${sent} scan${sent === 1 ? "" : "s"} sent`,
+        "Everything recorded while offline is now on the register.",
+      );
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    setOnline(isOnline());
+    const goOnline = () => {
+      setOnline(true);
+      flush();
+    };
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, [flush]);
+
+  // Anything left over from a previous visit is picked up on arrival.
+  useEffect(() => {
+    if (!session) return;
+    pendingScans(session.id).then((p) => setQueued(p.length));
+    flush();
+    // Resuming a verification started on another day, or another device.
+    readExpected(session.id).then((cached) => {
+      if (cached.length === 0 && isOnline()) {
+        createClient()
+          .from("assets")
+          .select("barcode,name")
+          .eq("org_unit_id", session.org_unit_id)
+          .then(({ data }) => {
+            if (data) cacheExpected(session.id, data as { barcode: string; name: string }[]);
+          });
+      }
+    });
+  }, [session, flush]);
+
   useEffect(() => () => controlsRef.current?.stop(), []);
 
   async function start() {
@@ -143,13 +251,42 @@ export default function VerifyClient({
       toast.error("Could not start the verification", error.message);
       return;
     }
-    setSession(data as Session);
+    const created = data as Session;
+    setSession(created);
     setLines([]);
     setResult(null);
+    await downloadExpected(created);
+  }
+
+  /**
+   * Take a copy of what this unit is supposed to contain, so a scan can still
+   * be judged in a store room with no signal.
+   */
+  async function downloadExpected(s: Session) {
+    const { data } = await createClient()
+      .from("assets")
+      .select("barcode,name")
+      .eq("org_unit_id", s.org_unit_id);
+    if (data) await cacheExpected(s.id, data as { barcode: string; name: string }[]);
   }
 
   async function finish() {
     if (!session) return;
+
+    // Finishing with scans still queued would count them as missing and put a
+    // false discrepancy in front of the Bursary.
+    if (queued > 0) {
+      await flush();
+      const left = await pendingScans(session.id);
+      if (left.length > 0) {
+        toast.error(
+          `${left.length} scan${left.length === 1 ? "" : "s"} still waiting`,
+          "Find a signal before finishing, or those items would be reported missing.",
+        );
+        return;
+      }
+    }
+
     const ok = await confirm({
       title: "Finish this verification?",
       body: "The result is worked out now and the exercise is closed. Anything not scanned counts as missing.",
@@ -173,6 +310,7 @@ export default function VerifyClient({
       .eq("id", session.id);
 
     stopCamera();
+    await forgetExpected(session.id);
     setBusy(false);
     setResult(data as Result);
     setSession(null);
@@ -291,6 +429,41 @@ export default function VerifyClient({
               Finish
             </button>
           </div>
+
+          {(!online || queued > 0) && (
+            <div
+              className={`flex items-start gap-2 rounded-xl border p-3 text-sm ${
+                online
+                  ? "border-nsuk-blue/25 bg-nsuk-blue-50 text-nsuk-blue"
+                  : "border-nsuk-gold/40 bg-nsuk-gold-50 text-nsuk-gold-deep"
+              }`}
+            >
+              {syncing ? (
+                <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+              ) : (
+                <CloudOff className="mt-0.5 h-4 w-4 shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className="font-semibold">
+                  {online ? "Catching up" : "No signal — carry on scanning"}
+                </p>
+                <p className="mt-0.5 leading-relaxed">
+                  {queued > 0
+                    ? `${queued} scan${queued === 1 ? "" : "s"} saved on this device${
+                        online
+                          ? ", being sent now."
+                          : ", they will be sent when the signal returns."
+                      }`
+                    : "Scans are saved on this device and sent when the signal returns."}
+                </p>
+              </div>
+              {online && queued > 0 && !syncing && (
+                <button onClick={flush} className="btn-ghost btn-sm shrink-0">
+                  Send now
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-nsuk-ink">
             <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />

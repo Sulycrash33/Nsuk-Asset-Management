@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import ServiceWorkerRegistration from "@/components/service-worker";
 
 // Inter carries the whole interface; JetBrains Mono is reserved for barcodes
 // and serial numbers, where a person has to read or retype the exact string.
@@ -41,7 +42,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
-      <body className="min-h-dvh bg-nsuk-cream font-sans antialiased">{children}</body>
+      <body className="min-h-dvh bg-nsuk-cream font-sans antialiased">
+        {children}
+        <ServiceWorkerRegistration />
+      </body>
     </html>
   );
 }
