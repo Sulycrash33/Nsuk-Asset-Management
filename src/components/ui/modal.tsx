@@ -15,6 +15,7 @@ export default function Modal({
   children,
   footer,
   size = "md",
+  tall = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -23,6 +24,12 @@ export default function Modal({
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg";
+  /**
+   * Fills the phone screen instead of hugging the content. Long forms otherwise
+   * open as a short sheet with a cramped scrolling window inside it, which
+   * hides most of the form and wastes the screen.
+   */
+  tall?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -66,7 +73,9 @@ export default function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`animate-sheet-up relative flex max-h-[92dvh] w-full ${width} flex-col overflow-hidden rounded-t-3xl bg-white shadow-[var(--shadow-e3)] sm:rounded-2xl`}
+        className={`animate-sheet-up relative flex max-h-[92dvh] w-full ${width} ${
+          tall ? "h-[92dvh] sm:h-auto" : ""
+        } flex-col overflow-hidden rounded-t-3xl bg-white shadow-[var(--shadow-e3)] sm:rounded-2xl`}
       >
         {/* Grab handle reads as "drag me" on a phone. */}
         <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-nsuk-line sm:hidden" />

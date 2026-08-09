@@ -275,7 +275,10 @@ export default function AppShell({
                       <span
                         className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
                           isScan
-                            ? "-mt-4 h-12 w-12 bg-nsuk-gold text-nsuk-ink shadow-[var(--shadow-e3)]"
+                            ? // Raised centre key. The margins cancel out — it sits
+                              // 16px higher and is 8px taller, so mb-2 puts the
+                              // label back in line with the others.
+                              "-mt-4 mb-2 h-12 w-12 bg-nsuk-gold text-nsuk-ink shadow-[var(--shadow-e3)]"
                             : active
                               ? "bg-nsuk-blue text-white"
                               : "text-nsuk-faint"
