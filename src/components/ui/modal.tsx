@@ -72,48 +72,55 @@ export default function Modal({
   const width = size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-2xl" : "max-w-md";
 
   return (
-    <div className="no-print fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+    // The overlay scrolls. Viewport units do not mean the same thing on every
+    // phone, and in desktop-site mode they can resolve taller than the screen,
+    // which left the dialog overflowing with its title and first fields above
+    // the top edge and no way to reach them. Whatever the height maths does,
+    // scrolling the overlay always gets to the top of the dialog.
+    <div className="no-print fixed inset-0 z-50 overflow-y-auto overscroll-contain">
       <button
         aria-label="Close dialog"
         onClick={onClose}
-        className="animate-fade-in absolute inset-0 cursor-default bg-nsuk-ink/45 backdrop-blur-[2px]"
+        className="animate-fade-in fixed inset-0 cursor-default bg-nsuk-ink/45 backdrop-blur-[2px]"
       />
 
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className={`animate-sheet-up relative flex max-h-[92dvh] w-full ${width} ${
-          tall ? "h-[92dvh] sm:h-auto" : ""
-        } flex-col overflow-hidden rounded-t-3xl bg-white shadow-[var(--shadow-e3)] sm:rounded-2xl`}
-      >
-        {/* Grab handle reads as "drag me" on a phone. */}
-        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-nsuk-line sm:hidden" />
+      <div className="relative flex min-h-full items-end justify-center sm:items-center sm:p-4">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          className={`animate-sheet-up relative flex max-h-[92dvh] w-full ${width} ${
+            tall ? "h-[92dvh] sm:h-auto" : ""
+          } flex-col overflow-hidden rounded-t-3xl bg-white shadow-[var(--shadow-e3)] sm:rounded-2xl`}
+        >
+          {/* Grab handle reads as "drag me" on a phone. */}
+          <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-nsuk-line sm:hidden" />
 
-        <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
-          <div className="min-w-0">
-            <h2 className="text-lg leading-tight font-bold text-nsuk-blue">{title}</h2>
-            {description && (
-              <p className="mt-1 text-sm leading-relaxed text-nsuk-muted">{description}</p>
-            )}
+          <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
+            <div className="min-w-0">
+              <h2 className="text-lg leading-tight font-bold text-nsuk-blue">{title}</h2>
+              {description && (
+                <p className="mt-1 text-sm leading-relaxed text-nsuk-muted">{description}</p>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="-mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-nsuk-line text-nsuk-muted transition hover:bg-nsuk-cream hover:text-nsuk-ink"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="-mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-nsuk-line text-nsuk-muted transition hover:bg-nsuk-cream hover:text-nsuk-ink"
-          >
-            <X className="h-4 w-4" />
-          </button>
+
+          <div className="scroll-slim flex-1 overflow-y-auto px-5 pb-2">{children}</div>
+
+          {footer && (
+            <div className="border-t border-nsuk-line bg-nsuk-cream/60 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              {footer}
+            </div>
+          )}
         </div>
-
-        <div className="scroll-slim flex-1 overflow-y-auto px-5 pb-2">{children}</div>
-
-        {footer && (
-          <div className="border-t border-nsuk-line bg-nsuk-cream/60 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            {footer}
-          </div>
-        )}
       </div>
     </div>
   );
