@@ -8,6 +8,7 @@ import {
   Boxes,
   Building2,
   ChevronRight,
+  ClipboardCheck,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -36,6 +37,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/assets", label: "Assets", icon: Boxes },
       { href: "/scan", label: "Scan", icon: ScanLine },
+      { href: "/verify", label: "Verification", icon: ClipboardCheck },
     ],
   },
   {
