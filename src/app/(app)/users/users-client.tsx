@@ -106,12 +106,15 @@ function UnitPicker({
 export default function UsersClient({
   profiles,
   unitsByUser,
+  recordedByUser,
   units,
   campuses,
   currentUserId,
 }: {
   profiles: Profile[];
   unitsByUser: Record<string, string[]>;
+  /** How many assets each person has entered, so the work is visible. */
+  recordedByUser: Record<string, number>;
   units: OrgUnit[];
   campuses: Campus[];
   currentUserId: string;
@@ -374,6 +377,11 @@ export default function UsersClient({
                     : assigned.length
                       ? assigned.map((id) => unitPath(id, units).split(" › ").pop()).join(", ")
                       : "No unit assigned"}
+                </p>
+                {/* Makes the work visible: who is actually filling the register. */}
+                <p className="truncate text-xs text-nsuk-faint">
+                  {(recordedByUser[user.id] ?? 0).toLocaleString()} asset
+                  {(recordedByUser[user.id] ?? 0) === 1 ? "" : "s"} recorded
                 </p>
               </div>
 

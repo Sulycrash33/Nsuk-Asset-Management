@@ -10,14 +10,21 @@ export default async function UsersPage() {
   const { units, campuses, profile } = await requireAdmin();
   const supabase = await createClient();
 
-  const [{ data: profiles }, { data: assignments }] = await Promise.all([
+  const [{ data: profiles }, { data: assignments }, { data: work }] = await Promise.all([
     supabase.from("profiles").select("*").order("name"),
     supabase.from("user_units").select("user_id,org_unit_id"),
+    // Counted in the database, so this stays cheap as the register grows.
+    supabase.rpc("work_recorded"),
   ]);
 
   const unitsByUser: Record<string, string[]> = {};
   for (const row of assignments ?? []) {
     (unitsByUser[row.user_id] ??= []).push(row.org_unit_id);
+  }
+
+  const recordedByUser: Record<string, number> = {};
+  for (const row of (work ?? []) as { user_id: string; assets: number }[]) {
+    recordedByUser[row.user_id] = Number(row.assets);
   }
 
   return (
@@ -33,6 +40,7 @@ export default async function UsersPage() {
       <UsersClient
         profiles={(profiles ?? []) as Profile[]}
         unitsByUser={unitsByUser}
+        recordedByUser={recordedByUser}
         units={units}
         campuses={campuses}
         currentUserId={profile.id}
