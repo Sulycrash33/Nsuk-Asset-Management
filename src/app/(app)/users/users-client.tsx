@@ -131,6 +131,7 @@ export default function UsersClient({
   const [form, setForm] = useState<NewUser>(() => blankUser(campuses));
   const [access, setAccess] = useState<"invite" | "password">("invite");
   const [editUnits, setEditUnits] = useState<string[]>([]);
+  const [newPassword, setNewPassword] = useState("");
   const [editRole, setEditRole] = useState<Role>("staff");
 
   const toggle = (list: string[], id: string) =>
@@ -260,6 +261,39 @@ export default function UsersClient({
     router.refresh();
   }
 
+  /**
+   * Set a password on someone else's account. Accounts here are handed over in
+   * person rather than by email, so "Forgotten password" cannot reach anyone;
+   * without this an administrator has no way to help someone locked out.
+   */
+  async function resetPassword() {
+    if (!editing || newPassword.length < 8) return;
+
+    const ok = await confirm({
+      title: `Set a new password for ${editing.name || editing.email}?`,
+      body: "Their current password stops working immediately. Give them the new one and ask them to change it from My account.",
+      confirmLabel: "Set password",
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    setFormError(null);
+    const response = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editing.id, password: newPassword }),
+    });
+    const result = await response.json();
+    setBusy(false);
+
+    if (!response.ok) {
+      setFormError(result.error ?? "Could not set the password.");
+      return;
+    }
+    toast.success("Password set", `Give it to ${editing.name || editing.email} yourself.`);
+    setNewPassword("");
+  }
+
   async function deleteUser(user: Profile) {
     const ok = await confirm({
       title: "Delete this account?",
@@ -350,6 +384,7 @@ export default function UsersClient({
                     setEditUnits(assigned);
                     setEditRole(user.role);
                     setFormError(null);
+                    setNewPassword("");
                   }}
                   className="btn-ghost btn-sm"
                 >
@@ -545,7 +580,6 @@ export default function UsersClient({
               or unit assignment is required.
             </p>
           )}
-
         </form>
       </Modal>
 
@@ -601,6 +635,38 @@ export default function UsersClient({
                 />
               </div>
             )}
+
+            <div className="rounded-xl border border-nsuk-line bg-nsuk-cream p-3">
+              <div className="flex items-start gap-2">
+                <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-nsuk-blue" />
+                <div>
+                  <p className="text-sm font-semibold text-nsuk-ink">Set a new password</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-nsuk-muted">
+                    For when someone is locked out. Their old password stops working at once, and
+                    they can change this one themselves from My account.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-2 flex gap-2">
+                <input
+                  className="field font-mono"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  aria-label={`New password for ${editing.name || editing.email}`}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={resetPassword}
+                  disabled={busy || newPassword.length < 8}
+                  className="btn-ghost shrink-0"
+                >
+                  Set
+                </button>
+              </div>
+            </div>
 
             {formError && (
               <p className="rounded-xl border border-nsuk-danger/25 bg-nsuk-danger-soft p-3 text-sm text-nsuk-danger">
