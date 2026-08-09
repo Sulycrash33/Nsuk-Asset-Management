@@ -1,15 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
-import { AlertCircle, Check, Download, FileUp, Loader2, Printer } from "lucide-react";
+import { AlertCircle, Check, Copy, Download, FileUp, Loader2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import UnitSelect from "@/components/unit-select";
 import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
-import { CONDITIONS, type Asset, type AssetCategory, type Condition, type OrgUnit } from "@/lib/types";
+import {
+  CONDITIONS,
+  type Asset,
+  type AssetCategory,
+  type Condition,
+  type OrgUnit,
+} from "@/lib/types";
 
 /** Fields an uploaded column can be mapped onto. */
 const FIELDS = [
@@ -97,6 +103,11 @@ export default function ImportClient({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Serial numbers in this file that the register already holds. Looked up once
+  // per file rather than per row, so a large import is still one round trip.
+  const [alreadyRegistered, setAlreadyRegistered] = useState<Set<string>>(new Set());
+  const [checkingSerials, setCheckingSerials] = useState(false);
+  const [allowDuplicates, setAllowDuplicates] = useState(false);
   const [imported, setImported] = useState<Asset[] | null>(null);
   const toast = useToast();
 
@@ -117,6 +128,16 @@ export default function ImportClient({
   const prepared: PreparedRow[] = useMemo(() => {
     if (!mapping.name) return [];
     const allowed = selectableUnits ? new Set(selectableUnits) : null;
+
+    // Where each serial number first appears, so the second occurrence can say
+    // which row it clashes with rather than simply calling itself a duplicate.
+    const firstSeenAt = new Map<string, number>();
+    if (mapping.serial_number) {
+      rows.forEach((row, i) => {
+        const serial = (row[mapping.serial_number!] ?? "").trim().toLowerCase();
+        if (serial && !firstSeenAt.has(serial)) firstSeenAt.set(serial, i);
+      });
+    }
 
     return rows.map((row, index) => {
       const get = (key: FieldKey) => (mapping[key] ? (row[mapping[key]!] ?? "").trim() : "");
@@ -152,10 +173,24 @@ export default function ImportClient({
       if (valueRaw && !Number.isFinite(value)) problems.push(`Value “${valueRaw}” is not a number`);
 
       const dateRaw = get("acquisition_date");
-      const acquisition_date = dateRaw && !Number.isNaN(Date.parse(dateRaw))
-        ? new Date(dateRaw).toISOString().slice(0, 10)
-        : null;
+      const acquisition_date =
+        dateRaw && !Number.isNaN(Date.parse(dateRaw))
+          ? new Date(dateRaw).toISOString().slice(0, 10)
+          : null;
       if (dateRaw && !acquisition_date) problems.push(`Date “${dateRaw}” is not readable`);
+
+      // A repeated serial number almost always means the same physical item has
+      // been entered twice, which is exactly what a register must not contain.
+      const serial = get("serial_number");
+      const key = serial.toLowerCase();
+      if (serial) {
+        const first = firstSeenAt.get(key);
+        if (first !== undefined && first !== index) {
+          problems.push(`Duplicate serial number, same as row ${first + 2} of this file`);
+        } else if (alreadyRegistered.has(key)) {
+          problems.push("Duplicate serial number, already on the register");
+        }
+      }
 
       return {
         index,
@@ -165,18 +200,78 @@ export default function ImportClient({
         location: get("location") || null,
         condition,
         value: Number.isFinite(value) ? value : 0,
-        serial_number: get("serial_number") || null,
+        serial_number: serial || null,
         acquisition_date,
         notes: get("notes") || null,
         problems,
       };
     });
-  }, [rows, mapping, defaultUnit, unitByName, categoryByName, selectableUnits]);
+  }, [rows, mapping, defaultUnit, unitByName, categoryByName, selectableUnits, alreadyRegistered]);
+
+  const isDuplicate = (p: string) => p.startsWith("Duplicate serial number");
 
   const blocked = prepared.filter((r) =>
-    r.problems.some((p) => !p.startsWith("Unknown condition") && !p.startsWith("Unknown category")),
+    r.problems.some(
+      (p) =>
+        !p.startsWith("Unknown condition") &&
+        !p.startsWith("Unknown category") &&
+        !(allowDuplicates && isDuplicate(p)),
+    ),
   );
+
+  const duplicateCount = prepared.filter((r) => r.problems.some(isDuplicate)).length;
   const importable = prepared.filter((r) => !blocked.includes(r));
+
+  /**
+   * Ask the register which of these serial numbers it already holds. Done in
+   * batches because a URL carrying ten thousand values would be rejected long
+   * before the database saw it.
+   */
+  useEffect(() => {
+    const column = mapping.serial_number;
+    if (!column || rows.length === 0) {
+      setAlreadyRegistered(new Set());
+      return;
+    }
+
+    const serials = [
+      ...new Set(rows.map((r) => (r[column] ?? "").trim()).filter((v) => v.length > 0)),
+    ];
+    if (serials.length === 0) {
+      setAlreadyRegistered(new Set());
+      return;
+    }
+
+    let cancelled = false;
+    setCheckingSerials(true);
+
+    (async () => {
+      const supabase = createClient();
+      const found = new Set<string>();
+      const BATCH = 200;
+
+      for (let i = 0; i < serials.length; i += BATCH) {
+        // Matched without regard to case: the register holding "SN-ABC-001"
+        // and the spreadsheet saying "sn-abc-001" is the same physical item,
+        // and that is exactly the duplicate worth catching.
+        const { data } = await supabase.rpc("existing_serial_numbers", {
+          p_serials: serials.slice(i, i + BATCH),
+        });
+        for (const serial of (data ?? []) as string[]) found.add(serial);
+        if (cancelled) return;
+      }
+
+      if (!cancelled) {
+        setAlreadyRegistered(found);
+        setCheckingSerials(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      setCheckingSerials(false);
+    };
+  }, [rows, mapping.serial_number]);
 
   function handleFile(file: File) {
     setError(null);
@@ -325,9 +420,7 @@ export default function ImportClient({
           <span className="text-sm font-semibold text-nsuk-blue">
             {fileName || "Choose a CSV file"}
           </span>
-          <span className="text-xs text-nsuk-faint">
-            First row must be the column headings
-          </span>
+          <span className="text-xs text-nsuk-faint">First row must be the column headings</span>
           <input
             type="file"
             accept=".csv,text/csv"
@@ -392,7 +485,33 @@ export default function ImportClient({
               {importable.length.toLocaleString()} of {prepared.length.toLocaleString()} rows are
               ready to import
               {blocked.length > 0 && `, ${blocked.length.toLocaleString()} need attention`}.
+              {checkingSerials && " Checking serial numbers against the register\u2026"}
             </p>
+
+            {duplicateCount > 0 && (
+              <div className="rounded-xl border border-nsuk-gold/40 bg-nsuk-gold-50 p-3">
+                <p className="flex items-start gap-2 text-sm font-semibold text-nsuk-gold-deep">
+                  <Copy className="mt-0.5 h-4 w-4 shrink-0" />
+                  {duplicateCount.toLocaleString()} row{duplicateCount === 1 ? "" : "s"} with a
+                  duplicate serial number
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-nsuk-gold-deep/90">
+                  A repeated serial number usually means the same physical item is being recorded
+                  twice, which is the one thing a register must not contain. Each row below says
+                  whether it clashes with another row in this file or with an asset already
+                  recorded.
+                </p>
+                <label className="mt-2 flex items-start gap-2 text-sm text-nsuk-gold-deep">
+                  <input
+                    type="checkbox"
+                    checked={allowDuplicates}
+                    onChange={(e) => setAllowDuplicates(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-[#1A3C6E]"
+                  />
+                  Import them anyway. Only if you are certain these really are separate items.
+                </label>
+              </div>
+            )}
 
             <div className="-mx-4 overflow-x-auto px-4">
               <table className="min-w-full text-left text-sm">
