@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
+  AlertCircle,
   Check,
   KeyRound,
   Loader2,
@@ -133,8 +134,42 @@ export default function UsersClient({
   const toggle = (list: string[], id: string) =>
     list.includes(id) ? list.filter((u) => u !== id) : [...list, id];
 
+  /**
+   * Names the first field that is not filled in, and brings it into view. The
+   * form is longer than a phone screen, so a message about a field nobody can
+   * see is worse than no message at all.
+   */
+  function firstProblem(): { id: string; message: string } | null {
+    if (!form.name.trim()) {
+      return { id: "new-name", message: "Enter the person's full name." };
+    }
+    if (!form.email.trim()) {
+      return { id: "new-email", message: "Enter their email address." };
+    }
+    if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) {
+      return { id: "new-email", message: "That email address does not look right." };
+    }
+    if (access === "password" && form.password.length < 8) {
+      return {
+        id: "new-password",
+        message: "The password must be at least 8 characters.",
+      };
+    }
+    return null;
+  }
+
   async function createUser(e: React.FormEvent) {
     e.preventDefault();
+
+    const problem = firstProblem();
+    if (problem) {
+      setFormError(problem.message);
+      const field = document.getElementById(problem.id);
+      field?.scrollIntoView({ block: "center" });
+      field?.focus({ preventScroll: true });
+      return;
+    }
+
     setBusy(true);
     setFormError(null);
 
@@ -330,15 +365,34 @@ export default function UsersClient({
         open={creating}
         onClose={() => setCreating(false)}
         title="New account"
-        description="The person signs in with this email and password. Ask them to change the password after their first sign-in."
+        description="Their role and units are set here, so the account is right from their first sign-in."
+        tall
         footer={
-          <button type="submit" form="new-user-form" className="btn-green w-full" disabled={busy}>
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
-            {access === "invite" ? "Send invitation" : "Create account"}
-          </button>
+          <div className="space-y-2">
+            {/* Kept beside the button rather than at the end of the form, which
+                on a phone is scrolled well out of sight. */}
+            {formError && (
+              <p
+                role="alert"
+                className="flex items-start gap-2 rounded-xl border border-nsuk-danger/25 bg-nsuk-danger-soft p-3 text-sm text-nsuk-danger"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                {formError}
+              </p>
+            )}
+            <button type="submit" form="new-user-form" className="btn-green w-full" disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
+              {access === "invite" ? "Send invitation" : "Create account"}
+            </button>
+          </div>
         }
       >
-        <form id="new-user-form" onSubmit={createUser} className="space-y-4 pb-2">
+        {/* noValidate: the browser anchors "Please fill in this field" to the
+            offending input, which in a scrolling sheet is usually out of sight,
+            so the warning appears to belong to whichever field happens to be on
+            screen. createUser checks the fields itself and brings the right one
+            into view. */}
+        <form id="new-user-form" onSubmit={createUser} noValidate className="space-y-4 pb-2">
           <div>
             <label className="label" htmlFor="new-name">
               Full name
@@ -477,11 +531,6 @@ export default function UsersClient({
             </p>
           )}
 
-          {formError && (
-            <p className="rounded-xl border border-nsuk-danger/25 bg-nsuk-danger-soft p-3 text-sm text-nsuk-danger">
-              {formError}
-            </p>
-          )}
         </form>
       </Modal>
 
