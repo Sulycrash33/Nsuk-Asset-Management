@@ -275,16 +275,16 @@ export default function AppShell({
                       <span
                         className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
                           isScan
-                            ? // Raised centre key. The margins cancel out — it sits
-                              // 16px higher and is 8px taller, so mb-2 puts the
-                              // label back in line with the others.
-                              "-mt-4 mb-2 h-12 w-12 bg-nsuk-gold text-nsuk-ink shadow-[var(--shadow-e3)]"
+                            ? // Scanning is the most used action, so it keeps the
+                              // gold, but it sits in the row like everything else
+                              // rather than standing proud of it.
+                              "bg-nsuk-gold text-nsuk-ink"
                             : active
                               ? "bg-nsuk-blue text-white"
                               : "text-nsuk-faint"
                         }`}
                       >
-                        <tab.icon className={isScan ? "h-6 w-6" : "h-5 w-5"} />
+                        <tab.icon className="h-5 w-5" />
                       </span>
                       <span className={active ? "text-nsuk-blue" : "text-nsuk-faint"}>
                         {tab.label}
