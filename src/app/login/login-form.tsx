@@ -2,9 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { AlertCircle, Eye, EyeOff, Loader2, ShieldCheck, UserRound } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Campus, Role } from "@/lib/types";
 
 /**
  * Supabase returns terse technical strings. These are the ones a person signing
@@ -35,27 +34,16 @@ function readableAuthError(err: unknown): string {
   return raw || "Sign in was unsuccessful. Please try again.";
 }
 
-export default function LoginForm({
-  campuses,
-  needsBootstrap,
-}: {
-  campuses: Campus[];
-  needsBootstrap: boolean;
-}) {
+export default function LoginForm({ needsBootstrap }: { needsBootstrap: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const nextPath = params.get("next") || "/dashboard";
 
   const [mode, setMode] = useState<"login" | "bootstrap">(needsBootstrap ? "bootstrap" : "login");
-  const [role, setRole] = useState<Role>("staff");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
-  // Default to the main campus rather than whichever sorts first alphabetically.
-  const [campusId, setCampusId] = useState(
-    (campuses.find((c) => c.name.startsWith("Keffi")) ?? campuses[0])?.id ?? "",
-  );
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -91,25 +79,6 @@ export default function LoginForm({
           password,
         });
         if (signInError) throw signInError;
-
-        // Staff belong to one campus, so the choice is stamped on their profile
-        // the first time they sign in. Administrators cover every campus and
-        // are deliberately left without one.
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          const { data: existing } = await supabase
-            .from("profiles")
-            .select("role,campus_id")
-            .eq("id", userData.user.id)
-            .single();
-
-          if (existing?.role === "staff" && !existing.campus_id && campusId) {
-            await supabase
-              .from("profiles")
-              .update({ campus_id: campusId })
-              .eq("id", userData.user.id);
-          }
-        }
       }
 
       router.replace(nextPath);
@@ -160,37 +129,6 @@ export default function LoginForm({
             : "Enter the credentials issued to you by the system administrator."}
         </p>
       </div>
-
-      {mode === "login" && (
-        <div
-          role="tablist"
-          aria-label="Account type"
-          className="relative grid grid-cols-2 gap-1 rounded-xl bg-nsuk-cream p-1"
-        >
-          {(
-            [
-              ["staff", "Staff", UserRound],
-              ["admin", "Administrator", ShieldCheck],
-            ] as const
-          ).map(([value, label, Icon]) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={role === value}
-              onClick={() => setRole(value)}
-              className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                role === value
-                  ? "bg-nsuk-blue text-white shadow-[var(--shadow-e2)]"
-                  : "text-nsuk-blue hover:bg-white"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {mode === "bootstrap" && (
         <div>
@@ -252,28 +190,6 @@ export default function LoginForm({
           </button>
         </div>
       </div>
-
-      {/* Only staff belong to a single campus, so the field is theirs alone.
-          Administrators simply see nothing here. */}
-      {mode === "login" && role === "staff" && (
-        <div>
-          <label className="label" htmlFor="campus">
-            Campus
-          </label>
-          <select
-            id="campus"
-            className="field"
-            value={campusId}
-            onChange={(e) => setCampusId(e.target.value)}
-          >
-            {campuses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {error && (
         <p

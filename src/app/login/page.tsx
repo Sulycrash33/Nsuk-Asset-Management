@@ -2,16 +2,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import LoginForm from "./login-form";
-import type { Campus } from "@/lib/types";
 
 export const metadata = { title: "Login" };
 
 export default async function LoginPage() {
+  // No campus list is fetched: the campus is set when the account is created,
+  // so the sign-in screen has no business asking for one.
   const supabase = await createClient();
-  const [{ data: campuses }, { data: needsBootstrap }] = await Promise.all([
-    supabase.from("campuses").select("id,name").order("name"),
-    supabase.rpc("needs_bootstrap"),
-  ]);
+  const { data: needsBootstrap } = await supabase.rpc("needs_bootstrap");
 
   return (
     <main className="flex min-h-dvh flex-col">
@@ -26,10 +24,7 @@ export default async function LoginPage() {
         </Link>
 
         <Suspense fallback={<div className="card h-96 animate-pulse" />}>
-          <LoginForm
-            campuses={(campuses ?? []) as Campus[]}
-            needsBootstrap={needsBootstrap === true}
-          />
+          <LoginForm needsBootstrap={needsBootstrap === true} />
         </Suspense>
       </div>
     </main>
