@@ -125,6 +125,8 @@ export default function UsersClient({
   const [editing, setEditing] = useState<Profile | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Which field the current error belongs to, so it can be marked in place.
+  const [problemField, setProblemField] = useState<string | null>(null);
 
   const [form, setForm] = useState<NewUser>(() => blankUser(campuses));
   const [access, setAccess] = useState<"invite" | "password">("invite");
@@ -164,14 +166,23 @@ export default function UsersClient({
     const problem = firstProblem();
     if (problem) {
       setFormError(problem.message);
-      const field = document.getElementById(problem.id);
-      field?.scrollIntoView({ block: "center" });
-      field?.focus({ preventScroll: true });
+      setProblemField(problem.id);
+      // Deferred by a frame, and the field is focused rather than merely
+      // scrolled to. On a phone, pressing the button dismisses the keyboard,
+      // which resizes the viewport and re-scrolls the page a moment later;
+      // scrolling immediately is undone by that. Focusing also makes the phone
+      // bring the field into view itself, which is more reliable than asking.
+      requestAnimationFrame(() => {
+        const field = document.getElementById(problem.id);
+        field?.focus();
+        field?.scrollIntoView({ block: "center" });
+      });
       return;
     }
 
     setBusy(true);
     setFormError(null);
+    setProblemField(null);
 
     const response = await fetch("/api/admin/users", {
       method: "POST",
@@ -399,12 +410,16 @@ export default function UsersClient({
             </label>
             <input
               id="new-name"
-              className="field"
+              className={`field ${problemField === "new-name" ? "border-nsuk-danger" : ""}`}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
               placeholder="e.g. Aisha Bello"
             />
+            {/* Repeated at the field as well as beside the button. Scrolling on
+                a phone is unreliable enough that the message should be findable
+                wherever the person ends up looking. */}
+            {problemField === "new-name" && <p className="hint text-nsuk-danger">{formError}</p>}
           </div>
 
           <div>
@@ -414,7 +429,7 @@ export default function UsersClient({
             <input
               id="new-email"
               type="email"
-              className="field"
+              className={`field ${problemField === "new-email" ? "border-nsuk-danger" : ""}`}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
