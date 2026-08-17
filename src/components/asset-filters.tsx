@@ -4,23 +4,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import UnitSelect from "@/components/unit-select";
-import { CONDITIONS, type AssetCategory, type OrgUnit } from "@/lib/types";
+import { CONDITIONS, type AssetCategory, type Campus, type OrgUnit } from "@/lib/types";
+
+const FILTER_KEYS = ["unit", "campus", "category", "condition", "from", "to", "sort"];
 
 /** Search + filter bar. Filters live in the URL so views stay shareable. */
 export default function AssetFilters({
   units,
   categories,
+  campuses,
   restrictTo,
 }: {
   units: OrgUnit[];
   categories: AssetCategory[];
+  campuses: Campus[];
   restrictTo?: string[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
   const [term, setTerm] = useState(params.get("q") ?? "");
   const [showFilters, setShowFilters] = useState(
-    Boolean(params.get("unit") || params.get("category") || params.get("condition")),
+    FILTER_KEYS.some((k) => params.get(k)),
   );
 
   useEffect(() => {
@@ -36,7 +40,7 @@ export default function AssetFilters({
     router.push(`?${search.toString()}`);
   }
 
-  const activeCount = ["unit", "category", "condition"].filter((k) => params.get(k)).length;
+  const activeCount = FILTER_KEYS.filter((k) => params.get(k)).length;
 
   return (
     <div className="space-y-2">
@@ -76,8 +80,26 @@ export default function AssetFilters({
       {showFilters && (
         <div className="card grid gap-3 sm:grid-cols-3">
           <div>
+            <label className="label" htmlFor="filter-campus">
+              Campus
+            </label>
+            <select
+              id="filter-campus"
+              className="field"
+              value={params.get("campus") ?? ""}
+              onChange={(e) => apply({ campus: e.target.value || null, unit: null })}
+            >
+              <option value="">Any campus</option>
+              {campuses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label" htmlFor="filter-unit">
-              Unit
+              Faculty, school, directorate or unit
             </label>
             <UnitSelect
               id="filter-unit"
@@ -87,6 +109,9 @@ export default function AssetFilters({
               restrictTo={restrictTo}
               placeholder="Any unit"
             />
+            <p className="mt-1 text-xs text-nsuk-faint">
+              Choosing a faculty or school includes every department beneath it.
+            </p>
           </div>
           <div>
             <label className="label" htmlFor="filter-category">
@@ -125,10 +150,63 @@ export default function AssetFilters({
             </select>
           </div>
 
+          <div>
+            <label className="label" htmlFor="filter-from">
+              Recorded from
+            </label>
+            <input
+              id="filter-from"
+              type="date"
+              className="field"
+              value={params.get("from") ?? ""}
+              onChange={(e) => apply({ from: e.target.value || null })}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="filter-to">
+              Recorded to
+            </label>
+            <input
+              id="filter-to"
+              type="date"
+              className="field"
+              value={params.get("to") ?? ""}
+              onChange={(e) => apply({ to: e.target.value || null })}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="filter-sort">
+              Sort by
+            </label>
+            <select
+              id="filter-sort"
+              className="field"
+              value={params.get("sort") ?? ""}
+              onChange={(e) => apply({ sort: e.target.value || null })}
+            >
+              <option value="">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="name">Name (A to Z)</option>
+              <option value="value">Value (highest first)</option>
+              <option value="unit">Unit</option>
+            </select>
+          </div>
+
           {(activeCount > 0 || params.get("q")) && (
             <button
               type="button"
-              onClick={() => apply({ unit: null, category: null, condition: null, q: null })}
+              onClick={() =>
+                apply({
+                  unit: null,
+                  campus: null,
+                  category: null,
+                  condition: null,
+                  from: null,
+                  to: null,
+                  sort: null,
+                  q: null,
+                })
+              }
               className="btn-ghost btn-sm justify-self-start sm:col-span-3"
             >
               <X className="h-4 w-4" /> Clear all filters

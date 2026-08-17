@@ -7,16 +7,18 @@ import UnitSelect from "@/components/unit-select";
 import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
-import type { AssetWithRefs, OrgUnit } from "@/lib/types";
+import type { AssetWithRefs, Campus, OrgUnit } from "@/lib/types";
 
 export default function LabelsClient({
   assets,
   units,
+  campuses,
   restrictTo,
   truncated,
 }: {
   assets: AssetWithRefs[];
   units: OrgUnit[];
+  campuses: Campus[];
   restrictTo?: string[];
   truncated: boolean;
 }) {
@@ -67,6 +69,9 @@ export default function LabelsClient({
           barcode: a.barcode,
           name: a.name,
           unitName: unitPath(a.org_unit_id, units) || a.org_units?.name || "",
+          campusName:
+            campuses.find((c) => c.id === units.find((u) => u.id === a.org_unit_id)?.campus_id)
+              ?.name ?? null,
           categoryName: a.asset_categories?.name ?? null,
         }));
       const doc = await generateLabelSheet(labels);

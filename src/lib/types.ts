@@ -5,12 +5,21 @@ export type Condition = (typeof CONDITIONS)[number];
 
 export const UNIT_TYPES = [
   "Faculty",
-  "Department",
+  "School",
   "Directorate",
+  "Department",
+  "Centre",
   "Office",
   "Clinic",
   "Other",
 ] as const;
+
+/**
+ * The tiers an asset schedule is grouped and reported by. Departments and
+ * offices sit beneath one of these, so a schedule "by Faculty" means every
+ * item held anywhere below that faculty.
+ */
+export const TOP_TIERS = ["Faculty", "School", "Directorate"] as const;
 export type UnitType = (typeof UNIT_TYPES)[number];
 
 export type Campus = {
@@ -25,6 +34,8 @@ export type OrgUnit = {
   name: string;
   unit_type: string;
   code: string | null;
+  /** Three letters used in the asset code, e.g. ACC in NSU/ADM/ACC/CP/T/001. */
+  short_code: string | null;
   created_at?: string;
 };
 
@@ -40,6 +51,8 @@ export type Profile = {
 export type AssetCategory = {
   id: string;
   name: string;
+  /** Two letters used as the item type in the asset code. */
+  code?: string | null;
 };
 
 export type Asset = {

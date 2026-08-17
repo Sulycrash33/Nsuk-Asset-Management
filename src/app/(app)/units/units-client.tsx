@@ -15,6 +15,7 @@ type Draft = {
   id?: string;
   name: string;
   unit_type: string;
+  short_code: string;
   campus_id: string;
   parent_id: string | null;
 };
@@ -25,6 +26,8 @@ const TYPE_TONE: Record<string, string> = {
   Directorate: "border-nsuk-green/25 bg-nsuk-green-50 text-nsuk-green",
   Office: "border-nsuk-line bg-nsuk-cream text-nsuk-muted",
   Clinic: "border-nsuk-gold/40 bg-nsuk-gold-50 text-nsuk-gold-deep",
+  School: "border-nsuk-blue/25 bg-nsuk-blue-50 text-nsuk-blue",
+  Centre: "border-nsuk-green/25 bg-nsuk-green-50 text-nsuk-green",
   Other: "border-nsuk-line bg-nsuk-cream text-nsuk-muted",
 };
 
@@ -65,6 +68,8 @@ export default function UnitsClient({
     const payload = {
       name: draft.name.trim(),
       unit_type: draft.unit_type,
+      // Left empty the database derives one; typed in, it is used as given.
+      short_code: draft.short_code.trim().toUpperCase() || null,
       campus_id: draft.campus_id,
       parent_id: draft.parent_id,
     };
@@ -180,6 +185,7 @@ export default function UnitsClient({
                 setDraft({
                   name: "",
                   unit_type: "Department",
+                  short_code: "",
                   campus_id: node.campus_id,
                   parent_id: node.id,
                 })
@@ -195,6 +201,7 @@ export default function UnitsClient({
                   id: node.id,
                   name: node.name,
                   unit_type: node.unit_type,
+                  short_code: node.short_code ?? "",
                   campus_id: node.campus_id,
                   parent_id: node.parent_id,
                 })
@@ -237,6 +244,7 @@ export default function UnitsClient({
             setDraft({
               name: "",
               unit_type: "Faculty",
+              short_code: "",
               campus_id: campuses[0]?.id ?? "",
               parent_id: null,
             })
@@ -299,7 +307,25 @@ export default function UnitsClient({
                     </option>
                   ))}
                 </select>
-                <p className="hint">Used for reporting only. It does not change any behaviour.</p>
+                <p className="hint">Used for reporting and for grouping the schedule.</p>
+              </div>
+
+              <div>
+                <label className="label" htmlFor="unit-short-code">
+                  Code in asset numbers
+                </label>
+                <input
+                  id="unit-short-code"
+                  className="field font-mono uppercase"
+                  maxLength={6}
+                  value={draft.short_code}
+                  onChange={(e) => setDraft({ ...draft, short_code: e.target.value })}
+                  placeholder="Left blank, one is worked out"
+                />
+                <p className="hint">
+                  The segment this unit contributes, as in NSU/ADM/<b>ACC</b>/CP/T/001. Existing
+                  asset numbers are not changed.
+                </p>
               </div>
 
               <div>
