@@ -6,7 +6,7 @@ import AssetFilters from "@/components/asset-filters";
 import RegisterExportButton from "@/components/register-export-button";
 import EmptyState from "@/components/ui/empty-state";
 import { CONDITION_STYLES, formatNaira, type AssetWithRefs, type AssetCategory } from "@/lib/types";
-import { unitPath } from "@/lib/tree";
+import { descendantIds, unitPath } from "@/lib/tree";
 
 export const metadata = { title: "Assets" };
 export const dynamic = "force-dynamic";
@@ -31,20 +31,54 @@ export default async function AssetsPage({
 
   const q = one("q");
   const unit = one("unit");
+  const campus = one("campus");
   const category = one("category");
   const condition = one("condition");
-  const filtered = Boolean(q || unit || category || condition);
+  const from = one("from");
+  const to = one("to");
+  const sort = one("sort");
+  const filtered = Boolean(q || unit || campus || category || condition || from || to);
 
   let query = supabase
     .from("assets")
-    .select("*, asset_categories(name), org_units(name,code)")
-    .order("created_at", { ascending: false })
+    .select("*, asset_categories(name), org_units(name,code,campus_id)")
     .limit(PAGE_SIZE);
 
+  // Newest first unless asked otherwise. Sorting by unit uses the joined row so
+  // a schedule reads in the same order as the tree on screen.
+  switch (sort) {
+    case "oldest":
+      query = query.order("created_at", { ascending: true });
+      break;
+    case "name":
+      query = query.order("name", { ascending: true });
+      break;
+    case "value":
+      query = query.order("value", { ascending: false });
+      break;
+    case "unit":
+      query = query.order("org_unit_id", { ascending: true }).order("name", { ascending: true });
+      break;
+    default:
+      query = query.order("created_at", { ascending: false });
+  }
+
   if (!isAdmin) query = query.in("org_unit_id", scopedUnitIds.length ? scopedUnitIds : ["-"]);
-  if (unit) query = query.eq("org_unit_id", unit);
+
+  // A faculty, school or directorate stands for everything beneath it, so
+  // picking one has to include its departments rather than matching it alone.
+  if (unit) {
+    query = query.in("org_unit_id", descendantIds([unit], units));
+  } else if (campus) {
+    const onCampus = units.filter((u) => u.campus_id === campus).map((u) => u.id);
+    query = query.in("org_unit_id", onCampus.length ? onCampus : ["-"]);
+  }
+
   if (category) query = query.eq("category_id", category);
   if (condition) query = query.eq("condition", condition);
+  if (from) query = query.gte("created_at", `${from}T00:00:00`);
+  // The "to" date is inclusive of the whole day, which is what a person means.
+  if (to) query = query.lte("created_at", `${to}T23:59:59.999`);
   if (q) {
     const term = q.replace(/[%,()]/g, " ").trim();
     query = query.or(
@@ -56,14 +90,20 @@ export default async function AssetsPage({
   const rows = (assets ?? []) as AssetWithRefs[];
   const totalValue = rows.reduce((sum, a) => sum + Number(a.value ?? 0), 0);
 
+  const campusName = campus ? (campuses.find((c) => c.id === campus)?.name ?? null) : null;
+
   const scopeName = unit
     ? unitPath(unit, units)
-    : isAdmin
+    : campusName
+      ? campusName
+      : isAdmin
       ? "All units"
-      : units
-          .filter((u) => scopedUnitIds.includes(u.id) && !scopedUnitIds.includes(u.parent_id ?? ""))
-          .map((u) => u.name)
-          .join(", ") || "My units";
+        : units
+            .filter(
+              (u) => scopedUnitIds.includes(u.id) && !scopedUnitIds.includes(u.parent_id ?? ""),
+            )
+            .map((u) => u.name)
+            .join(", ") || "My units";
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -86,11 +126,14 @@ export default async function AssetsPage({
             assets={rows}
             unitName={scopeName}
             campusName={
-              isAdmin
+              campusName ??
+              (isAdmin
                 ? "All campuses"
-                : (campuses.find((c) => c.id === profile.campus_id)?.name ?? null)
+                : (campuses.find((c) => c.id === profile.campus_id)?.name ?? null))
             }
             generatedBy={profile.name || profile.email}
+            units={units}
+            campuses={campuses}
           />
           <Link href="/assets/new" className="btn-green btn-sm">
             <Plus className="h-4 w-4" /> Add
@@ -101,6 +144,7 @@ export default async function AssetsPage({
       <AssetFilters
         units={units}
         categories={(categories ?? []) as AssetCategory[]}
+        campuses={campuses}
         restrictTo={isAdmin ? undefined : scopedUnitIds}
       />
 
@@ -113,7 +157,7 @@ export default async function AssetsPage({
           <EmptyState
             icon={SearchX}
             title="No assets match these filters"
-            body="Try a different unit, category or condition, or clear the filters to see everything within your scope."
+            body="Try a different campus, unit, category, condition or date range, or clear the filters to see everything within your scope."
             action={
               <Link href="/assets" className="btn-ghost">
                 Clear all filters

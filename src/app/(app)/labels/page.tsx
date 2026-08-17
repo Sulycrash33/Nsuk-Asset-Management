@@ -16,7 +16,7 @@ export default async function LabelsPage({
   const params = await searchParams;
   const unit = typeof params.unit === "string" ? params.unit : undefined;
 
-  const { isAdmin, scopedUnitIds, units } = await requireSession();
+  const { isAdmin, scopedUnitIds, units, campuses } = await requireSession();
   const supabase = await createClient();
 
   let query = supabase
@@ -43,6 +43,7 @@ export default async function LabelsPage({
       <LabelsClient
         assets={(assets ?? []) as AssetWithRefs[]}
         units={units}
+        campuses={campuses}
         restrictTo={isAdmin ? undefined : scopedUnitIds}
         truncated={(assets ?? []).length === MAX_ROWS}
       />

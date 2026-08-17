@@ -72,3 +72,21 @@ export function descendantIds(rootIds: string[], units: OrgUnit[]): string[] {
   }
   return [...seen];
 }
+
+/**
+ * The faculty, school or directorate a unit reports to, i.e. the topmost
+ * ancestor. A department's schedule line belongs under its faculty, not under
+ * itself, which is what makes a schedule "by Faculty" mean anything.
+ */
+export function topTierOf(unitId: string, units: OrgUnit[]): OrgUnit | undefined {
+  const byId = new Map(units.map((u) => [u.id, u]));
+  let current = byId.get(unitId);
+  const guard = new Set<string>();
+  while (current?.parent_id && !guard.has(current.id)) {
+    guard.add(current.id);
+    const parent = byId.get(current.parent_id);
+    if (!parent) break;
+    current = parent;
+  }
+  return current;
+}

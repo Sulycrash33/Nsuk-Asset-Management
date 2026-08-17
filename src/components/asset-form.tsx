@@ -189,6 +189,9 @@ export default function AssetForm({
         barcode: target.barcode,
         name: target.name,
         unitName: unitPath(target.org_unit_id, units),
+        campusName:
+          campuses.find((c) => c.id === units.find((u) => u.id === target.org_unit_id)?.campus_id)
+            ?.name ?? null,
         categoryName: categories.find((c) => c.id === target.category_id)?.name ?? null,
       });
       savePdf(doc, `${target.barcode}.pdf`);
