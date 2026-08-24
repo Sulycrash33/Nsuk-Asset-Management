@@ -6,7 +6,7 @@ import { useState } from "react";
 import { AlertCircle, Camera, Check, Loader2, Plus, Printer, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import UnitSelect from "@/components/unit-select";
-import BarcodeImage, { QrImage } from "@/components/barcode-image";
+import { QrImage } from "@/components/barcode-image";
 import { useToast } from "@/components/ui/toast";
 import { generateSingleLabel, savePdf } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
@@ -217,14 +217,11 @@ export default function AssetForm({
         </div>
 
         <div className="rounded-2xl border border-nsuk-line bg-nsuk-cream p-4">
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <div>
-              <BarcodeImage value={created.barcode} />
-              <p className="mt-2 font-mono text-base font-bold tracking-wider text-nsuk-ink">
-                {created.barcode}
-              </p>
-            </div>
-            <QrImage value={created.qr_payload} size={104} />
+          <div className="flex flex-col items-center gap-3">
+            <QrImage value={created.qr_payload} size={132} />
+            <p className="font-mono text-base font-bold tracking-wider text-nsuk-ink">
+              {created.barcode}
+            </p>
           </div>
           <p className="mt-3 text-xs text-nsuk-muted">
             Print this label and stick it on the item. Scanning it will open this record.
