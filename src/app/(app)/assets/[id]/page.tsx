@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, History, Pencil, QrCode } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import BarcodeImage, { QrImage } from "@/components/barcode-image";
+import { QrImage } from "@/components/barcode-image";
 import AssetActions from "@/components/asset-actions";
 import { unitPath } from "@/lib/tree";
 import {
@@ -129,12 +129,9 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
         <h2 className="section-title flex items-center gap-2">
           <QrCode className="h-4 w-4" /> Label
         </h2>
-        <div className="mt-4 flex flex-col items-center gap-5 rounded-2xl bg-nsuk-cream p-4 sm:flex-row sm:justify-center">
-          <div className="text-center">
-            <BarcodeImage value={record.barcode} />
-            <p className="mt-2 font-mono text-sm font-bold tracking-wider">{record.barcode}</p>
-          </div>
-          <QrImage value={record.qr_payload} size={128} />
+        <div className="mt-4 flex flex-col items-center gap-3 rounded-2xl bg-nsuk-cream p-4">
+          <QrImage value={record.qr_payload} size={148} />
+          <p className="font-mono text-sm font-bold tracking-wider">{record.barcode}</p>
         </div>
       </section>
 

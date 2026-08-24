@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { code128Svg } from "@/lib/code128";
 
-/** On-screen Code 128 rendering — SVG so it stays sharp on any display. */
+/**
+ * On-screen Code 128 rendering, SVG so it stays sharp on any display.
+ *
+ * Nothing renders this today: the University prints QR labels, which phone
+ * cameras read far more reliably and which survive a scratched sticker. It is
+ * kept because the payload is unchanged, so restoring a barcode anywhere is a
+ * one line change if handheld laser scanners are ever bought.
+ */
 export default function BarcodeImage({
   value,
   width = 260,
@@ -42,6 +49,8 @@ export function QrImage({ value, size = 160 }: { value: string; size?: number })
     QRCode.toDataURL(value, {
       margin: 0,
       width: size * 2,
+      // Matches the printed label, so a screen and a sticker behave alike.
+      errorCorrectionLevel: "Q",
       color: { dark: "#111111", light: "#FFFFFF" },
     })
       .then((url) => {
