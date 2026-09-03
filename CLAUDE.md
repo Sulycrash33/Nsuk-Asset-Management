@@ -53,6 +53,13 @@ readable refusal, via `isDuplicateSerialError` in `src/lib/serials.ts`. Fold cas
 with `normaliseSerial` when comparing, or the screen will accept what the index
 then rejects.
 
+**Database functions pin their `search_path`.** Migration 21 set it on the three
+asset-code functions the advisor caught after migration 19. It matters most on a
+`SECURITY DEFINER` function, where an unpinned path is privilege escalation, but
+the convention here is every function: `set search_path = public`, matching the
+rest of the schema. Prefer `alter function ... set search_path` for an existing
+one — it leaves a working body alone.
+
 **The last administrator cannot be removed.** Enforced by trigger *and* checked
 in the delete endpoint, because deleting an auth user cascades past the trigger.
 
@@ -108,17 +115,24 @@ turned out to be false. Prefer measuring to asserting.
   empty.
 - Whether to print both a QR and a barcode. On the measurements that is the most
   robust option.
-- In Supabase: confirm public signup is off (`/auth/v1/settings` should report
-  `disable_signup: true`), and enable leaked password protection, which needs a
-  Pro plan.
+- In Supabase: leaked password protection is still off and needs a Pro plan.
+  Public signup **is** off — `/auth/v1/settings` reports `disable_signup: true`,
+  email provider only, no external OAuth. Confirmed 3 Sep 2026.
+- The security advisor is clean apart from that, and a row per `SECURITY
+  DEFINER` function saying signed-in users can call it. Those are the point of
+  the functions — each carries its own check — so they are expected, not a
+  backlog. Read them as a list to recognise, and look for anything that is not
+  on it.
+- The performance advisor reports most indexes as unused and will keep doing so
+  until real data arrives: nothing has queried an empty register. Two findings
+  are real and outlive that — `verification_scans.asset_id` and
+  `verification_sessions.started_by` are foreign keys with no covering index.
+  Unfixed; they cost nothing until verification runs at scale. It also flags a
+  read and a write policy both being permissive for `SELECT` on five tables,
+  which is a real if small cost on every read — worth folding together only with
+  care, because they are the access rules.
 - Agreed but unbuilt: bulk actions, Excel export, a read only auditor role. The
   custodian feature was started and deliberately removed at the user's request.
-- **Migration 20 has not been applied to the live database.** The Supabase
-  project was paused when it was written, so the file and the live schema are
-  out of step until someone resumes the project and applies it. Verified instead
-  against a local Postgres 16: the index builds on an empty register, rejects a
-  case-folded duplicate, accepts many NULLs, closes a genuine two-session race,
-  and refuses to build with a named list when duplicates already exist.
 - Staff can only record assets into units assigned to them
   (`assets_insert`: `is_admin() or org_unit_id in (my_unit_ids())`). Several
   people recording "across the University" therefore means either administrator
