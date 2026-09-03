@@ -6,13 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { QrImage } from "@/components/barcode-image";
 import AssetActions from "@/components/asset-actions";
 import { unitPath } from "@/lib/tree";
-import {
-  CONDITION_STYLES,
-  formatNaira,
-  type AssetLog,
-  type AssetWithRefs,
-  type Profile,
-} from "@/lib/types";
+import { ASSET_WITH_REFS, CONDITION_STYLES, formatNaira, type AssetLog, type AssetWithRefs, type Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +24,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
 
   const { data: asset } = await supabase
     .from("assets")
-    .select("*, asset_categories(name), org_units(name,code)")
+    .select(ASSET_WITH_REFS)
     .eq("id", id)
     .maybeSingle();
 

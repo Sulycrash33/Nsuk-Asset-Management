@@ -3,7 +3,7 @@ import { Search } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { unitPath } from "@/lib/tree";
-import { CONDITION_STYLES, formatNaira, type AssetWithRefs } from "@/lib/types";
+import { ASSET_WITH_REFS, CONDITION_STYLES, formatNaira, type AssetWithRefs } from "@/lib/types";
 
 export const metadata = { title: "Global search" };
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function GlobalSearchPage({
     const term = q.replace(/[%,()]/g, " ").trim();
     const { data } = await supabase
       .from("assets")
-      .select("*, asset_categories(name), org_units(name,code)")
+      .select(ASSET_WITH_REFS)
       .or(`barcode.ilike.%${term}%,serial_number.ilike.%${term}%,name.ilike.%${term}%`)
       .order("created_at", { ascending: false })
       .limit(100);

@@ -1,7 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { formatNaira } from "@/lib/types";
+
+const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+
+/**
+ * Subscribes to the reduced-motion setting rather than reading it inside an
+ * effect, so the first render already knows and the value follows a change
+ * made while the page is open.
+ */
+function usePrefersReducedMotion() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia(REDUCED_MOTION);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(REDUCED_MOTION).matches,
+    // The server cannot know the preference; assume motion is welcome so the
+    // markup matches the common case and hydration settles it.
+    () => false,
+  );
+}
 
 /**
  * Counts up to `value` on mount. Static for anyone who prefers reduced motion,
@@ -10,16 +31,11 @@ import { formatNaira } from "@/lib/types";
 function useCountUp(value: number, duration = 900) {
   const [display, setDisplay] = useState(value);
   const frameRef = useRef<number | null>(null);
+  const reduced = usePrefersReducedMotion();
+  const animated = !reduced && value !== 0;
 
   useEffect(() => {
-    const reduced =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (reduced || value === 0) {
-      setDisplay(value);
-      return;
-    }
+    if (!animated) return;
 
     const start = performance.now();
     const step = (now: number) => {
@@ -34,9 +50,11 @@ function useCountUp(value: number, duration = 900) {
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, [value, duration]);
+  }, [value, duration, animated]);
 
-  return display;
+  // Anyone who does not get the animation reads the settled figure straight
+  // off the prop, so there is no state to keep in step with it.
+  return animated ? display : value;
 }
 
 /**

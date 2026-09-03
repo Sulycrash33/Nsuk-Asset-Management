@@ -18,7 +18,10 @@ import {
   Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { CONDITION_STYLES, formatNaira, type AssetWithRefs } from "@/lib/types";
+import { ASSET_WITH_REFS, CONDITION_STYLES, formatNaira, type AssetWithRefs } from "@/lib/types";
+
+/** Stable empty list, so a term with no rows yet does not remount the results. */
+const EMPTY_ROWS: AssetWithRefs[] = [];
 
 type Command = { label: string; href: string; icon: typeof Boxes; adminOnly?: boolean };
 
@@ -43,8 +46,10 @@ export default function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
-  const [results, setResults] = useState<AssetWithRefs[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [fetched, setFetched] = useState<{ term: string; rows: AssetWithRefs[] }>({
+    term: "",
+    rows: EMPTY_ROWS,
+  });
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -62,7 +67,7 @@ export default function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
   const close = useCallback(() => {
     setOpen(false);
     setTerm("");
-    setResults([]);
+    setFetched({ term: "", rows: EMPTY_ROWS });
     setCursor(0);
   }, []);
 
@@ -83,29 +88,30 @@ export default function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
     if (open) inputRef.current?.focus();
   }, [open]);
 
+  const needle = term.trim();
+  const longEnough = needle.length >= 2;
+
+  // Rows are only shown while they still answer what is in the box, so a
+  // changed term empties the list by itself and there is nothing to reset.
+  const results = fetched.term === needle ? fetched.rows : EMPTY_ROWS;
+  const searching = longEnough && fetched.term !== needle;
+
   // Debounced asset lookup.
   useEffect(() => {
-    const needle = term.trim();
-    if (needle.length < 2) {
-      setResults([]);
-      setSearching(false);
-      return;
-    }
+    if (!longEnough) return;
 
-    setSearching(true);
     const timer = window.setTimeout(async () => {
       const safe = needle.replace(/[%,()]/g, " ").trim();
       const { data } = await createClient()
         .from("assets")
-        .select("*, asset_categories(name), org_units(name,code)")
+        .select(ASSET_WITH_REFS)
         .or(`name.ilike.%${safe}%,barcode.ilike.%${safe}%,serial_number.ilike.%${safe}%`)
         .limit(6);
-      setResults((data ?? []) as AssetWithRefs[]);
-      setSearching(false);
+      setFetched({ term: needle, rows: (data ?? []) as AssetWithRefs[] });
     }, 220);
 
     return () => window.clearTimeout(timer);
-  }, [term]);
+  }, [needle, longEnough]);
 
   const items = useMemo(
     () => [
@@ -115,7 +121,12 @@ export default function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
     [matchedCommands, results],
   );
 
-  useEffect(() => setCursor(0), [term]);
+  // A new term means a new first result to highlight.
+  const [cursorTerm, setCursorTerm] = useState(term);
+  if (term !== cursorTerm) {
+    setCursorTerm(term);
+    setCursor(0);
+  }
 
   function onListKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {

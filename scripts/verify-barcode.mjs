@@ -38,7 +38,15 @@ const hints = new Map([
   [DecodeHintType.TRY_HARDER, true],
 ]);
 
+// The matric-style codes the register actually issues, plus the older flat form
+// so anything already labelled under it keeps decoding. The slash is the part
+// worth testing: it moves Code 128 between character sets, which is exactly
+// where a pattern table gets a payload subtly wrong.
 const samples = [
+  "NSU/ADM/ACC/CP/T/001",
+  "NSU/FOS/CSC/LP/T/042",
+  "NSU/FOA/ARC/FN/T/999",
+  "NSU/ADM/BURS/CP/T/0001",
   "NSUK-CS-0001",
   "NSUK-BURS-9999",
   "NSUK-FOL-0042",

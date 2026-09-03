@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import LabelsClient from "./labels-client";
-import type { AssetWithRefs } from "@/lib/types";
+import { ASSET_WITH_REFS, type AssetWithRefs } from "@/lib/types";
 
 export const metadata = { title: "Print labels" };
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export default async function LabelsPage({
 
   let query = supabase
     .from("assets")
-    .select("*, asset_categories(name), org_units(name,code)")
+    .select(ASSET_WITH_REFS)
     .order("created_at", { ascending: false })
     .limit(MAX_ROWS);
 
