@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { AlertCircle, Check, Copy, Download, FileUp, Loader2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { isDuplicateSerialError } from "@/lib/serials";
 import UnitSelect from "@/components/unit-select";
 import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
@@ -326,8 +327,13 @@ export default function ImportClient({
       const { data, error: insertError } = await supabase.from("assets").insert(chunk).select("*");
       if (insertError) {
         setBusy(false);
+        // The rows were checked against the register before this ran, so a
+        // clash here means somebody else registered that serial in between.
+        // Saying so is more use than the constraint name.
         setError(
-          `Imported ${created.length} of ${importable.length} rows, then stopped: ${insertError.message}`,
+          isDuplicateSerialError(insertError)
+            ? `Imported ${created.length} of ${importable.length} rows, then stopped: a serial number in the next batch was registered by someone else while this import was running. Re-check the file and import what is left.`
+            : `Imported ${created.length} of ${importable.length} rows, then stopped: ${insertError.message}`,
         );
         if (created.length) setImported(created);
         setStep(3);

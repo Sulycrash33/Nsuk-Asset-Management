@@ -42,6 +42,17 @@ up as an administrator by putting `role: admin` in signup metadata. Fixed in
 migration 12: `handle_new_user()` always assigns `staff` unless no administrator
 exists at all. Do not reintroduce a path that reads a role from the client.
 
+**A serial number belongs to one asset, and the database is what says so.**
+Migration 20 puts a unique index on `lower(serial_number)`, partial on
+`serial_number is not null` — most assets have no serial, and those must not
+collide with each other. Before it, duplicate detection lived only in the import
+screen, which asked and then inserted: two officers importing the same serial at
+once both passed, and the single-asset form did not check at all. Any new screen
+that writes an asset gets this for free; what it still owes the person is a
+readable refusal, via `isDuplicateSerialError` in `src/lib/serials.ts`. Fold case
+with `normaliseSerial` when comparing, or the screen will accept what the index
+then rejects.
+
 **The last administrator cannot be removed.** Enforced by trigger *and* checked
 in the delete endpoint, because deleting an auth user cascades past the trigger.
 
@@ -102,6 +113,16 @@ turned out to be false. Prefer measuring to asserting.
   Pro plan.
 - Agreed but unbuilt: bulk actions, Excel export, a read only auditor role. The
   custodian feature was started and deliberately removed at the user's request.
+- **Migration 20 has not been applied to the live database.** The Supabase
+  project was paused when it was written, so the file and the live schema are
+  out of step until someone resumes the project and applies it. Verified instead
+  against a local Postgres 16: the index builds on an empty register, rejects a
+  case-folded duplicate, accepts many NULLs, closes a genuine two-session race,
+  and refuses to build with a named list when duplicates already exist.
+- Staff can only record assets into units assigned to them
+  (`assets_insert`: `is_admin() or org_unit_id in (my_unit_ids())`). Several
+  people recording "across the University" therefore means either administrator
+  accounts or units assigned to each one — worth checking before a pilot day.
 
 ## Things that are not this project
 

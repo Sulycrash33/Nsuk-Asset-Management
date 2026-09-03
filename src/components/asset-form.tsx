@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AlertCircle, Camera, Check, Loader2, Plus, Printer, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import UnitSelect from "@/components/unit-select";
@@ -10,6 +10,11 @@ import { QrImage } from "@/components/barcode-image";
 import { useToast } from "@/components/ui/toast";
 import { generateSingleLabel, savePdf } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
+import {
+  DUPLICATE_SERIAL_MESSAGE,
+  isDuplicateSerialError,
+  serialAlreadyRegistered,
+} from "@/lib/serials";
 import {
   CONDITIONS,
   type Asset,
@@ -84,9 +89,37 @@ export default function AssetForm({
   const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Asset | null>(null);
+  // Reported against the serial box rather than the form, because that is the
+  // field that has to change and it is a long way from the save button.
+  const [serialTaken, setSerialTaken] = useState(false);
+  const [checkingSerial, setCheckingSerial] = useState(false);
+  /** The serial the in-flight lookup was asked about, so a late reply can be
+   *  told apart from the current one. */
+  const serialAskedFor = useRef("");
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  /**
+   * Asked when the officer leaves the serial box, so a clash is known while the
+   * cursor is still near the field rather than after the whole form is filled.
+   */
+  async function checkSerial() {
+    const typed = form.serial_number.trim();
+    if (!typed) {
+      setSerialTaken(false);
+      return;
+    }
+    serialAskedFor.current = typed;
+    setCheckingSerial(true);
+    const taken = await serialAlreadyRegistered(typed, asset?.serial_number);
+
+    // A slow answer describes the value it was asked about. If the box has
+    // moved on since, that answer is about something nobody is looking at.
+    if (serialAskedFor.current !== typed) return;
+    setCheckingSerial(false);
+    setSerialTaken(taken);
+  }
 
   async function uploadPhoto(file: File) {
     setUploading(true);
@@ -117,6 +150,19 @@ export default function AssetForm({
       return;
     }
     setBusy(true);
+
+    // Asked once more here: the box may never have been left, and the answer
+    // from the blur check may be stale by now. The index below is what actually
+    // guarantees it; this is only so the refusal reads like a sentence.
+    if (form.serial_number.trim()) {
+      const taken = await serialAlreadyRegistered(form.serial_number, asset?.serial_number);
+      if (taken) {
+        setSerialTaken(true);
+        setError(DUPLICATE_SERIAL_MESSAGE);
+        setBusy(false);
+        return;
+      }
+    }
 
     const payload = {
       name: form.name.trim(),
@@ -156,7 +202,12 @@ export default function AssetForm({
       setBusy(false);
 
       if (updateError) {
-        setError(updateError.message);
+        // Someone else may have registered that serial between the check above
+        // and this write. The database refuses it either way; this only turns
+        // the refusal into something worth reading.
+        const clash = isDuplicateSerialError(updateError);
+        setSerialTaken(clash);
+        setError(clash ? DUPLICATE_SERIAL_MESSAGE : updateError.message);
         return;
       }
       toast.success("Changes saved", asset.barcode);
@@ -173,7 +224,11 @@ export default function AssetForm({
     setBusy(false);
 
     if (insertError || !data) {
-      setError(insertError?.message ?? "Could not save the asset.");
+      const clash = isDuplicateSerialError(insertError);
+      setSerialTaken(clash);
+      setError(
+        clash ? DUPLICATE_SERIAL_MESSAGE : (insertError?.message ?? "Could not save the asset."),
+      );
       return;
     }
 
@@ -375,11 +430,33 @@ export default function AssetForm({
             </label>
             <input
               id="serial"
-              className="field font-mono"
+              className={`field font-mono ${serialTaken ? "border-nsuk-danger" : ""}`}
               value={form.serial_number}
-              onChange={(e) => set("serial_number", e.target.value)}
+              onChange={(e) => {
+                set("serial_number", e.target.value);
+                // The old answer described the old value.
+                if (serialTaken) setSerialTaken(false);
+              }}
+              onBlur={checkSerial}
               placeholder="Manufacturer serial, if any"
+              aria-invalid={serialTaken}
+              aria-describedby={serialTaken ? "serial-taken" : undefined}
             />
+            {checkingSerial && (
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-nsuk-muted">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Checking the register…
+              </p>
+            )}
+            {serialTaken && !checkingSerial && (
+              <p
+                id="serial-taken"
+                className="mt-1 flex items-start gap-1.5 text-xs text-nsuk-danger"
+              >
+                <AlertCircle className="mt-px h-3 w-3 shrink-0" />
+                Another asset already carries this serial number.
+              </p>
+            )}
           </div>
         </div>
 
