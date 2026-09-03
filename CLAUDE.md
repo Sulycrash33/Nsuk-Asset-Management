@@ -88,6 +88,14 @@ what is being searched for. Prove a new index is actually reachable by planning
 the query against realistic rows rather than by reasoning: a partial index the
 planner will not use is worse than none.
 
+The same goes the other way. A unique constraint is an index, and it answers
+queries on its leading column, so a separate index on that column alone is dead
+weight paid for on every write — migration 25 removed one from
+`verification_scans`, the busiest write path there is during a count. When
+planning to check that, watch selectivity: a first attempt gave one session half
+the table, where a sequential scan was genuinely cheaper and the plan proved
+nothing.
+
 **Asset codes read like matriculation numbers**: `NSU/ADM/ACC/CP/T/001` —
 University / faculty or school / department / item type / segment / running
 number. Built in the database by `next_barcode(unit, category)` from

@@ -1,0 +1,30 @@
+-- Drop the redundant index on verification_scans (session_id)
+--
+-- The table already carries `unique (session_id, barcode)`, and a btree answers
+-- queries on a leading column just as well as on the whole key. So
+-- verification_scans_session_idx duplicated something the constraint was
+-- providing anyway, and every scan recorded paid to maintain both.
+--
+-- That is the worst table to carry a spare index on: during a verification
+-- exercise it takes a row per scan, from every officer counting at once, which
+-- is the busiest write path the system has.
+--
+-- Three shapes read this column, and the unique index covers all three. Checked
+-- by dropping it against 30,000 scans spread over 100 sessions and reading the
+-- plans, rather than by reasoning about prefixes:
+--
+--   session_id = ? and barcode = ?   (recording a scan, checking for a repeat)
+--     -> Index Only Scan using verification_scans_session_id_barcode_key
+--
+--   session_id = ?                   (verification_result listing the session)
+--     -> Bitmap Index Scan using verification_scans_session_id_barcode_key
+--
+--   delete where session_id = ?      (the on delete cascade from a session)
+--     -> Bitmap Index Scan using verification_scans_session_id_barcode_key
+--
+-- Selectivity is what makes this worth stating: an earlier run had one session
+-- holding half the table, where the planner correctly preferred a sequential
+-- scan and proved nothing either way. The numbers above are the realistic case,
+-- one exercise among many.
+
+drop index if exists public.verification_scans_session_idx;
