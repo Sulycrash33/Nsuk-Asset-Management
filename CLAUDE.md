@@ -79,6 +79,15 @@ second item cannot be saved at all. Eight codes are stated outright in migration
 results, not by reading the derivation: that is how migration 23's bug was
 found, and reading the function had missed it.
 
+**A foreign key that nulls on delete needs an index.** Both verification
+foreign keys are `on delete set null`, so Postgres has to find the children
+before it can null them, and with no index that is a full scan of the child
+table per deleted row — deleting one asset scanned every verification scan ever
+recorded. Migration 24 covers both, partially, since the nullable rows are never
+what is being searched for. Prove a new index is actually reachable by planning
+the query against realistic rows rather than by reasoning: a partial index the
+planner will not use is worse than none.
+
 **Asset codes read like matriculation numbers**: `NSU/ADM/ACC/CP/T/001` —
 University / faculty or school / department / item type / segment / running
 number. Built in the database by `next_barcode(unit, category)` from
@@ -141,13 +150,13 @@ turned out to be false. Prefer measuring to asserting.
   backlog. Read them as a list to recognise, and look for anything that is not
   on it.
 - The performance advisor reports most indexes as unused and will keep doing so
-  until real data arrives: nothing has queried an empty register. Two findings
-  are real and outlive that — `verification_scans.asset_id` and
-  `verification_sessions.started_by` are foreign keys with no covering index.
-  Unfixed; they cost nothing until verification runs at scale. It also flags a
-  read and a write policy both being permissive for `SELECT` on five tables,
-  which is a real if small cost on every read — worth folding together only with
-  care, because they are the access rules.
+  until real data arrives: nothing has queried an empty register. Read that
+  section as noise for now. Its two foreign key findings were real and are
+  fixed in migration 24.
+- Still open there: a read policy and a write policy are both permissive for
+  `SELECT` on five tables, so both run on every read. Real, if small. Folding
+  them together means rewriting access rules, so it wants more care than an
+  index does.
 - Agreed but unbuilt: bulk actions, Excel export, a read only auditor role. The
   custodian feature was started and deliberately removed at the user's request.
 - Staff can only record assets into units assigned to them
