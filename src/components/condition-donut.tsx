@@ -29,19 +29,22 @@ export default function ConditionDonut({
 }) {
   const [active, setActive] = useState<Condition | null>(null);
 
-  let offset = 0;
-  const arcs = CONDITIONS.map((condition) => {
+  // Each slice starts where the ones before it ended, so the offset is the
+  // running total of everything preceding rather than a variable walked along.
+  const arcs = CONDITIONS.map((condition, i) => {
     const count = counts[condition];
     const fraction = total > 0 ? count / total : 0;
-    const arc = {
+    const preceding = CONDITIONS.slice(0, i).reduce(
+      (sum, c) => sum + (total > 0 ? counts[c] / total : 0),
+      0,
+    );
+    return {
       condition,
       count,
       fraction,
       dash: fraction * CIRCUMFERENCE,
-      offset,
+      offset: preceding * CIRCUMFERENCE,
     };
-    offset += fraction * CIRCUMFERENCE;
-    return arc;
   }).filter((a) => a.count > 0);
 
   const focus = active ? arcs.find((a) => a.condition === active) : null;

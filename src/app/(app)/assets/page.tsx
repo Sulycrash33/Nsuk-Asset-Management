@@ -5,7 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import AssetFilters from "@/components/asset-filters";
 import RegisterExportButton from "@/components/register-export-button";
 import EmptyState from "@/components/ui/empty-state";
-import { CONDITION_STYLES, formatNaira, type AssetWithRefs, type AssetCategory } from "@/lib/types";
+import {
+  ASSET_WITH_REFS_AND_CAMPUS,
+  CONDITION_STYLES,
+  formatNaira,
+  type AssetWithRefs,
+  type AssetCategory,
+} from "@/lib/types";
 import { descendantIds, unitPath } from "@/lib/tree";
 
 export const metadata = { title: "Assets" };
@@ -41,7 +47,7 @@ export default async function AssetsPage({
 
   let query = supabase
     .from("assets")
-    .select("*, asset_categories(name), org_units(name,code,campus_id)")
+    .select(ASSET_WITH_REFS_AND_CAMPUS)
     .limit(PAGE_SIZE);
 
   // Newest first unless asked otherwise. Sorting by unit uses the joined row so

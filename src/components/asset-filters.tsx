@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import UnitSelect from "@/components/unit-select";
 import { CONDITIONS, type AssetCategory, type Campus, type OrgUnit } from "@/lib/types";
@@ -22,14 +22,20 @@ export default function AssetFilters({
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [term, setTerm] = useState(params.get("q") ?? "");
+  const query = params.get("q") ?? "";
+  const [term, setTerm] = useState(query);
   const [showFilters, setShowFilters] = useState(
     FILTER_KEYS.some((k) => params.get(k)),
   );
 
-  useEffect(() => {
-    setTerm(params.get("q") ?? "");
-  }, [params]);
+  // The box is the URL's until someone types in it. Adjusting here rather than
+  // in an effect means the corrected value renders once, with no flash of the
+  // stale term after a back button or a cleared filter.
+  const [lastQuery, setLastQuery] = useState(query);
+  if (query !== lastQuery) {
+    setLastQuery(query);
+    setTerm(query);
+  }
 
   function apply(next: Record<string, string | null>) {
     const search = new URLSearchParams(params.toString());

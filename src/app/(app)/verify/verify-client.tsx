@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   AlertCircle,
   Camera,
@@ -54,6 +54,28 @@ const OUTCOME = {
   queued: { label: "Saved, no signal", tone: "text-nsuk-blue", buzz: 40 },
 } as const;
 
+/**
+ * Whether the device currently has a signal. Subscribed to rather than read in
+ * an effect, so the first paint already reflects reality instead of assuming a
+ * connection and correcting itself a moment later.
+ */
+function useOnlineStatus() {
+  return useSyncExternalStore(
+    (onChange) => {
+      window.addEventListener("online", onChange);
+      window.addEventListener("offline", onChange);
+      return () => {
+        window.removeEventListener("online", onChange);
+        window.removeEventListener("offline", onChange);
+      };
+    },
+    isOnline,
+    // The server cannot know, and assuming a signal matches what the page does
+    // before any scan is attempted.
+    () => true,
+  );
+}
+
 export default function VerifyClient({
   units,
   openSessions,
@@ -68,6 +90,7 @@ export default function VerifyClient({
 
   const unitName = (id: string) => units.find((u) => u.id === id)?.name ?? "Unknown unit";
 
+  const online = useOnlineStatus();
   const [session, setSession] = useState<Session | null>(openSessions[0] ?? null);
   const [unitId, setUnitId] = useState(units[0]?.id ?? "");
   const [lines, setLines] = useState<ScanLine[]>([]);
@@ -76,7 +99,6 @@ export default function VerifyClient({
   const [manual, setManual] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [online, setOnline] = useState(true);
   const [queued, setQueued] = useState(0);
   const [syncing, setSyncing] = useState(false);
 
@@ -84,7 +106,13 @@ export default function VerifyClient({
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const sessionRef = useRef<Session | null>(session);
   const inFlight = useRef(false);
-  sessionRef.current = session;
+
+  // `record` is handed to the camera once and then reads the session through
+  // this ref, so it always scans against the current one without the decoder
+  // having to be torn down and rebuilt every time the session changes.
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const record = useCallback(
     async (raw: string) => {
@@ -132,7 +160,7 @@ export default function VerifyClient({
         inFlight.current = false;
       }, 700);
     },
-    [toast],
+    [],
   );
 
   const stopCamera = useCallback(() => {
@@ -201,20 +229,12 @@ export default function VerifyClient({
     }
   }, [toast]);
 
+  // Send whatever is queued as soon as the signal is back. `flush` returns
+  // straight away when there is nothing waiting, so arriving already online
+  // costs nothing.
   useEffect(() => {
-    setOnline(isOnline());
-    const goOnline = () => {
-      setOnline(true);
-      flush();
-    };
-    const goOffline = () => setOnline(false);
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-    return () => {
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
-    };
-  }, [flush]);
+    if (online) flush();
+  }, [online, flush]);
 
   // Anything left over from a previous visit is picked up on arrival.
   useEffect(() => {

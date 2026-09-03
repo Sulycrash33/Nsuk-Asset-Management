@@ -87,8 +87,14 @@ export default function AppShell({
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  // Close the drawer whenever navigation happens.
-  useEffect(() => setMenuOpen(false), [pathname]);
+  // Close the drawer whenever navigation happens. Done while rendering the new
+  // page rather than in an effect, so the drawer is never briefly painted open
+  // over a page the person has already moved on from.
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setMenuOpen(false);
+  }
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";

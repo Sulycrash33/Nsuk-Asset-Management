@@ -17,6 +17,9 @@ import {
   type OrgUnit,
 } from "@/lib/types";
 
+/** Stable empty set, for a mapping with no serials to check. */
+const NO_SERIALS: ReadonlySet<string> = new Set<string>();
+
 /** Fields an uploaded column can be mapped onto. */
 const FIELDS = [
   { key: "name", label: "Asset name", required: true },
@@ -105,8 +108,10 @@ export default function ImportClient({
   const [error, setError] = useState<string | null>(null);
   // Serial numbers in this file that the register already holds. Looked up once
   // per file rather than per row, so a large import is still one round trip.
-  const [alreadyRegistered, setAlreadyRegistered] = useState<Set<string>>(new Set());
-  const [checkingSerials, setCheckingSerials] = useState(false);
+  const [checked, setChecked] = useState<{ key: string; found: ReadonlySet<string> }>({
+    key: "",
+    found: NO_SERIALS,
+  });
   const [allowDuplicates, setAllowDuplicates] = useState(false);
   const [imported, setImported] = useState<Asset[] | null>(null);
   const toast = useToast();
@@ -124,6 +129,22 @@ export default function ImportClient({
     for (const c of categories) map.set(c.name.trim().toLowerCase(), c);
     return map;
   }, [categories]);
+
+  // The serial numbers the file offers, which is purely a function of the rows
+  // and the column they were mapped to. The key gives that list an identity the
+  // answer below can be matched against.
+  const { serials, serialKey } = useMemo(() => {
+    const column = mapping.serial_number;
+    const list = column
+      ? [...new Set(rows.map((r) => (r[column] ?? "").trim()).filter((v) => v.length > 0))]
+      : [];
+    return { serials: list, serialKey: list.join("\u0000") };
+  }, [rows, mapping.serial_number]);
+
+  // An answer counts only for the list it was asked about, so re-mapping the
+  // column or loading a new file discards it without anything being reset.
+  const alreadyRegistered = checked.key === serialKey ? checked.found : NO_SERIALS;
+  const checkingSerials = serials.length > 0 && checked.key !== serialKey;
 
   const prepared: PreparedRow[] = useMemo(() => {
     if (!mapping.name) return [];
@@ -228,22 +249,9 @@ export default function ImportClient({
    * before the database saw it.
    */
   useEffect(() => {
-    const column = mapping.serial_number;
-    if (!column || rows.length === 0) {
-      setAlreadyRegistered(new Set());
-      return;
-    }
-
-    const serials = [
-      ...new Set(rows.map((r) => (r[column] ?? "").trim()).filter((v) => v.length > 0)),
-    ];
-    if (serials.length === 0) {
-      setAlreadyRegistered(new Set());
-      return;
-    }
+    if (serials.length === 0) return;
 
     let cancelled = false;
-    setCheckingSerials(true);
 
     (async () => {
       const supabase = createClient();
@@ -261,17 +269,13 @@ export default function ImportClient({
         if (cancelled) return;
       }
 
-      if (!cancelled) {
-        setAlreadyRegistered(found);
-        setCheckingSerials(false);
-      }
+      if (!cancelled) setChecked({ key: serialKey, found });
     })();
 
     return () => {
       cancelled = true;
-      setCheckingSerials(false);
     };
-  }, [rows, mapping.serial_number]);
+  }, [serials, serialKey]);
 
   function handleFile(file: File) {
     setError(null);

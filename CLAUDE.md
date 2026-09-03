@@ -15,8 +15,18 @@ Tailwind v4 · Supabase (Postgres, Auth, RLS) · Vercel.
 
 - Routing middleware lives in `proxy.ts` (Next 16 renamed it from
   `middleware.ts`). Public paths are listed in `src/lib/supabase/middleware.ts`.
-- `npm run lint` is **broken**: Next 16 removed `next lint` and the script still
-  calls it. Use `npx tsc --noEmit` and `npm run build` — the build runs ESLint.
+- `npm run check` runs the lot: `typecheck`, `lint`, then `build`. Run it before
+  pushing. The build alone does **not** lint — Next 16 dropped that step, so a
+  green build says nothing about the hook rules below.
+- Linting is flat-config ESLint (`eslint.config.mjs`) on `eslint-config-next`.
+  Next 16 removed `next lint`, and the config it used to generate, so the config
+  is checked in and `npm run lint` calls `eslint` directly.
+- `next/core-web-vitals` brings the React Compiler's hook rules, which are
+  stricter than the old ones: no `setState` in an effect body, no writing a ref
+  or reassigning a variable during render. Where state has to follow a prop or
+  the URL, adjust it during render behind an `if (next !== last)` guard rather
+  than in an effect, and read outside state — the reduced-motion setting, the
+  network signal — through `useSyncExternalStore`.
 
 ## The things that are easy to get wrong
 

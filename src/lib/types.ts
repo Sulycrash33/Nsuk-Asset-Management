@@ -79,6 +79,17 @@ export type AssetWithRefs = Asset & {
   org_units?: { name: string; code: string | null } | null;
 };
 
+/**
+ * The column list every `AssetWithRefs` query selects. Kept beside the type it
+ * produces: the two have to agree, and when they drifted apart the mismatch
+ * only showed up as a missing category name on one screen out of five.
+ */
+export const ASSET_WITH_REFS = "*, asset_categories(name), org_units(name,code)";
+
+/** As above, plus the campus the unit sits under, for roll-up filtering. */
+export const ASSET_WITH_REFS_AND_CAMPUS =
+  "*, asset_categories(name), org_units(name,code,campus_id)";
+
 export type AssetLog = {
   id: string;
   asset_id: string | null;
