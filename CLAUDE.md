@@ -63,6 +63,22 @@ one — it leaves a working body alone.
 **The last administrator cannot be removed.** Enforced by trigger *and* checked
 in the delete endpoint, because deleting an auth user cascades past the trigger.
 
+**The unit tree is the University's, not ours.** Migration 22 replaced the
+seeded structure with the 191 units of the official *Arrangement of Assets
+Register*, and that document is the authority on what exists. Faculty of
+Agriculture sits at Lafia, Faculty of Engineering at Gudi, and Pyanku holds a
+library and its buildings, so no campus is empty any more. Section 20 of the
+document is not in the tree on purpose: generators, a water pump and a tank are
+assets, not places to put assets.
+
+**Two units under one faculty must not abbreviate alike.** The asset code is
+built from the faculty's code and the unit's, and `asset_seq` counts per unit,
+so a shared abbreviation means a shared code — and `barcode` is unique, so the
+second item cannot be saved at all. Eight codes are stated outright in migration
+22 for that reason. Check a new unit by issuing codes and counting the distinct
+results, not by reading the derivation: that is how migration 23's bug was
+found, and reading the function had missed it.
+
 **Asset codes read like matriculation numbers**: `NSU/ADM/ACC/CP/T/001` —
 University / faculty or school / department / item type / segment / running
 number. Built in the database by `next_barcode(unit, category)` from
@@ -110,9 +126,10 @@ turned out to be false. Prefer measuring to asserting.
 ## Open items
 
 - What the `T` segment stands for.
-- Lafia, Gudi and Pyanku exist as campuses with **zero units**. They need the
-  University's real list; inventing structure would be worse than leaving them
-  empty.
+- The `T` segment aside, the unit tree is now the University's own. Two gaps in
+  the source document are worth putting back to the Fixed Assets Unit: its
+  numbered sections skip **6** and **11**, so two groups may have been left out
+  when it was typed.
 - Whether to print both a QR and a barcode. On the measurements that is the most
   robust option.
 - In Supabase: leaked password protection is still off and needs a Pro plan.
