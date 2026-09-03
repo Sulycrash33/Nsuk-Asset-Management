@@ -8,6 +8,10 @@ Not yet in production use. The register is deliberately empty: the pilot has not
 loaded real data. **That makes now the cheap moment for anything that would
 later require relabelling physical items.**
 
+The unit tree is the University's own as of migration 22 — 191 units across all
+four campuses — and two accounts exist, both administrators. The next step is
+the people: ten officers who will record assets across the institution.
+
 ## Stack
 
 Next.js 16.3 (App Router, Turbopack) · React 19.2 · TypeScript strict ·
@@ -59,6 +63,23 @@ asset-code functions the advisor caught after migration 19. It matters most on a
 the convention here is every function: `set search_path = public`, matching the
 rest of the schema. Prefer `alter function ... set search_path` for an existing
 one — it leaves a working body alone.
+
+**Creating an account needs the service role key. There is no fallback.**
+`POST /api/admin/users` invites or creates through the Supabase admin API when
+`SUPABASE_SERVICE_ROLE_KEY` is set, and otherwise falls back to an ordinary
+`signUp`. That fallback is dead: public signup is off, so it returns
+`422 signup_disabled`, "Signups not allowed for this instance" — confirmed
+against the live project on 3 Sep 2026, which created nothing. Without the key
+in the server environment, adding staff fails outright rather than degrading.
+Check it before promising anyone an account.
+
+**A staff account can only record into the units assigned to it**
+(`assets_insert`: `is_admin() or org_unit_id in (my_unit_ids())`). Assignments
+live in `user_units`, and `POST /api/admin/users` takes `unit_ids` when the
+account is created. Someone covering a whole faculty needs that faculty's unit,
+not each department under it — `my_unit_ids()` handles the descent. An account
+with no units assigned can read nothing and record nothing, which looks like a
+broken login rather than a missing assignment.
 
 **The last administrator cannot be removed.** Enforced by trigger *and* checked
 in the delete endpoint, because deleting an auth user cascades past the trigger.
@@ -133,8 +154,9 @@ turned out to be false. Prefer measuring to asserting.
 
 ## Working agreement
 
-- Develop on `claude/nsuk-asset-management-spec-hthp6l`, branched fresh from
-  `origin/main` each time. Open a draft PR; the user says "merge" when ready.
+- Develop on the branch the session names, branched fresh from `origin/main`
+  each time. If its previous pull request was merged, start the branch again
+  from `origin/main` rather than stacking on merged history. Open a draft PR; the user says "merge" when ready.
 - Migrations are applied to the live database **and** written to
   `supabase/migrations/`. Keep the two in step.
 - The repository is public. Never commit keys. The service role key belongs only
@@ -167,6 +189,14 @@ turned out to be false. Prefer measuring to asserting.
   index does.
 - Agreed but unbuilt: bulk actions, Excel export, a read only auditor role. The
   custodian feature was started and deliberately removed at the user's request.
+- `TOP_TIERS` in `src/lib/types.ts` is declared and never read. Either the
+  schedule grouping it was meant to drive went elsewhere, or it was left behind.
+  Worth deciding rather than leaving as furniture.
+- Nothing in this session was exercised against a running app. The hook changes
+  in the scanner, the importer and the filters, and the serial number checks on
+  the asset form, all pass typecheck, lint and build and were read back against
+  the original — but no one has clicked through `/verify`, `/assets/import` or
+  `/assets/new`. Worth doing on the preview before the pilot.
 - Staff can only record assets into units assigned to them
   (`assets_insert`: `is_admin() or org_unit_id in (my_unit_ids())`). Several
   people recording "across the University" therefore means either administrator
