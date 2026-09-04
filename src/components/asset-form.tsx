@@ -233,7 +233,7 @@ export default function AssetForm({
     }
 
     setCreated(data as Asset);
-    toast.success("Asset recorded", `Barcode ${(data as Asset).barcode} issued.`);
+    toast.success("Asset recorded", `Asset code ${(data as Asset).barcode} issued.`);
     router.refresh();
   }
 
@@ -258,7 +258,7 @@ export default function AssetForm({
     }
   }
 
-  // Step 2 of one-by-one entry: the barcode exists — print it and tag the item.
+  // Step 2 of one-by-one entry: the asset code exists — print it and tag the item.
   if (created) {
     return (
       <div className="card animate-pop-in space-y-5 text-center">
@@ -548,7 +548,7 @@ export default function AssetForm({
           disabled={busy || uploading}
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-          {asset ? "Save changes" : "Save & generate barcode"}
+          {asset ? "Save changes" : "Save & generate asset code"}
         </button>
       </div>
     </form>

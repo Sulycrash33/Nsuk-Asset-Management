@@ -143,7 +143,7 @@ export default function ScanClient() {
                 </div>
               </div>
               <p className="absolute inset-x-0 bottom-3 text-center text-xs font-medium text-white/85">
-                Line the barcode or QR code up inside the frame
+                Line the QR code up inside the frame
               </p>
             </>
           )}

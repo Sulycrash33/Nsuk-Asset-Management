@@ -8,8 +8,8 @@ export default function ScanPage() {
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Scan an asset</h1>
         <p className="text-sm text-nsuk-muted">
-          Point the camera at the barcode or QR code on the label. A handheld scanner may also be
-          used, and will enter the code in the field below.
+          Point the camera at the QR code on the label. The asset code may also be typed into the
+          field below.
         </p>
       </header>
       <ScanClient />

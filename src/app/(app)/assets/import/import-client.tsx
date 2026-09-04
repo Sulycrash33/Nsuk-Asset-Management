@@ -309,7 +309,7 @@ export default function ImportClient({
     const created: Asset[] = [];
 
     // Batched so a large store-room upload does not hit request limits, and so
-    // a mid-file failure still leaves everything before it correctly barcoded.
+    // a mid-file failure still leaves everything before it correctly coded.
     const CHUNK = 50;
     for (let i = 0; i < importable.length; i += CHUNK) {
       const chunk = importable.slice(i, i + CHUNK).map((r) => ({
@@ -347,7 +347,7 @@ export default function ImportClient({
     setStep(3);
     toast.success(
       `${created.length.toLocaleString()} asset${created.length === 1 ? "" : "s"} imported`,
-      "Every one now has a barcode and QR code.",
+      "Every one now has its own asset code.",
     );
   }
 
@@ -384,7 +384,7 @@ export default function ImportClient({
             {imported.length.toLocaleString()} asset{imported.length === 1 ? "" : "s"} imported
           </h2>
           <p className="mt-1 text-sm text-nsuk-muted">
-            Every one has a barcode and QR code. Print the batch and tag the items.
+            Every one has its own asset code. Print the batch and tag the items.
           </p>
         </div>
 
@@ -576,7 +576,7 @@ export default function ImportClient({
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Import {importable.length.toLocaleString()} asset
-            {importable.length === 1 ? "" : "s"} & generate barcodes
+            {importable.length === 1 ? "" : "s"} & generate asset codes
           </button>
         </>
       )}

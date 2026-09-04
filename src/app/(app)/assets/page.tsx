@@ -174,7 +174,7 @@ export default async function AssetsPage({
           <EmptyState
             icon={Boxes}
             title="No assets recorded yet"
-            body="Record the first item and the system will issue its barcode and QR code straight away."
+            body="Record the first item and the system will issue its asset code straight away."
             action={
               <Link href="/assets/new" className="btn-green">
                 <Plus className="h-4 w-4" /> Record an asset

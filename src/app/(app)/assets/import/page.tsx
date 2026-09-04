@@ -16,7 +16,7 @@ export default async function ImportPage() {
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Bulk CSV import</h1>
         <p className="text-sm text-nsuk-muted">
-          Upload a spreadsheet of assets. Barcodes are generated on import, then you can print the
+          Upload a spreadsheet of assets. Asset codes are generated on import, then you can print the
           whole batch of labels at once.
         </p>
       </header>

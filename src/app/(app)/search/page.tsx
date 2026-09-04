@@ -36,7 +36,7 @@ export default async function GlobalSearchPage({
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Global search</h1>
         <p className="text-sm text-nsuk-muted">
-          Search every asset in the University by barcode, serial number or name, regardless of
+          Search every asset in the University by asset code, serial number or name, regardless of
           which unit holds it.
         </p>
       </header>

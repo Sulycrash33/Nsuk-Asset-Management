@@ -13,7 +13,7 @@ import {
 export const metadata = {
   title: { absolute: "NSUK Asset Management System | Nasarawa State University, Keffi" },
   description:
-    "The official inventory of physical assets owned by Nasarawa State University, Keffi. Every item is registered, barcoded and traceable to the unit responsible for it.",
+    "The official inventory of physical assets owned by Nasarawa State University, Keffi. Every item is registered, labelled and traceable to the unit responsible for it.",
 };
 
 const STEPS = [
@@ -25,7 +25,7 @@ const STEPS = [
   {
     icon: QrCode,
     title: "Issue the asset code",
-    body: "A unique University asset code is generated the moment the record is saved, together with a matching barcode and QR code. No item needs to arrive pre-tagged.",
+    body: "A unique University asset code is generated the moment the record is saved, together with the QR label that carries it. No item needs to arrive pre-tagged.",
   },
   {
     icon: Printer,
@@ -105,7 +105,7 @@ export default function LandingPage() {
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-nsuk-muted sm:text-lg">
             The NSUK Asset Management System maintains a central inventory of the physical assets
             owned by Nasarawa State University, Keffi, across every campus, faculty and
-            administrative unit. Each recorded item carries a printed barcode, so verification is
+            administrative unit. Each recorded item carries a printed QR label, so verification is
             carried out by scanning rather than by manual search.
           </p>
 
