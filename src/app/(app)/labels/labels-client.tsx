@@ -112,7 +112,7 @@ export default function LabelsClient({
             className="field"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder="Name, barcode or room"
+            placeholder="Name, asset code or room"
           />
         </div>
       </div>

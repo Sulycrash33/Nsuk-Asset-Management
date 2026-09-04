@@ -19,7 +19,7 @@ export default async function NewAssetPage() {
         <div>
           <h1 className="text-2xl font-bold text-nsuk-blue">Add an asset</h1>
           <p className="text-sm text-nsuk-muted">
-            A barcode and QR code are generated the moment you save.
+            An asset code and its QR label are generated the moment you save.
           </p>
         </div>
         <Link href="/assets/import" className="btn-ghost btn-sm shrink-0">

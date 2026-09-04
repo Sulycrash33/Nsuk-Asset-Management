@@ -77,9 +77,9 @@ function fitText(doc: jsPDF, text: string, maxWidth: number): string {
  * Printable label sheet: 2 columns x 5 rows of 95x55mm labels on A4.
  *
  * The layout is the one the University approved. Crest and system name at the
- * head, the Code 128 symbol across the middle, the readable code beneath it,
- * then the item and where it belongs. What is printed under the bars is
- * exactly what the bars encode, so a scan and a typed entry agree.
+ * head, the QR symbol across the middle, the readable code beneath it,
+ * then the item and where it belongs. What is printed under the symbol is
+ * exactly what the symbol encodes, so a scan and a typed entry agree.
  */
 export async function generateLabelSheet(labels: LabelInput[]): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -211,7 +211,7 @@ export async function generateRegisterPdf(
 
   autoTable(doc, {
     startY: 34,
-    head: [["#", "Barcode", "Asset", "Category", "Unit", "Location", "Condition", "Serial", "Value (NGN)"]],
+    head: [["#", "Asset code", "Asset", "Category", "Unit", "Location", "Condition", "Serial", "Value (NGN)"]],
     body: assets.map((a, i) => [
       String(i + 1),
       a.barcode,

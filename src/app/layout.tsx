@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/service-worker";
 
-// Inter carries the whole interface; JetBrains Mono is reserved for barcodes
+// Inter carries the whole interface; JetBrains Mono is reserved for asset codes
 // and serial numbers, where a person has to read or retype the exact string.
 const inter = Inter({
   subsets: ["latin"],
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s · NSUK Asset Management System",
   },
   description:
-    "Digital inventory and barcode tracking for every physical asset across Nasarawa State University, Keffi.",
+    "Digital inventory and QR label tracking for every physical asset across Nasarawa State University, Keffi.",
   manifest: "/manifest.webmanifest",
   applicationName: "NSUK Assets",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "NSUK Assets" },

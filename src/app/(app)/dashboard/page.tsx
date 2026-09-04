@@ -215,7 +215,7 @@ export default async function DashboardPage() {
         <EmptyState
           icon={Boxes}
           title="The register is empty"
-          body="Record the first asset and the system will issue its barcode and QR code immediately. A full store room may also be imported from a spreadsheet."
+          body="Record the first asset and the system will issue its asset code immediately. A full store room may also be imported from a spreadsheet."
           action={
             <div className="flex flex-col gap-2 sm:flex-row">
               <Link href="/assets/new" className="btn-green">

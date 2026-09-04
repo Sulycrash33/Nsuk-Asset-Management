@@ -38,7 +38,7 @@ const COMMANDS: Command[] = [
 ];
 
 /**
- * Ctrl/Cmd-K palette: jump to any screen, or find an asset by name, barcode or
+ * Ctrl/Cmd-K palette: jump to any screen, or find an asset by name, asset code or
  * serial without leaving the current page. Results respect the caller's scope,
  * because the query runs through the same RLS-protected client as everything else.
  */
