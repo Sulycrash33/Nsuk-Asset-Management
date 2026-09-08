@@ -23,7 +23,7 @@ export default async function NewAssetPage() {
           </p>
         </div>
         <Link href="/assets/import" className="btn-ghost btn-sm shrink-0">
-          <Upload className="h-4 w-4" /> CSV
+          <Upload className="h-4 w-4" /> Import
         </Link>
       </header>
 

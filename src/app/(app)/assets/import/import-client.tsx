@@ -2,10 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import Papa from "papaparse";
 import { AlertCircle, Check, Copy, Download, FileUp, Loader2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isDuplicateSerialError } from "@/lib/serials";
+import {
+  ACCEPTED_DESCRIPTION,
+  ACCEPTED_FILE_TYPES,
+  UnreadableFileError,
+  readTable,
+  type TableRow,
+} from "@/lib/import-file";
 import UnitSelect from "@/components/unit-select";
 import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
@@ -36,7 +42,6 @@ const FIELDS = [
 
 type FieldKey = (typeof FIELDS)[number]["key"];
 type Mapping = Partial<Record<FieldKey, string>>;
-type CsvRow = Record<string, string>;
 
 type PreparedRow = {
   index: number;
@@ -100,12 +105,16 @@ export default function ImportClient({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
-  const [rows, setRows] = useState<CsvRow[]>([]);
+  const [rows, setRows] = useState<TableRow[]>([]);
   const [mapping, setMapping] = useState<Mapping>({});
   const [defaultUnit, setDefaultUnit] = useState<string | null>(
     scopedUnitIds.length === 1 ? scopedUnitIds[0] : null,
   );
   const [busy, setBusy] = useState(false);
+  // Reading is its own wait, separate from the import: a PDF of any length
+  // takes long enough that a still screen looks like a file that was ignored.
+  const [reading, setReading] = useState(false);
+  const [caution, setCaution] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Serial numbers in this file that the register already holds. Looked up once
   // per file rather than per row, so a large import is still one round trip.
@@ -278,28 +287,34 @@ export default function ImportClient({
     };
   }, [serials, serialKey]);
 
-  function handleFile(file: File) {
+  async function handleFile(file: File) {
     setError(null);
+    setCaution(null);
     setFileName(file.name);
-    Papa.parse<CsvRow>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (result) => {
-        const parsedHeaders = (result.meta.fields ?? []).filter(Boolean) as string[];
-        const parsedRows = result.data.filter((r) =>
-          Object.values(r).some((v) => (v ?? "").trim() !== ""),
-        );
-        if (parsedHeaders.length === 0 || parsedRows.length === 0) {
-          setError("That file has no readable rows. Check it has a header row and try again.");
-          return;
-        }
-        setHeaders(parsedHeaders);
-        setRows(parsedRows);
-        setMapping(autoMap(parsedHeaders));
-        setStep(2);
-      },
-      error: () => setError("Could not read that file. Please upload a .csv file."),
-    });
+    setReading(true);
+    try {
+      const table = await readTable(file);
+      setHeaders(table.headers);
+      setRows(table.rows);
+      setMapping(autoMap(table.headers));
+      setCaution(table.caution ?? null);
+      setStep(2);
+    } catch (cause) {
+      setHeaders([]);
+      setRows([]);
+      setMapping({});
+      setStep(1);
+      // Anything the reader could put in front of a person it raises as an
+      // `UnreadableFileError` already worded for the screen. Anything else is a
+      // fault rather than a bad file, and should not be quoted at them.
+      setError(
+        cause instanceof UnreadableFileError
+          ? cause.message
+          : "Something went wrong reading that file. Try again, or save it as a spreadsheet.",
+      );
+    } finally {
+      setReading(false);
+    }
   }
 
   async function runImport() {
@@ -389,6 +404,12 @@ export default function ImportClient({
         </div>
 
         {error && <p className="text-sm text-nsuk-danger">{error}</p>}
+        {caution && (
+          <p className="flex items-start gap-2 rounded-xl border border-nsuk-gold/40 bg-nsuk-gold-50 p-3 text-sm text-nsuk-blue">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-nsuk-gold" />
+            {caution}
+          </p>
+        )}
 
         <div className="grid gap-2 sm:grid-cols-2">
           <button onClick={() => printBatch(imported)} className="btn-gold">
@@ -426,17 +447,28 @@ export default function ImportClient({
           </button>
         </div>
         <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-nsuk-line bg-nsuk-cream px-4 py-8 text-center">
-          <FileUp className="h-7 w-7 text-nsuk-blue" />
+          {reading ? (
+            <Loader2 className="h-7 w-7 animate-spin text-nsuk-blue" />
+          ) : (
+            <FileUp className="h-7 w-7 text-nsuk-blue" />
+          )}
           <span className="text-sm font-semibold text-nsuk-blue">
-            {fileName || "Choose a CSV file"}
+            {reading ? `Reading ${fileName}…` : fileName || `Choose a ${ACCEPTED_DESCRIPTION} file`}
           </span>
-          <span className="text-xs text-nsuk-faint">First row must be the column headings</span>
+          <span className="text-xs text-nsuk-faint">
+            .csv .xlsx .xls .ods .docx .pdf — the first row must be the column headings, and a Word
+            or PDF file must lay the assets out as a table
+          </span>
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept={ACCEPTED_FILE_TYPES}
             className="hidden"
+            disabled={reading}
             onChange={(e) => {
               const file = e.target.files?.[0];
+              // Cleared so choosing the same file again re-reads it, which is
+              // what someone does after correcting the file and saving it.
+              e.target.value = "";
               if (file) handleFile(file);
             }}
           />

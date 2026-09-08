@@ -41,7 +41,7 @@ const ACTIONS = [
   {
     href: "/assets/import",
     label: "Bulk import",
-    hint: "Upload a CSV",
+    hint: "Upload a file",
     icon: Upload,
     cls: "btn-ghost",
   },
@@ -215,14 +215,14 @@ export default async function DashboardPage() {
         <EmptyState
           icon={Boxes}
           title="The register is empty"
-          body="Record the first asset and the system will issue its asset code immediately. A full store room may also be imported from a spreadsheet."
+          body="Record the first asset and the system will issue its asset code immediately. A full store room may also be imported from a spreadsheet, a Word table or a PDF schedule."
           action={
             <div className="flex flex-col gap-2 sm:flex-row">
               <Link href="/assets/new" className="btn-green">
                 <Plus className="h-4 w-4" /> Add an asset
               </Link>
               <Link href="/assets/import" className="btn-ghost">
-                <Upload className="h-4 w-4" /> Import a CSV
+                <Upload className="h-4 w-4" /> Import a file
               </Link>
             </div>
           }

@@ -20,7 +20,7 @@ const STEPS = [
   {
     icon: ClipboardList,
     title: "Record the asset",
-    body: "Assets are entered individually from a phone, tablet or computer, or imported in bulk from a spreadsheet. Faculties, departments and categories are pre-loaded, so most fields are selected rather than typed.",
+    body: "Assets are entered individually from a phone, tablet or computer, or imported in bulk from a spreadsheet, a CSV, a Word table or a printed PDF schedule. Faculties, departments and categories are pre-loaded, so most fields are selected rather than typed.",
   },
   {
     icon: QrCode,
