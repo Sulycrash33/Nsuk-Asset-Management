@@ -136,6 +136,37 @@ Print size matters more than error correction level: measured against a fixed
 speck of wear, a 17mm QR failed every attempt where 22mm mostly survived. The
 label prints at 22mm for that reason. Do not shrink it to gain layout room.
 
+**An upload is not necessarily a CSV.** `/assets/import` takes CSV, Excel
+(`.xlsx .xlsm .xls .ods`), Word (`.docx`) and PDF. Everything is reduced to one
+grid of strings in `src/lib/import-file.ts`, so the mapping, the validation and
+the serial checks never learn what was uploaded. Three things there were found
+by measuring rather than by reading the code, and each would have corrupted
+data quietly:
+
+- A spreadsheet date is read from the cell's **value**, not its displayed text.
+  A cell showing `02/08/2019` is the second of August to the officer who typed
+  it and the eighth of February to `Date.parse`. Same for money: the number
+  behind `₦18,500,000`, not the punctuation.
+- A PDF's columns are measured **per page**. A schedule is laid out afresh on
+  each page, and using the first page's column positions on the second put every
+  asset's condition into the value column — plausibly, and silently.
+- Anything a reader returns is checked for control characters before it reaches
+  the screen. Four kilobytes of random bytes named `.xlsx` did not fail: the
+  spreadsheet library sniffed its way to a text reading and filled the preview
+  with mojibake.
+
+PDF is the one format with no cells of its own — columns are inferred from the
+bands of the page no word ever occupies — so it is the one that sets `caution`
+and asks the person to read the preview. A cell that wrapped onto a second line
+reads as a row of its own; it surfaces as a row with no asset name, which the
+importer already blocks, so it cannot get in unnoticed. A scanned PDF holds
+pictures of words and is refused by name.
+
+The fixtures and the browser harness that established all of this are not in the
+repository. Rebuild them rather than trusting this list: generate a file in each
+format, read it back through `readTable` in a real browser, and assert an exact
+round trip.
+
 **A faculty stands for everything beneath it.** Assets live in departments, so
 filtering by a faculty must use `descendantIds` rather than matching one unit.
 Getting this wrong made the faculty filter silently return nothing.
@@ -192,6 +223,11 @@ turned out to be false. Prefer measuring to asserting.
 - `TOP_TIERS` in `src/lib/types.ts` is declared and never read. Either the
   schedule grouping it was meant to drive went elsewhere, or it was left behind.
   Worth deciding rather than leaving as furniture.
+- The bulk importer now reads Excel, Word and PDF as well as CSV, and each was
+  verified by round trip in a real browser — but nobody has clicked through
+  `/assets/import` in the app itself since. `xlsx` is pinned to the SheetJS
+  vendor tarball (0.20.3) rather than the npm registry, which still serves the
+  abandoned 0.18.5; `npm install` therefore needs to reach cdn.sheetjs.com.
 - Nothing in this session was exercised against a running app. The hook changes
   in the scanner, the importer and the filters, and the serial number checks on
   the asset form, all pass typecheck, lint and build and were read back against

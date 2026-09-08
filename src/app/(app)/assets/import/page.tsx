@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import ImportClient from "./import-client";
 import type { AssetCategory } from "@/lib/types";
 
-export const metadata = { title: "Bulk CSV import" };
+export const metadata = { title: "Bulk import" };
 export const dynamic = "force-dynamic";
 
 export default async function ImportPage() {
@@ -14,9 +14,9 @@ export default async function ImportPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <header>
-        <h1 className="text-2xl font-bold text-nsuk-blue">Bulk CSV import</h1>
+        <h1 className="text-2xl font-bold text-nsuk-blue">Bulk import</h1>
         <p className="text-sm text-nsuk-muted">
-          Upload a spreadsheet of assets. Asset codes are generated on import, then you can print the
+          Upload a list of assets — a spreadsheet, a CSV, a Word table or a printed PDF schedule. Asset codes are generated on import, then you can print the
           whole batch of labels at once.
         </p>
       </header>

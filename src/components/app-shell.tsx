@@ -44,7 +44,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
     heading: "Record & tag",
     items: [
       { href: "/assets/new", label: "Add asset", icon: Plus },
-      { href: "/assets/import", label: "Bulk CSV import", icon: Upload },
+      { href: "/assets/import", label: "Bulk import", icon: Upload },
       { href: "/labels", label: "Print labels", icon: Printer },
     ],
   },

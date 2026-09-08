@@ -30,7 +30,7 @@ const COMMANDS: Command[] = [
   { label: "All assets", href: "/assets", icon: Boxes },
   { label: "Scan an asset", href: "/scan", icon: ScanLine },
   { label: "Add an asset", href: "/assets/new", icon: Plus },
-  { label: "Bulk CSV import", href: "/assets/import", icon: Upload },
+  { label: "Bulk import", href: "/assets/import", icon: Upload },
   { label: "Print labels", href: "/labels", icon: Printer },
   { label: "Organisational units", href: "/units", icon: Building2, adminOnly: true },
   { label: "Staff accounts", href: "/users", icon: Users, adminOnly: true },
