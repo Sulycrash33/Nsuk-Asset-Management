@@ -128,8 +128,16 @@ connection notice. Saved scans remain on the device and can be sent by reopening
 verification while signed in once the connection returns. Signed-in pages are never stored in
 the service-worker cache, and upgrading the worker removes the previous page cache.
 
+Queued scans and cached asset names are scoped to the signed-in account. Storage errors are
+reported instead of being treated as an empty queue. Older unowned scans remain saved until
+the officer explicitly uses **Recover older scans** for the matching verification; finishing
+is blocked while those scans await recovery. Permission or closed-session refusals are shown
+as errors rather than being misreported as a lost connection. Pending work is removed only
+after the server confirms it, and concurrent replay attempts share one running task.
+
 Run `npm run test:offline` for the service-worker privacy and offline fallback checks. These
 checks are also included in `npm run check`.
+Run `npm run test:scan-queue` for transaction-abort, account-isolation, duplicate and legacy-recovery checks.
 
 Brand colours are taken from the University badge: NSUK Blue `#1A3C6E`, Green `#1F7A3D`,
 Gold `#F2B705`, on a cream `#FAF7F0` ground. Type is Inter for the interface and JetBrains Mono for
