@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm run build"
+    "test:offline": "node --test scripts/verify-offline.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test:offline && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

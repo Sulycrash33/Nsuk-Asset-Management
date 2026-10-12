@@ -122,6 +122,15 @@ thumb-reachable bottom tab bar, a raised Scan key, large tap targets and camera-
 It is installable as a PWA, and the data layer is structured so offline sync can be added later
 without restructuring.
 
+Only public resources are cached by the service worker. A verification already open in a tab
+can queue scans when the connection drops; reopening or reloading a page offline shows a public
+connection notice. Saved scans remain on the device and can be sent by reopening the same
+verification while signed in once the connection returns. Signed-in pages are never stored in
+the service-worker cache, and upgrading the worker removes the previous page cache.
+
+Run `npm run test:offline` for the service-worker privacy and offline fallback checks. These
+checks are also included in `npm run check`.
+
 Brand colours are taken from the University badge: NSUK Blue `#1A3C6E`, Green `#1F7A3D`,
 Gold `#F2B705`, on a cream `#FAF7F0` ground. Type is Inter for the interface and JetBrains Mono for
 barcodes and serial numbers, where the exact string has to be read or retyped.
