@@ -12,9 +12,9 @@ export default function OfflinePage() {
         </span>
         <h1 className="mt-4 text-xl font-bold text-nsuk-blue">No connection</h1>
         <p className="mt-2 text-sm leading-relaxed text-nsuk-muted">
-          This page has not been opened on this device before, so there is nothing stored to show
-          you. Anything you scanned during a verification is safe and will be sent as soon as the
-          signal returns.
+          Connect to the internet to reopen verification. Scans already saved on this device
+          remain queued. Return to the same verification while signed in to send them once the
+          connection returns.
         </p>
         <Link href="/verify" className="btn-primary mt-6 w-full">
           Back to verification
