@@ -93,7 +93,10 @@ export default function ScanClient() {
     }
   }, [facingMode, lookup]);
 
-  useEffect(() => { const camera = cameraRef.current; return () => { lookupVersion.current++; camera.stop(); }; }, []);
+  useEffect(() => {
+    const camera = cameraRef.current, requests = lookupVersion;
+    return () => { requests.current++; camera.stop(); };
+  }, []);
 
   const scanning = status === "scanning" || status === "starting";
 
