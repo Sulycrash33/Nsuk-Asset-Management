@@ -91,6 +91,7 @@ export const ASSET_WITH_REFS_AND_CAMPUS =
   "*, asset_categories(name), org_units(name,code,campus_id)";
 
 export type AssetLog = {
+  changes: Record<string, { before: unknown; after: unknown }> | null;
   id: string;
   asset_id: string | null;
   asset_barcode: string | null;
