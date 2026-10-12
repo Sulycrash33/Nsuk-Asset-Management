@@ -11,10 +11,12 @@ begin
  insert into storage.objects(bucket_id,name,owner_id) values('asset-photos',own_key,staff_id::text),('asset-photos',orphan_key,staff_id::text),('asset-photos',foreign_key,admin_id::text);
  insert into public.assets(name,org_unit_id,barcode,qr_payload,photo_url) values('Photo fixture',u,'fixture-'||gen_random_uuid(),'',own_key) returning id into a;
  perform set_config('request.jwt.claim.sub',staff_id::text,true);
+ update public.assets set photo_url='https://legacy.example/storage/v1/object/public/asset-photos/'||own_key where id=a;
+ if (select photo_url from public.assets where id=a)<>own_key then raise exception 'Legacy URL was not normalized'; end if;
  if not public.can_read_asset_photo(own_key) or not public.can_read_asset_photo(orphan_key) or public.can_read_asset_photo(foreign_key) then raise exception 'Incorrect staff object scope'; end if;
  if (select count(*) from storage.objects where name in(own_key,orphan_key,foreign_key))<>2 then raise exception 'Storage RLS failed'; end if;
  begin
-   update public.assets set photo_url=foreign_key where id=a;
+   update public.assets set photo_url='https://legacy.example/storage/v1/object/public/asset-photos/'||foreign_key where id=a;
    raise exception 'Linked another account photo';
  exception when insufficient_privilege then null; end;
  perform set_config('request.jwt.claim.sub',admin_id::text,true);
