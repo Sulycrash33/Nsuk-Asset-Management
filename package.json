@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test:offline": "node --test scripts/verify-offline.mjs",
     "test:scan-queue": "node --experimental-strip-types --test scripts/verify-scan-queue.mjs",
-    "check": "npm run typecheck && npm run lint && npm run test:offline && npm run test:scan-queue && npm run build"
+    "test:accounts": "node --experimental-strip-types --test scripts/verify-account-provisioning.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test:offline && npm run test:scan-queue && npm run test:accounts && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
