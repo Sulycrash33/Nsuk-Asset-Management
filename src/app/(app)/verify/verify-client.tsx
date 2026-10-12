@@ -106,6 +106,7 @@ export default function VerifyClient({
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const sessionRef = useRef<Session | null>(session);
   const inFlight = useRef(false);
+  const finishing = useRef(false);
 
   // `record` is handed to the camera once and then reads the session through
   // this ref, so it always scans against the current one without the decoder
@@ -118,7 +119,7 @@ export default function VerifyClient({
     async (raw: string) => {
       const barcode = raw.trim();
       const current = sessionRef.current;
-      if (!barcode || !current || inFlight.current) return;
+      if (!barcode || !current || inFlight.current || finishing.current) return;
       inFlight.current = true;
 
       const show = (outcome: Outcome, name: string | null) => {
@@ -291,11 +292,15 @@ export default function VerifyClient({
   }
 
   async function finish() {
-    if (!session) return;
-
-    // Finishing with scans still queued would count them as missing and put a
-    // false discrepancy in front of the Bursary.
-    if (queued > 0) {
+    if (!session || finishing.current) return;
+    if (inFlight.current) {
+      toast.error("A scan is still being saved", "Wait a moment, then finish the verification.");
+      return;
+    }
+    finishing.current = true;
+    stopCamera();
+    try {
+      // Check actual storage, even if the displayed queue count is stale.
       await flush();
       const left = await pendingScans(session.id);
       if (left.length > 0) {
@@ -305,35 +310,30 @@ export default function VerifyClient({
         );
         return;
       }
-    }
+      const ok = await confirm({
+        title: "Finish this verification?",
+        body: "The result is saved now and the exercise is closed. Anything not scanned counts as missing.",
+        confirmLabel: "Finish and show result",
+      });
+      if (!ok) return;
 
-    const ok = await confirm({
-      title: "Finish this verification?",
-      body: "The result is worked out now and the exercise is closed. Anything not scanned counts as missing.",
-      confirmLabel: "Finish and show result",
-    });
-    if (!ok) return;
-
-    setBusy(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("verification_result", {
-      p_session_id: session.id,
-    });
-    if (error) {
+      setBusy(true);
+      const { data, error } = await createClient().rpc("finish_verification", {
+        p_session_id: session.id,
+      });
+      if (error || !data) {
+        toast.error("Could not finish the verification", error?.message ?? "No completed result was returned. Try again.");
+        return;
+      }
+      await forgetExpected(session.id);
+      setResult(data as Result);
+      setSession(null);
+    } catch {
+      toast.error("Could not finish the verification", "The completed result was not confirmed. Reconnect and try again.");
+    } finally {
+      finishing.current = false;
       setBusy(false);
-      toast.error("Could not work out the result", error.message);
-      return;
     }
-    await supabase
-      .from("verification_sessions")
-      .update({ closed_at: new Date().toISOString() })
-      .eq("id", session.id);
-
-    stopCamera();
-    await forgetExpected(session.id);
-    setBusy(false);
-    setResult(data as Result);
-    setSession(null);
   }
 
   async function showResult(id: string) {
@@ -349,7 +349,7 @@ export default function VerifyClient({
 
   // ---- A finished exercise ----------------------------------------------
   if (result) {
-    const complete = result.missing.length === 0 && result.elsewhere.length === 0;
+    const complete = result.missing.length === 0 && result.elsewhere.length === 0 && result.unknown.length === 0;
     return (
       <div className="space-y-4">
         <div className="card space-y-3">
@@ -375,11 +375,12 @@ export default function VerifyClient({
             </div>
           </div>
 
-          <dl className="grid grid-cols-3 gap-2">
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
               ["Found", result.seen_total, "text-nsuk-green"],
               ["Missing", result.missing.length, "text-nsuk-danger"],
               ["Wrong place", result.elsewhere.length, "text-nsuk-gold-deep"],
+              ["Unknown", result.unknown.length, "text-nsuk-danger"],
             ].map(([label, value, tone]) => (
               <div key={label as string} className="rounded-xl bg-nsuk-cream px-3 py-2">
                 <dt className="text-[11px] font-semibold tracking-wide text-nsuk-faint uppercase">
