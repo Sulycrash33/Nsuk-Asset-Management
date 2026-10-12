@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signedAssetPhotos } from "@/lib/asset-photo";
+import BulkAssetActions from "@/components/bulk-asset-actions";
 import { Boxes, ChevronRight, Plus, SearchX } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -160,12 +161,14 @@ export default async function AssetsPage({
           />
         )
       ) : (
+        <BulkAssetActions key={`${page}:${exportParams}`} units={units} restrictTo={isAdmin ? undefined : scopedUnitIds}>
         <ul className="stagger space-y-2">
           {rows.map((asset) => (
-            <li key={asset.id}>
+            <li key={asset.id} className="flex items-center gap-3">
+              <label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" name="asset" value={asset.id} aria-label={`Select ${asset.name}`} className="h-5 w-5 accent-[#1A3C6E]" /></label>
               <Link
                 href={`/assets/${asset.id}`}
-                className="card card-interactive flex items-center gap-3"
+                className="card card-interactive flex min-w-0 flex-1 items-center gap-3"
               >
                 {photoSources.get(asset.id) ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -204,6 +207,7 @@ export default async function AssetsPage({
             </li>
           ))}
         </ul>
+        </BulkAssetActions>
       )}
     </div>
   );
