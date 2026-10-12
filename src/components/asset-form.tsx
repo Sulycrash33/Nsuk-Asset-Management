@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { signedAssetPhoto } from "@/lib/asset-photo";
 import { useRef, useState } from "react";
 import { AlertCircle, Camera, Check, Loader2, Plus, Printer, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -65,6 +66,7 @@ export default function AssetForm({
   units: initialUnits,
   categories,
   asset = null,
+  initialPhotoSource = null,
   scopedUnitIds,
   isAdmin,
   campusId,
@@ -73,6 +75,7 @@ export default function AssetForm({
   units: OrgUnit[];
   categories: AssetCategory[];
   asset?: Asset | null;
+  initialPhotoSource?: string | null;
   scopedUnitIds: string[];
   isAdmin: boolean;
   campusId: string | null;
@@ -86,6 +89,7 @@ export default function AssetForm({
     initialState(asset, scopedUnitIds.length === 1 ? scopedUnitIds[0] : ""),
   );
   const [busy, setBusy] = useState(false);
+  const [photoSource, setPhotoSource] = useState(initialPhotoSource);
   const [uploading, setUploading] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,17 +133,17 @@ export default function AssetForm({
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `${crypto.randomUUID()}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("asset-photos")
-      .upload(path, file, { cacheControl: "3600", upsert: false });
-
-    if (uploadError) {
-      toast.error("Photo upload failed", uploadError.message);
-    } else {
-      const { data } = supabase.storage.from("asset-photos").getPublicUrl(path);
-      set("photo_url", data.publicUrl);
-    }
-    setUploading(false);
+    try {
+      const { error: uploadError } = await supabase.storage.from("asset-photos")
+        .upload(path, file, { cacheControl: "900", upsert: false });
+      if (uploadError) throw new Error(uploadError.message);
+      const source = await signedAssetPhoto(supabase, path, process.env.NEXT_PUBLIC_SUPABASE_URL!);
+      if (!source) throw new Error("Upload completed but its private preview could not be confirmed. Try again.");
+      set("photo_url", path);
+      setPhotoSource(source);
+    } catch (error) {
+      toast.error("Photo upload failed", error instanceof Error ? error.message : "Try again.");
+    } finally { setUploading(false); }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -303,6 +307,7 @@ export default function AssetForm({
             onClick={() => {
               setCreated(null);
               setForm(initialState(null, form.org_unit_id));
+              setPhotoSource(null);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             className="btn-green"
@@ -488,10 +493,10 @@ export default function AssetForm({
           {form.photo_url ? (
             <div className="relative overflow-hidden rounded-xl border border-nsuk-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={form.photo_url} alt="Asset" className="h-48 w-full object-cover" />
+              <img src={photoSource ?? undefined} alt={photoSource ? "Asset" : "Photo preview unavailable; refresh to try again"} className="h-48 w-full object-cover" />
               <button
                 type="button"
-                onClick={() => set("photo_url", "")}
+                onClick={() => { set("photo_url", ""); setPhotoSource(null); }}
                 aria-label="Remove photo"
                 className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-nsuk-ink/65 text-white backdrop-blur transition hover:bg-nsuk-ink/85"
               >
