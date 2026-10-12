@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/session";
 import AppShell from "@/components/app-shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { profile, isAdmin, scopedUnitIds, units, campuses } = await requireSession();
+  const { profile, isAdmin, isAuditor, scopedUnitIds, units, campuses } = await requireSession();
 
   const scopeLabel = isAdmin
     ? "University-wide"
@@ -24,6 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       name={profile.name || profile.email}
       email={profile.email}
       isAdmin={isAdmin}
+      isAuditor={isAuditor}
       scopeLabel={scopeLabel}
       campusName={campusName}
     >

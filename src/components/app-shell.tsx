@@ -72,6 +72,7 @@ export default function AppShell({
   name,
   email,
   isAdmin,
+  isAuditor,
   scopeLabel,
   campusName,
 }: {
@@ -79,6 +80,7 @@ export default function AppShell({
   name: string;
   email: string;
   isAdmin: boolean;
+  isAuditor: boolean;
   scopeLabel: string;
   campusName: string | null;
 }) {
@@ -111,7 +113,7 @@ export default function AppShell({
 
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => isAdmin || !item.adminOnly),
+    items: group.items.filter((item) => (isAdmin || !item.adminOnly || (isAuditor && item.href === "/activity")) && (!isAuditor || !["/assets/new", "/assets/import"].includes(item.href))),
   })).filter((group) => group.items.length > 0);
 
   async function signOut() {
@@ -160,7 +162,7 @@ export default function AppShell({
                   ) : (
                     <UserRound className="h-3 w-3" />
                   )}
-                  {isAdmin ? "Administrator" : "Staff"}
+                  {isAdmin ? "Administrator" : isAuditor ? "Auditor · read only" : "Staff"}
                 </p>
               </div>
             </Link>
@@ -232,7 +234,7 @@ export default function AppShell({
                 </Link>
 
                 <div className="hidden lg:block">
-                  <CommandPalette isAdmin={isAdmin} />
+                  <CommandPalette isAdmin={isAdmin} readOnly={isAuditor} />
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -270,7 +272,7 @@ export default function AppShell({
             {/* ---- Mobile bottom tabs ---- */}
             <nav className="no-print fixed inset-x-0 bottom-0 z-30 border-t border-nsuk-line bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-key)] backdrop-blur-md lg:hidden">
               <div className="grid grid-cols-4">
-                {TABS.map((tab) => {
+                {TABS.filter(tab => !isAuditor || tab.href !== "/assets/new").map((tab) => {
                   const active = isActive(tab.href);
                   const isScan = tab.href === "/scan";
                   return (

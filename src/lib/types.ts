@@ -1,4 +1,4 @@
-export type Role = "admin" | "staff";
+export type Role = "admin" | "staff" | "auditor";
 
 export const CONDITIONS = ["Working", "Faulty", "Under Repair", "Missing"] as const;
 export type Condition = (typeof CONDITIONS)[number];

@@ -57,7 +57,7 @@ const ACTIONS = [
 export default async function DashboardPage() {
   // No unit filter is passed: dashboard_stats() runs as the caller, so row
   // level security narrows the figures to a staff member's own units.
-  const { profile, isAdmin, units } = await requireSession();
+  const { profile, isAdmin, isAuditor, units } = await requireSession();
   const supabase = await createClient();
 
   // Every figure on this page is aggregated in the database and comes back as a
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
 
       {/* ---- Primary actions: the field workflow, above the fold ---- */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {ACTIONS.map((action) => (
+        {ACTIONS.filter(action => !isAuditor || !["/assets/new", "/assets/import"].includes(action.href)).map((action) => (
           <Link
             key={action.href}
             href={action.href}
@@ -215,8 +215,8 @@ export default async function DashboardPage() {
         <EmptyState
           icon={Boxes}
           title="The register is empty"
-          body="Record the first asset and the system will issue its asset code immediately. A full store room may also be imported from a spreadsheet, a Word table or a PDF schedule."
-          action={
+          body={isAuditor ? "No assets are visible in your assigned scope. Ask an administrator to check your unit assignments." : "Record the first asset and the system will issue its asset code immediately. A full store room may also be imported from a spreadsheet, a Word table or a PDF schedule."}
+          action={isAuditor ? undefined :
             <div className="flex flex-col gap-2 sm:flex-row">
               <Link href="/assets/new" className="btn-green">
                 <Plus className="h-4 w-4" /> Add an asset

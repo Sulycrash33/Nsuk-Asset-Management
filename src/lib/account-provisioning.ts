@@ -1,5 +1,5 @@
 export type AccountInput = {
-  name: string; email: string; password: string; role: "admin" | "staff";
+  name: string; email: string; password: string; role: "admin" | "staff" | "auditor";
   campus_id: string | null; unit_ids: string[]; invite: boolean;
 };
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -10,7 +10,7 @@ export function parseAccountInput(value: unknown): AccountInput {
   const body = value as Record<string, unknown>;
   if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 200) throw new Error("Enter a name of up to 200 characters.");
   if (typeof body.email !== "string" || body.email.length > 320 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email.trim())) throw new Error("Enter a valid email address.");
-  if (body.role !== undefined && body.role !== "admin" && body.role !== "staff") throw new Error("Choose Staff or Administrator.");
+  if (body.role !== undefined && body.role !== "admin" && body.role !== "staff" && body.role !== "auditor") throw new Error("Choose Staff, Auditor or Administrator.");
   if (body.invite !== undefined && typeof body.invite !== "boolean") throw new Error("Invalid invitation choice.");
   if (body.password !== undefined && typeof body.password !== "string") throw new Error("Invalid password.");
   const invite = body.invite === true;
@@ -18,9 +18,9 @@ export function parseAccountInput(value: unknown): AccountInput {
   if (!invite && password.length < 8) throw new Error("Password must be at least 8 characters.");
   if (body.campus_id != null && !isUserId(body.campus_id)) throw new Error("Choose a valid campus.");
   if (body.unit_ids !== undefined && (!Array.isArray(body.unit_ids) || body.unit_ids.length > 500 || !body.unit_ids.every(isUserId))) throw new Error("Choose valid unit assignments.");
-  const role = body.role === "admin" ? "admin" : "staff";
+  const role = body.role === "admin" ? "admin" : body.role === "auditor" ? "auditor" : "staff";
   const units = [...new Set((body.unit_ids as string[] | undefined) ?? [])];
-  if (role === "staff" && !units.length) throw new Error("Assign at least one unit so this member of staff can use the register.");
+  if (role !== "admin" && !units.length) throw new Error("Assign at least one unit so this account can use the register.");
   return { name: body.name.trim(), email: body.email.trim().toLowerCase(), password, role,
     campus_id: role === "admin" ? null : (body.campus_id as string | null | undefined) ?? null,
     unit_ids: role === "admin" ? [] : units, invite };

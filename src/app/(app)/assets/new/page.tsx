@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Upload } from "lucide-react";
 import { requireSession } from "@/lib/session";
@@ -9,7 +10,8 @@ export const metadata = { title: "Add asset" };
 export const dynamic = "force-dynamic";
 
 export default async function NewAssetPage() {
-  const { profile, isAdmin, scopedUnitIds, units, campuses } = await requireSession();
+  const { profile, isAdmin, isAuditor, scopedUnitIds, units, campuses } = await requireSession();
+  if (isAuditor) redirect("/assets");
   const supabase = await createClient();
   const { data: categories } = await supabase.from("asset_categories").select("*").order("name");
 

@@ -43,3 +43,9 @@ test("auth creation refusal never attempts provisioning or cleanup", async () =>
   await assert.rejects(provisionAccount(false,{create:async()=>{throw Error("duplicate email");},provision:async()=>{calls.push("provision");},remove:async()=>{calls.push("remove");}}),/duplicate/);
   assert.deepEqual(calls,[]);
 });
+
+test("auditors keep assigned read scope and cannot be created without units",()=>{
+ const account=parseAccountInput({...valid,role:"auditor"});
+ assert.equal(account.role,"auditor");assert.deepEqual(account.unit_ids,[unit]);
+ assert.throws(()=>parseAccountInput({...valid,role:"auditor",unit_ids:[]}));
+});

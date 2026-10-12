@@ -7,7 +7,7 @@ import { CONDITIONS, type OrgUnit } from "@/lib/types";
 import UnitSelect from "@/components/unit-select";
 import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/toast";
-export default function BulkAssetActions({ children, units, restrictTo }: { children: ReactNode; units: OrgUnit[]; restrictTo?: string[] }) {
+export default function BulkAssetActions({ children, units, restrictTo, readOnly = false }: { children: ReactNode; units: OrgUnit[]; restrictTo?: string[]; readOnly?: boolean }) {
   const form = useRef<HTMLFormElement>(null), router = useRouter(), confirm = useConfirm(), toast = useToast();
   const [selected, setSelected] = useState(0), [busy, setBusy] = useState(false);
   const [mode, setMode] = useState("condition"), [condition, setCondition] = useState<string>("Working");
@@ -19,7 +19,7 @@ export default function BulkAssetActions({ children, units, restrictTo }: { chil
   }
   async function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || readOnly) return;
     const ids = new FormData(event.currentTarget).getAll("asset").map(String);
     if (!ids.length || (mode === "transfer" && (!unit || !reason.trim()))) return;
     setBusy(true);
@@ -34,6 +34,7 @@ export default function BulkAssetActions({ children, units, restrictTo }: { chil
     } catch (error) { toast.error("Bulk change failed", error instanceof Error ? error.message : "Refresh and try again."); }
     finally { setBusy(false); }
   }
+  if (readOnly) return <div>{children}</div>;
   return <form ref={form} onSubmit={apply} onChange={() => setSelected(form.current?.querySelectorAll('input[name="asset"]:checked').length ?? 0)} className="space-y-3">
     <fieldset disabled={busy} className="card space-y-3">
       <div className="flex flex-wrap items-center gap-3"><button type="button" className="btn-ghost btn-sm" onClick={selectShown}>Select / clear this page</button><span className="text-sm text-nsuk-muted">{selected} selected (up to 100)</span></div>

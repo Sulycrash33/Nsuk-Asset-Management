@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AssetChangeDetails from "@/components/asset-change-details";
-import { requireAdmin } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { unitPath } from "@/lib/tree";
 import type { AssetLog, Profile } from "@/lib/types";
@@ -26,7 +27,8 @@ export default async function ActivityPage({
   const params = await searchParams;
   const action = typeof params.action === "string" ? params.action : undefined;
 
-  const { units } = await requireAdmin();
+  const { units, isAdmin, isAuditor } = await requireSession();
+  if (!isAdmin && !isAuditor) redirect("/dashboard");
   const supabase = await createClient();
 
   let query = supabase
@@ -57,7 +59,7 @@ export default async function ActivityPage({
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Activity log</h1>
         <p className="text-sm text-nsuk-muted">
-          Every asset created, edited, transferred or deleted across the University.
+          Asset changes within your permitted unit scope.
         </p>
       </header>
 

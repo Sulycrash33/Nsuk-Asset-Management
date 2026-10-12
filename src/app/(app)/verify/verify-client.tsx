@@ -81,11 +81,13 @@ function useOnlineStatus() {
 
 export default function VerifyClient({
   ownerId,
+  readOnly = false,
   units,
   openSessions,
   recentSessions,
 }: {
   ownerId: string;
+  readOnly?: boolean;
   units: Unit[];
   openSessions: Session[];
   recentSessions: Session[];
@@ -622,7 +624,7 @@ export default function VerifyClient({
   // ---- Nothing in progress -----------------------------------------------
   return (
     <div className="space-y-4">
-      <div className="card space-y-3">
+      {readOnly ? <p className="card text-sm text-nsuk-muted">Read-only access: review completed verifications below. Starting, scanning and finishing exercises are disabled.</p> : <div className="card space-y-3">
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-nsuk-blue-50">
             <ClipboardCheck className="h-5 w-5 text-nsuk-blue" />
@@ -658,7 +660,7 @@ export default function VerifyClient({
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
           Start
         </button>
-      </div>
+      </div>}
 
       {recentSessions.length > 0 && (
         <div className="card">
