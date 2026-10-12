@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { signedAssetPhoto } from "@/lib/asset-photo";
 import { Boxes, ChevronRight, Plus, SearchX } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -54,6 +55,7 @@ export default async function AssetsPage({
     supabase.rpc("register_summary", summaryArgs(filters)),
   ]);
   const rows = (assets ?? []) as unknown as AssetWithRefs[];
+  const photoSources = new Map(await Promise.all(rows.filter(a => a.photo_url).map(async a => [a.id, await signedAssetPhoto(supabase, a.photo_url, process.env.NEXT_PUBLIC_SUPABASE_URL!)] as const)));
   const total = count ?? 0;
   const totalValue = summary.error ? null : Number(summary.data?.total_value ?? 0);
   const pageHref = (next: number) => {
@@ -165,10 +167,10 @@ export default async function AssetsPage({
                 href={`/assets/${asset.id}`}
                 className="card card-interactive flex items-center gap-3"
               >
-                {asset.photo_url ? (
+                {photoSources.get(asset.id) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={asset.photo_url}
+                    src={photoSources.get(asset.id)!}
                     alt=""
                     loading="lazy"
                     className="h-14 w-14 shrink-0 rounded-xl object-cover"

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { signedAssetPhoto } from "@/lib/asset-photo";
 import AssetChangeDetails from "@/components/asset-change-details";
 import { notFound } from "next/navigation";
 import { ArrowLeft, History, Pencil, QrCode } from "lucide-react";
@@ -31,6 +32,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
 
   if (!asset) notFound();
   const record = asset as AssetWithRefs;
+  const photoSource = await signedAssetPhoto(supabase, record.photo_url, process.env.NEXT_PUBLIC_SUPABASE_URL!);
 
   const { data: logs } = await supabase
     .from("asset_logs")
@@ -78,10 +80,10 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       </Link>
 
       <article className="panel overflow-hidden">
-        {record.photo_url && (
+        {photoSource && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={record.photo_url}
+            src={photoSource}
             alt={record.name}
             className="h-56 w-full object-cover sm:h-64"
           />

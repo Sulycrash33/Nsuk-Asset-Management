@@ -186,3 +186,12 @@ it neither uses the production database nor deploys. Database regression scripts
 The asset register paginates while showing full matching totals. Export applies the same filters
 and permission scope across every batch. Retry if the register changes or a batch fails; no partial
 file is saved. These multi-request exports are not transactional snapshots during concurrent edits.
+
+
+Asset photos use a private bucket and 15-minute signed display URLs. Stored references are object
+keys, with support for this project's older public URLs when reading existing records. Staff read
+photos for assets in their assigned scope, plus their own unlinked uploads while composing an entry.
+A linked asset moving outside that scope removes future photo access even for its original uploader.
+Existing signed URLs remain usable until their expiry. Refresh a long-open page if a preview expires.
+Run `npm run test:photos` for URL validation and permission-error checks; database policy fixtures
+are in `supabase/tests/private_photos.sql`.

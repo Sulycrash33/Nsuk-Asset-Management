@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { signedAssetPhoto } from "@/lib/asset-photo";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireSession } from "@/lib/session";
@@ -39,6 +40,7 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
         units={units}
         categories={(categories ?? []) as AssetCategory[]}
         asset={asset as Asset}
+        initialPhotoSource={await signedAssetPhoto(supabase, asset.photo_url, process.env.NEXT_PUBLIC_SUPABASE_URL!)}
         scopedUnitIds={scopedUnitIds}
         isAdmin={isAdmin}
         campusId={profile.campus_id}
