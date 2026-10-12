@@ -15,13 +15,13 @@ each one a unique barcode and QR code, prints the label, and turns verification 
 
 | Area | Detail |
 |---|---|
-| **Entry** | One-by-one from a phone (with camera photo capture) **or** bulk CSV import — both always available |
-| **Barcodes** | Auto-generated `NSUK-{unit}-{seq}` codes, rendered as Code 128 + QR, printed as A4 label sheets (12 per page) |
+| **Entry** | One-by-one from a phone (with camera photo capture) **or** bulk spreadsheet/CSV import — both always available |
+| **Barcodes** | Auto-generated matric-style `NSU/...` codes, rendered as Code 128 + QR, printed as A4 label sheets (12 per page) |
 | **Scanning** | Phone camera (ZXing) or any handheld scanner — the latter works as keyboard input with no integration |
 | **Scope** | Staff see only their assigned units (and everything nested beneath them); admins see the whole University |
 | **Transfers** | Moving an asset between units records from, to, reason, who and when |
-| **Exports** | Printable per-unit asset register PDF for audits and Bursary |
-| **Audit** | University-wide activity log of every create, edit, transfer and delete |
+| **Exports** | Complete filtered PDF registers, faculty/campus schedules and Excel workbooks |
+| **Audit** | Activity log with previous/new field values for new edits, transfers and deletions |
 
 ### Roles
 
@@ -38,7 +38,7 @@ their unit's register. Cannot create accounts, edit the org tree, or see other u
 ```bash
 git clone https://github.com/Sulycrash33/Nsuk-Asset-Management.git
 cd Nsuk-Asset-Management
-npm install
+npm ci
 cp .env.example .env.local   # fill in your Supabase values
 npm run dev
 ```
@@ -49,7 +49,7 @@ npm run dev
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Supabase anon / publishable key |
-| `SUPABASE_SERVICE_ROLE_KEY` | no | Lets **Admin → Staff accounts** create pre-confirmed accounts and delete accounts. Without it, new staff must confirm their email before signing in, and account deletion is unavailable. Server-side only — never expose it to the browser. |
+| `SUPABASE_SERVICE_ROLE_KEY` | for account management | Required for administrator-created accounts, invitations, password resets and deletion. Missing configuration returns an explicit error. Server-side only — never expose it to the browser. |
 
 Set the same variables in the Vercel project settings; every push to `main` redeploys.
 
@@ -63,17 +63,22 @@ administrative units, and 9 asset categories.
 
 ### First sign-in
 
-The login screen offers a one-time **"Create the first administrator"** form while no account
-exists — the database makes the first account an administrator regardless of what the client asks
-for. Once that account exists the form disappears permanently, and all further accounts are created
-from **Admin → Staff accounts**.
+For a fresh project, create the initial Auth user through the Supabase Dashboard's
+user-management screen. The database assigns the first profile the administrator role.
+On the existing NSUK project, public signup is disabled and administrator accounts already exist;
+use **Admin → Staff accounts**, with the server service key configured, to add officers.
+Assign at least one unit to each new staff account. A faculty assignment covers its departments.
+Do not grant privileges through signup metadata.
+
+See [operations and recovery](docs/OPERATIONS.md) for deployment checks, test boundaries,
+backup coverage and the phone pilot checklist.
 
 ---
 
 ## How the barcodes work
 
 1. An asset record is saved (single entry or CSV import).
-2. A Postgres trigger issues `NSUK-{unit_code}-{seq}` — unique, sequential per unit — and mirrors it
+2. A Postgres trigger issues a matric-style code such as `NSU/ADM/ACC/CP/T/001` — unique, sequential per unit — and mirrors it
    into the QR payload.
 3. The label sheet is generated client-side as a PDF: Code 128 bars drawn as **vector** rects (not a
    bitmap, so they stay scannable at any size), the QR code, and the human-readable code.
@@ -119,8 +124,7 @@ scripts/verify-barcode.mjs    Code 128 round-trip check
 
 Mobile-first throughout — most real use is on a phone, standing in front of the item — with a
 thumb-reachable bottom tab bar, a raised Scan key, large tap targets and camera-first photo capture.
-It is installable as a PWA, and the data layer is structured so offline sync can be added later
-without restructuring.
+It is installable as a PWA, and verification scans can queue on an already-open exercise when connectivity drops.
 
 Only public resources are cached by the service worker. A verification already open in a tab
 can queue scans when the connection drops; reopening or reloading a page offline shows a public
@@ -169,3 +173,16 @@ keyboard users only, and dialogs carry proper `role`/`aria-modal` semantics.
 
 Depreciation, maintenance scheduling and disposal/write-off workflows are deliberately out of scope
 for this build.
+
+
+## Validation
+
+Use Node 24 and `npm ci`, then run `npm run check`. It runs typecheck, lint, offline privacy,
+scan-queue, import validation, account recovery, register-export tests and a production build.
+GitHub Actions repeats this on Linux for pull requests and main with placeholder public settings;
+it neither uses the production database nor deploys. Database regression scripts in
+`supabase/tests/` use rollback-only fixtures and require a privileged test connection.
+
+The asset register paginates while showing full matching totals. Export applies the same filters
+and permission scope across every batch. Retry if the register changes or a batch fails; no partial
+file is saved. These multi-request exports are not transactional snapshots during concurrent edits.

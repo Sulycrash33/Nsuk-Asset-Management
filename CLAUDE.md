@@ -65,13 +65,12 @@ rest of the schema. Prefer `alter function ... set search_path` for an existing
 one — it leaves a working body alone.
 
 **Creating an account needs the service role key. There is no fallback.**
-`POST /api/admin/users` invites or creates through the Supabase admin API when
-`SUPABASE_SERVICE_ROLE_KEY` is set, and otherwise falls back to an ordinary
-`signUp`. That fallback is dead: public signup is off, so it returns
-`422 signup_disabled`, "Signups not allowed for this instance" — confirmed
-against the live project on 3 Sep 2026, which created nothing. Without the key
-in the server environment, adding staff fails outright rather than degrading.
-Check it before promising anyone an account.
+`POST /api/admin/users` uses the Supabase admin API only when the server service key is set.
+Missing configuration returns an explicit error; there is no ordinary signup fallback.
+Creation validates inputs and references first, then provisions profile and units atomically.
+Failed password-account setup compensates by deleting only the newly created Auth user;
+failed invitation setup retains the recipient and reports the incomplete account for repair.
+Role/unit changes use `assign_account_scope` as one transaction.
 
 **A staff account can only record into the units assigned to it**
 (`assets_insert`: `is_admin() or org_unit_id in (my_unit_ids())`). Assignments
