@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { parseAccountInput, provisionAccount, isUserId, type AccountInput } from "@/lib/account-provisioning";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 /** Confirms the caller is signed in as an administrator. */
@@ -38,132 +38,55 @@ export async function POST(request: Request) {
   const guard = await requireAdminCaller();
   if ("error" in guard) return guard.error;
   const { supabase } = guard;
-
-  let body: {
-    name?: string;
-    email?: string;
-    password?: string;
-    role?: "admin" | "staff";
-    campus_id?: string | null;
-    unit_ids?: string[];
-    invite?: boolean;
-    origin?: string;
-  };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  let body: AccountInput;
+  try { body = parseAccountInput(await request.json()); }
+  catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid request body." }, { status: 400 });
   }
-
-  const email = (body.email ?? "").trim().toLowerCase();
-  const password = body.password ?? "";
-  const name = (body.name ?? "").trim();
-  const role = body.role === "admin" ? "admin" : "staff";
-  const unitIds = body.unit_ids ?? [];
-
-  const invite = body.invite === true;
-
-  if (!email || !name) {
-    return NextResponse.json({ error: "Name and email are both required." }, { status: 400 });
-  }
-  if (!invite) {
-    if (!password) {
-      return NextResponse.json({ error: "A password is required." }, { status: 400 });
-    }
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters." },
-        { status: 400 },
-      );
-    }
-  }
-
   const admin = serviceClient();
-  let userId: string;
-  let needsEmailConfirmation = false;
+  if (!admin) return NextResponse.json({ error: "Account creation needs SUPABASE_SERVICE_ROLE_KEY configured on the server." }, { status: 503 });
 
-  if (invite) {
-    // Inviting sends a link and never sets a password, so nobody but the
-    // recipient ever knows one. It needs the service key: there is no way to
-    // send an invitation with the public key, by design.
-    if (!admin) {
-      return NextResponse.json(
-        {
-          error:
-            "Invitations need SUPABASE_SERVICE_ROLE_KEY to be configured on the server. Set a password for this account instead.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const origin = typeof body.origin === "string" ? body.origin : new URL(request.url).origin;
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { name },
-      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/reset-password?welcome=1")}`,
-    });
-
-    if (error || !data.user) {
-      return NextResponse.json(
-        { error: error?.message ?? "Could not send the invitation." },
-        { status: 400 },
-      );
-    }
-    userId = data.user.id;
-  } else if (admin) {
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name, role, campus_id: body.campus_id ?? null },
-    });
-    if (error || !data.user) {
-      return NextResponse.json(
-        { error: error?.message ?? "Could not create the account." },
-        { status: 400 },
-      );
-    }
-    userId = data.user.id;
-  } else {
-    // No service key configured: fall back to an ordinary sign-up on a client
-    // that never persists a session, so the administrator stays signed in.
-    const anon = createSupabaseClient(SUPABASE_URL, ANON_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const { data, error } = await anon.auth.signUp({
-      email,
-      password,
-      options: { data: { name, role, campus_id: body.campus_id ?? null } },
-    });
-    if (error || !data.user) {
-      return NextResponse.json(
-        { error: error?.message ?? "Could not create the account." },
-        { status: 400 },
-      );
-    }
-    userId = data.user.id;
-    needsEmailConfirmation = !data.session;
+  // Refuse known duplicates and validate references before creating an Auth user.
+  const [{ data: existing, error: profileLookup }, { data: units, error: unitLookup }] = await Promise.all([
+    supabase.from("profiles").select("id").eq("email", body.email).maybeSingle(),
+    body.unit_ids.length ? supabase.from("org_units").select("id").in("id", body.unit_ids)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (profileLookup || unitLookup) return NextResponse.json({ error: "Account details could not be checked. Try again." }, { status: 503 });
+  if (existing) return NextResponse.json({ error: "That account already exists. Edit it in Staff accounts." }, { status: 409 });
+  if ((units ?? []).length !== body.unit_ids.length) return NextResponse.json({ error: "An assigned unit no longer exists." }, { status: 400 });
+  if (body.campus_id) {
+    const { data, error } = await supabase.from("campuses").select("id").eq("id", body.campus_id).maybeSingle();
+    if (error || !data) return NextResponse.json({ error: "Choose an existing campus." }, { status: 400 });
   }
-
-  // The signup trigger creates the profile; correct role/campus here because a
-  // trigger cannot trust client-supplied metadata for privilege decisions.
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .upsert({ id: userId, name, email, role, campus_id: body.campus_id ?? null });
-
-  if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 400 });
+  try {
+    const outcome = await provisionAccount(body.invite, {
+      create: async () => {
+        const result = body.invite
+          ? await admin.auth.admin.inviteUserByEmail(body.email, {
+              data: { name: body.name },
+              redirectTo: `${new URL(request.url).origin}/auth/callback?next=${encodeURIComponent("/reset-password?welcome=1")}`,
+            })
+          : await admin.auth.admin.createUser({ email: body.email, password: body.password,
+              email_confirm: true, user_metadata: { name: body.name } });
+        if (result.error || !result.data.user) throw new Error(result.error?.message ?? "Could not create the account.");
+        return result.data.user.id;
+      },
+      provision: async (id) => {
+        const { error } = await supabase.rpc("provision_account", { p_user_id: id, p_name: body.name,
+          p_email: body.email, p_role: body.role, p_campus_id: body.campus_id, p_unit_ids: body.unit_ids });
+        if (error) throw new Error(error.message);
+      },
+      remove: async (id) => {
+        const { error } = await admin.auth.admin.deleteUser(id);
+        if (error) throw new Error(error.message);
+      },
+    });
+    if (!outcome.ok) return NextResponse.json(outcome, { status: outcome.incompleteUserId ? 409 : 400 });
+    return NextResponse.json({ id: outcome.id, needsEmailConfirmation: false, invited: body.invite });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Account creation failed." }, { status: 400 });
   }
-
-  if (unitIds.length) {
-    const { error: unitsError } = await supabase
-      .from("user_units")
-      .insert(unitIds.map((org_unit_id) => ({ user_id: userId, org_unit_id })));
-    if (unitsError) {
-      return NextResponse.json({ error: unitsError.message }, { status: 400 });
-    }
-  }
-
-  return NextResponse.json({ id: userId, needsEmailConfirmation, invited: invite });
 }
 
 /**
@@ -178,18 +101,20 @@ export async function PATCH(request: Request) {
   const guard = await requireAdminCaller();
   if ("error" in guard) return guard.error;
 
-  let body: { id?: string; password?: string };
+  let body: Record<string, unknown>;
   try {
-    body = await request.json();
+    const parsed: unknown = await request.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid body");
+    body = parsed as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const id = (body.id ?? "").trim();
-  const password = body.password ?? "";
+  const id = body.id;
+  const password = body.password;
 
-  if (!id) return NextResponse.json({ error: "Missing user id." }, { status: 400 });
-  if (password.length < 8) {
+  if (!isUserId(id)) return NextResponse.json({ error: "Invalid user id." }, { status: 400 });
+  if (typeof password !== "string" || password.length < 8) {
     return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
   }
 
@@ -217,7 +142,7 @@ export async function DELETE(request: Request) {
   const { supabase } = guard;
 
   const id = new URL(request.url).searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing user id." }, { status: 400 });
+  if (!isUserId(id)) return NextResponse.json({ error: "Invalid user id." }, { status: 400 });
 
   // The screen hides the option, but the endpoint is reachable on its own, so
   // the rule is enforced here too rather than trusted to the browser.

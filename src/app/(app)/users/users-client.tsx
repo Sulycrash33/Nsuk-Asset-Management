@@ -21,6 +21,16 @@ import { useToast } from "@/components/ui/toast";
 import { buildTree, flattenTree, unitPath } from "@/lib/tree";
 import type { Campus, OrgUnit, Profile, Role } from "@/lib/types";
 
+async function accountRequest(url: string, init: RequestInit) {
+  try {
+    const response = await fetch(url, init);
+    const result = await response.json();
+    return { ok: response.ok, result };
+  } catch {
+    return { ok: false, result: { error: "The account request could not be confirmed. Refresh the account list before retrying." } };
+  }
+}
+
 type NewUser = {
   name: string;
   email: string;
@@ -161,6 +171,9 @@ export default function UsersClient({
         message: "The password must be at least 8 characters.",
       };
     }
+    if (form.role === "staff" && form.unit_ids.length === 0) {
+      return { id: "new-units", message: "Assign at least one unit to this staff account." };
+    }
     return null;
   }
 
@@ -188,23 +201,20 @@ export default function UsersClient({
     setFormError(null);
     setProblemField(null);
 
-    const response = await fetch("/api/admin/users", {
+    const { ok: requestOk, result } = await accountRequest("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
         campus_id: form.role === "admin" ? null : form.campus_id,
         invite: access === "invite",
-        // Sent so the invitation link points back at whichever address this
-        // site is being used on, rather than a domain baked in at build time.
-        origin: window.location.origin,
       }),
     });
-    const result = await response.json();
     setBusy(false);
 
-    if (!response.ok) {
+    if (!requestOk) {
       setFormError(result.error ?? "Could not create the account.");
+      if (result.incompleteUserId) router.refresh();
       return;
     }
 
@@ -231,31 +241,13 @@ export default function UsersClient({
     setFormError(null);
     const supabase = createClient();
 
-    const { error: roleError } = await supabase
-      .from("profiles")
-      .update({
-        role: editRole,
-        // A promotion to administrator makes every campus theirs, so the old
-        // single-campus stamp is cleared.
-        ...(editRole === "admin" ? { campus_id: null } : {}),
-      })
-      .eq("id", editing.id);
+    const { error: roleError } = await supabase.rpc("assign_account_scope", {
+      p_user_id: editing.id, p_role: editRole, p_unit_ids: editUnits,
+    });
     if (roleError) {
       setBusy(false);
       setFormError(roleError.message);
       return;
-    }
-
-    await supabase.from("user_units").delete().eq("user_id", editing.id);
-    if (editUnits.length) {
-      const { error } = await supabase
-        .from("user_units")
-        .insert(editUnits.map((org_unit_id) => ({ user_id: editing.id, org_unit_id })));
-      if (error) {
-        setBusy(false);
-        setFormError(error.message);
-        return;
-      }
     }
 
     setBusy(false);
@@ -281,15 +273,14 @@ export default function UsersClient({
 
     setBusy(true);
     setFormError(null);
-    const response = await fetch("/api/admin/users", {
+    const { ok: requestOk, result } = await accountRequest("/api/admin/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: editing.id, password: newPassword }),
     });
-    const result = await response.json();
     setBusy(false);
 
-    if (!response.ok) {
+    if (!requestOk) {
       setFormError(result.error ?? "Could not set the password.");
       return;
     }
@@ -306,11 +297,10 @@ export default function UsersClient({
     if (!ok) return;
 
     setBusy(true);
-    const response = await fetch(`/api/admin/users?id=${user.id}`, { method: "DELETE" });
-    const result = await response.json();
+    const { ok: requestOk, result } = await accountRequest(`/api/admin/users?id=${user.id}`, { method: "DELETE" });
     setBusy(false);
 
-    if (!response.ok) {
+    if (!requestOk) {
       toast.error("Could not delete the account", result.error);
       return;
     }
@@ -574,7 +564,7 @@ export default function UsersClient({
           </div>
 
           {form.role === "staff" ? (
-            <div>
+            <div id="new-units" tabIndex={-1}>
               <span className="label">Assigned units</span>
               <UnitPicker
                 ordered={ordered}
