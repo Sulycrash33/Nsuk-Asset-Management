@@ -7,7 +7,7 @@ export const metadata = { title: "Verification" };
 export const dynamic = "force-dynamic";
 
 export default async function VerifyPage() {
-  const { profile, isAdmin, scopedUnitIds, units } = await requireSession();
+  const { profile, isAdmin, isAuditor, scopedUnitIds, units } = await requireSession();
   const supabase = await createClient();
 
   // Only units the person can actually verify, so the picker never offers a
@@ -38,7 +38,7 @@ export default async function VerifyPage() {
         </p>
       </header>
 
-      <VerifyClient ownerId={profile.id} units={ordered} openSessions={open ?? []} recentSessions={recent ?? []} />
+      <VerifyClient key={profile.role} readOnly={isAuditor} ownerId={profile.id} units={ordered} openSessions={isAuditor ? [] : open ?? []} recentSessions={recent ?? []} />
     </div>
   );
 }

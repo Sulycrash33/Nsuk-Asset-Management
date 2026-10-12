@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditAssetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { profile, isAdmin, scopedUnitIds, units, campuses } = await requireSession();
+  const { profile, isAdmin, isAuditor, scopedUnitIds, units, campuses } = await requireSession();
   const supabase = await createClient();
 
   const [{ data: asset }, { data: categories }] = await Promise.all([
@@ -21,6 +21,7 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
   ]);
 
   if (!asset) notFound();
+  if (isAuditor) redirect(`/assets/${id}`);
   if (!isAdmin && !scopedUnitIds.includes(asset.org_unit_id)) redirect(`/assets/${id}`);
 
   return (

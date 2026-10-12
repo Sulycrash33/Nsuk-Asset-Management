@@ -42,7 +42,7 @@ const COMMANDS: Command[] = [
  * serial without leaving the current page. Results respect the caller's scope,
  * because the query runs through the same RLS-protected client as everything else.
  */
-export default function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
+export default function CommandPalette({ isAdmin, readOnly = false }: { isAdmin: boolean; readOnly?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -54,8 +54,8 @@ export default function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commands = useMemo(
-    () => COMMANDS.filter((c) => isAdmin || !c.adminOnly),
-    [isAdmin],
+    () => COMMANDS.filter((c) => (isAdmin || !c.adminOnly || (readOnly && c.href === "/activity")) && (!readOnly || !["/assets/new", "/assets/import"].includes(c.href))),
+    [isAdmin, readOnly],
   );
 
   const matchedCommands = useMemo(() => {

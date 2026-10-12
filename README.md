@@ -31,6 +31,10 @@ university-wide dashboard, global search and activity log; assets in any unit.
 **Staff** — scoped strictly to assigned unit(s): add, edit, transfer, scan, print labels and export
 their unit's register. Cannot create accounts, edit the org tree, or see other units.
 
+**Auditor** — read-only access to assigned units, their photos, completed verification reports,
+activity history and exports. Cannot record, import, edit, transfer, verify or upload photos.
+Assign units in the account-management screen; a faculty includes its departments.
+
 ---
 
 ## Getting started

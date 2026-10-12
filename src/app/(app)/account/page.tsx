@@ -17,7 +17,7 @@ const ACTION_WORDS: Record<string, string> = {
 };
 
 export default async function AccountPage() {
-  const { profile, isAdmin, scopedUnitIds, units } = await requireSession();
+  const { profile, isAdmin, isAuditor, scopedUnitIds, units } = await requireSession();
   const supabase = await createClient();
 
   // Counted in the database rather than by reading every asset back.
@@ -68,7 +68,7 @@ export default async function AccountPage() {
         </div>
         <div>
           <dt className="label mb-0">Role</dt>
-          <dd className="text-sm text-nsuk-ink">{isAdmin ? "Administrator" : "Staff"}</dd>
+          <dd className="text-sm text-nsuk-ink">{isAdmin ? "Administrator" : isAuditor ? "Auditor · read only" : "Staff"}</dd>
         </div>
         <div>
           <dt className="label mb-0">Covers</dt>
@@ -118,7 +118,7 @@ export default async function AccountPage() {
           ))}
         </dl>
 
-        {recorded === 0 && (
+        {recorded === 0 && !isAuditor && (
           <p className="mt-3 text-sm text-nsuk-muted">
             Nothing recorded yet.{" "}
             <Link href="/assets/new" className="font-semibold text-nsuk-blue hover:underline">

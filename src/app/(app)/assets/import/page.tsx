@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import ImportClient from "./import-client";
@@ -7,7 +8,8 @@ export const metadata = { title: "Bulk import" };
 export const dynamic = "force-dynamic";
 
 export default async function ImportPage() {
-  const { isAdmin, scopedUnitIds, units } = await requireSession();
+  const { isAdmin, isAuditor, scopedUnitIds, units } = await requireSession();
+  if (isAuditor) redirect("/assets");
   const supabase = await createClient();
   const { data: categories } = await supabase.from("asset_categories").select("*").order("name");
 

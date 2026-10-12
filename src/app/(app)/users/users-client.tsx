@@ -171,8 +171,8 @@ export default function UsersClient({
         message: "The password must be at least 8 characters.",
       };
     }
-    if (form.role === "staff" && form.unit_ids.length === 0) {
-      return { id: "new-units", message: "Assign at least one unit to this staff account." };
+    if (form.role !== "admin" && form.unit_ids.length === 0) {
+      return { id: "new-units", message: "Assign at least one unit to this account." };
     }
     return null;
   }
@@ -361,6 +361,7 @@ export default function UsersClient({
                   )}
                 </p>
                 <p className="truncate text-xs text-nsuk-faint">{user.email}</p>
+                {user.role === "auditor" && <p className="text-xs font-semibold text-nsuk-blue">Auditor · read only</p>}
                 <p className="truncate text-xs text-nsuk-green">
                   {user.role === "admin"
                     ? "University-wide administrator"
@@ -539,10 +540,11 @@ export default function UsersClient({
                 onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
               >
                 <option value="staff">Staff</option>
+                <option value="auditor">Auditor (read only)</option>
                 <option value="admin">Administrator</option>
               </select>
             </div>
-            {form.role === "staff" && (
+            {form.role !== "admin" && (
               <div>
                 <label className="label" htmlFor="new-campus">
                   Campus
@@ -563,7 +565,7 @@ export default function UsersClient({
             )}
           </div>
 
-          {form.role === "staff" ? (
+          {form.role !== "admin" ? (
             <div id="new-units" tabIndex={-1}>
               <span className="label">Assigned units</span>
               <UnitPicker
@@ -613,6 +615,7 @@ export default function UsersClient({
                 disabled={editing.id === currentUserId}
               >
                 <option value="staff">Staff</option>
+                <option value="auditor">Auditor (read only)</option>
                 <option value="admin">Administrator</option>
               </select>
               {editing.id === currentUserId && (
@@ -623,7 +626,7 @@ export default function UsersClient({
               )}
             </div>
 
-            {editRole === "staff" && (
+            {editRole !== "admin" && (
               <div>
                 <span className="label">Assigned units</span>
                 <UnitPicker

@@ -1,0 +1,48 @@
+begin;
+select set_config('request.jwt.claim.sub',(select id::text from public.profiles where role='admin' limit 1),true);
+set local role authenticated;
+do $$
+declare admin_id uuid:=auth.uid(); auditor_id uuid; u uuid; other_u uuid; a uuid; foreign_a uuid; open_s uuid; closed_s uuid; code text; report json;
+ photo_key text:='fixture-'||gen_random_uuid()||'.jpg'; affected integer;
+begin
+ select id into auditor_id from public.profiles where id<>admin_id limit 1;
+ select x.id into u from public.org_units x where not exists(select 1 from public.org_units c where c.parent_id=x.id) limit 1;
+ select id into other_u from public.org_units where id<>u limit 1;
+ insert into storage.objects(bucket_id,name,owner_id) values('asset-photos',photo_key,admin_id::text);
+ insert into public.assets(name,org_unit_id,barcode,qr_payload,value,photo_url) values('Auditor fixture',u,'fixture-'||gen_random_uuid(),'',10,photo_key) returning id,barcode into a,code;
+ insert into public.assets(name,org_unit_id,barcode,qr_payload) values('Foreign auditor fixture',other_u,'fixture-'||gen_random_uuid(),'') returning id into foreign_a;
+ insert into public.verification_sessions(org_unit_id) values(u) returning id into closed_s;
+ perform public.record_verification_scan(closed_s,code);perform public.finish_verification(closed_s);
+ insert into public.verification_sessions(org_unit_id) values(u) returning id into open_s;
+ perform public.assign_account_scope(auditor_id,'auditor',array[u]);
+ perform set_config('request.jwt.claim.sub',auditor_id::text,true);
+ if public.can_write_assets() or public.is_admin() then raise exception 'Auditor can write'; end if;
+ if not exists(select 1 from public.assets where id=a) or exists(select 1 from public.assets where id=foreign_a) then raise exception 'Incorrect auditor read scope'; end if;
+ if not public.can_read_asset_photo(photo_key) then raise exception 'Scoped photo read denied'; end if;
+ report:=public.verification_result(closed_s);
+ if (report->>'seen_total')::int<>1 then raise exception 'Completed result unreadable'; end if;
+ update public.assets set name='Forbidden' where id=a;get diagnostics affected=row_count;
+ if affected<>0 then raise exception 'Auditor edited asset'; end if;
+ delete from public.assets where id=a;get diagnostics affected=row_count;
+ if affected<>0 then raise exception 'Auditor deleted asset'; end if;
+ begin
+  insert into public.assets(name,org_unit_id,barcode,qr_payload) values('Forbidden',u,'fixture-'||gen_random_uuid(),'');
+  raise exception 'Auditor created asset';
+ exception when insufficient_privilege then null; end;
+ begin perform public.move_asset(a,u,'Forbidden');raise exception 'Auditor moved asset';exception when insufficient_privilege then null;end;
+ begin perform public.bulk_update_assets(array[a],'Faulty',null,null);raise exception 'Auditor bulk write';exception when insufficient_privilege then null;end;
+ begin perform public.import_asset_rows('[]'::jsonb);raise exception 'Auditor imported';exception when insufficient_privilege then null;end;
+ begin perform public.record_verification_scan(open_s,code);raise exception 'Auditor recorded scan';exception when insufficient_privilege then null;end;
+ begin perform public.finish_verification(open_s);raise exception 'Auditor closed exercise';exception when insufficient_privilege then null;end;
+ begin insert into public.verification_sessions(org_unit_id) values(u);raise exception 'Auditor started exercise';exception when insufficient_privilege then null;end;
+ begin insert into public.verification_scans(session_id,barcode) values(open_s,'Forbidden');raise exception 'Auditor inserted scan';exception when insufficient_privilege then null;end;
+ update public.verification_sessions set closed_at=now() where id=open_s;get diagnostics affected=row_count;
+ if affected<>0 then raise exception 'Auditor updated exercise';end if;
+ delete from public.verification_sessions where id=open_s;get diagnostics affected=row_count;
+ if affected<>0 then raise exception 'Auditor deleted exercise';end if;
+ begin insert into storage.objects(bucket_id,name,owner_id) values('asset-photos','fixture-'||gen_random_uuid()||'.jpg',auditor_id::text);raise exception 'Auditor uploaded';exception when insufficient_privilege then null;end;
+ begin perform public.assign_account_scope(auditor_id,'admin','{}'::uuid[]);raise exception 'Auditor escalated';exception when insufficient_privilege then null;end;
+ if has_function_privilege('anon','public.can_write_assets()','execute') then raise exception 'Anonymous write helper';end if;
+end $$;
+select 'auditor permission assertions passed' as result;
+rollback;

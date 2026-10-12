@@ -35,7 +35,7 @@ export default async function AssetsPage({
   };
 
   const session = await requireSession();
-  const { isAdmin, scopedUnitIds, units, campuses, profile } = session;
+  const { isAdmin, isAuditor, scopedUnitIds, units, campuses, profile } = session;
   const supabase = await createClient();
 
   const { data: categories } = await supabase.from("asset_categories").select("*").order("name");
@@ -113,9 +113,9 @@ export default async function AssetsPage({
             units={units}
             campuses={campuses}
           />
-          <Link href="/assets/new" className="btn-green btn-sm">
+          {!isAuditor && <Link href="/assets/new" className="btn-green btn-sm">
             <Plus className="h-4 w-4" /> Add
-          </Link>
+          </Link>}
         </div>
       </header>
 
@@ -152,8 +152,8 @@ export default async function AssetsPage({
           <EmptyState
             icon={Boxes}
             title="No assets recorded yet"
-            body="Record the first item and the system will issue its asset code straight away."
-            action={
+            body={isAuditor ? "No assets are visible in your assigned scope." : "Record the first item and the system will issue its asset code straight away."}
+            action={isAuditor ? undefined :
               <Link href="/assets/new" className="btn-green">
                 <Plus className="h-4 w-4" /> Record an asset
               </Link>
@@ -161,11 +161,11 @@ export default async function AssetsPage({
           />
         )
       ) : (
-        <BulkAssetActions key={`${page}:${exportParams}`} units={units} restrictTo={isAdmin ? undefined : scopedUnitIds}>
+        <BulkAssetActions key={`${page}:${exportParams}`} units={units} readOnly={isAuditor} restrictTo={isAdmin ? undefined : scopedUnitIds}>
         <ul className="stagger space-y-2">
           {rows.map((asset) => (
             <li key={asset.id} className="flex items-center gap-3">
-              <label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" name="asset" value={asset.id} aria-label={`Select ${asset.name}`} className="h-5 w-5 accent-[#1A3C6E]" /></label>
+              {!isAuditor && <label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" name="asset" value={asset.id} aria-label={`Select ${asset.name}`} className="h-5 w-5 accent-[#1A3C6E]" /></label>}
               <Link
                 href={`/assets/${asset.id}`}
                 className="card card-interactive flex min-w-0 flex-1 items-center gap-3"

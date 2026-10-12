@@ -21,7 +21,7 @@ const DOT: Record<AssetLog["action"], string> = {
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { isAdmin, scopedUnitIds, units } = await requireSession();
+  const { isAdmin, isAuditor, scopedUnitIds, units } = await requireSession();
   const supabase = await createClient();
 
   const { data: asset } = await supabase
@@ -52,7 +52,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     return a?.name || a?.email || "Unknown user";
   };
 
-  const canEdit = isAdmin || scopedUnitIds.includes(record.org_unit_id);
+  const canEdit = !isAuditor && (isAdmin || scopedUnitIds.includes(record.org_unit_id));
 
   const details: [string, string][] = [
     ["Category", record.asset_categories?.name ?? "—"],

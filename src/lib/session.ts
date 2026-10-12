@@ -6,6 +6,7 @@ import type { Campus, OrgUnit, Profile } from "./types";
 export type SessionContext = {
   profile: Profile;
   isAdmin: boolean;
+  isAuditor: boolean;
   /** Units the user may act on: assigned units plus everything beneath them. */
   scopedUnitIds: string[];
   units: OrgUnit[];
@@ -41,6 +42,7 @@ export async function requireSession(): Promise<SessionContext> {
   return {
     profile: profile as Profile,
     isAdmin,
+    isAuditor: profile.role === "auditor",
     scopedUnitIds: isAdmin
       ? allUnits.map((u) => u.id)
       : descendantIds(assignedIds, allUnits),
