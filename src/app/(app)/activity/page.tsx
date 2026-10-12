@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AssetChangeDetails from "@/components/asset-change-details";
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { unitPath } from "@/lib/tree";
@@ -105,6 +106,7 @@ export default async function ActivityPage({
                     )}{" "}
                     by {actorName(log.performed_by)}
                   </p>
+                  <AssetChangeDetails changes={log.changes} units={units} />
                   {log.action === "moved" && (
                     <p className="text-xs text-nsuk-muted">
                       {log.from_unit_id ? unitPath(log.from_unit_id, units) : "?"} →{" "}
