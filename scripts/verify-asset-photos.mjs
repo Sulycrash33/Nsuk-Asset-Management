@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { photoObjectKey, signedAssetPhoto } from "../src/lib/asset-photo.ts";
+import { photoObjectKey, signedAssetPhoto, signedAssetPhotos } from "../src/lib/asset-photo.ts";
 const project="https://example.supabase.co";
 test("photos accept stored keys and the same-project legacy public URL only",()=>{
  assert.equal(photoObjectKey("abc.jpg",project),"abc.jpg");
@@ -13,4 +13,12 @@ test("signed photo access uses the caller's storage permissions and expires afte
  assert.equal(await signedAssetPhoto(client,"https://tracker.invalid/photo",project),null);assert.equal(calls.length,1);
  const denied={storage:{from(){return {async createSignedUrl(){return {data:null,error:{message:"Denied"}};}};}}};
  assert.equal(await signedAssetPhoto(denied,"a.jpg",project),null);
+});
+
+test("page photos are deduplicated into one request and object denials stay hidden",async()=>{
+ let calls=0;
+ const client={storage:{from(){return {async createSignedUrls(paths,expires){calls++;assert.deepEqual(paths,["a.jpg","b.jpg"]);assert.equal(expires,900);return {data:[{path:"a.jpg",signedUrl:"private-a",error:null},{path:"b.jpg",signedUrl:null,error:"Denied"}],error:null};}};}}};
+ const result=await signedAssetPhotos(client,[{id:"1",photo_url:"a.jpg"},{id:"2",photo_url:"a.jpg"},{id:"3",photo_url:"b.jpg"},{id:"4",photo_url:null}],project);
+ assert.deepEqual([...result],[["1","private-a"],["2","private-a"]]);assert.equal(calls,1);
+ await signedAssetPhotos(client,[{id:"4",photo_url:null}],project);assert.equal(calls,1);
 });

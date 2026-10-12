@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signedAssetPhoto } from "@/lib/asset-photo";
+import { signedAssetPhotos } from "@/lib/asset-photo";
 import { Boxes, ChevronRight, Plus, SearchX } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -55,7 +55,7 @@ export default async function AssetsPage({
     supabase.rpc("register_summary", summaryArgs(filters)),
   ]);
   const rows = (assets ?? []) as unknown as AssetWithRefs[];
-  const photoSources = new Map(await Promise.all(rows.filter(a => a.photo_url).map(async a => [a.id, await signedAssetPhoto(supabase, a.photo_url, process.env.NEXT_PUBLIC_SUPABASE_URL!)] as const)));
+  const photoSources = await signedAssetPhotos(supabase, rows, process.env.NEXT_PUBLIC_SUPABASE_URL!);
   const total = count ?? 0;
   const totalValue = summary.error ? null : Number(summary.data?.total_value ?? 0);
   const pageHref = (next: number) => {

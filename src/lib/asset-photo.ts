@@ -19,3 +19,14 @@ export async function signedAssetPhoto(client: SupabaseClient, reference: string
   const { data, error } = await client.storage.from("asset-photos").createSignedUrl(key, 900);
   return error ? null : data?.signedUrl ?? null;
 }
+
+/** Sign a page's distinct keys in one Storage request, retaining per-object denials. */
+export async function signedAssetPhotos(client: SupabaseClient, rows: { id: string; photo_url: string | null }[], projectUrl: string) {
+  const keys = new Map(rows.map(row => [row.id, photoObjectKey(row.photo_url, projectUrl)]));
+  const paths = [...new Set([...keys.values()].filter((key): key is string => key !== null))];
+  if (!paths.length) return new Map<string, string>();
+  const { data, error } = await client.storage.from("asset-photos").createSignedUrls(paths, 900);
+  if (error) return new Map<string, string>();
+  const sources = new Map((data ?? []).filter(row => row.path && row.signedUrl && !row.error).map(row => [row.path!, row.signedUrl!]));
+  return new Map([...keys].filter(([, key]) => key && sources.has(key)).map(([id, key]) => [id, sources.get(key!)!]));
+}
