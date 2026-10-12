@@ -39,6 +39,7 @@ export default function AssetFilters({
 
   function apply(next: Record<string, string | null>) {
     const search = new URLSearchParams(params.toString());
+    search.delete("page");
     for (const [key, value] of Object.entries(next)) {
       if (value) search.set(key, value);
       else search.delete(key);

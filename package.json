@@ -11,7 +11,8 @@
     "test:offline": "node --test scripts/verify-offline.mjs",
     "test:scan-queue": "node --experimental-strip-types --test scripts/verify-scan-queue.mjs",
     "test:accounts": "node --experimental-strip-types --test scripts/verify-account-provisioning.mjs",
-    "check": "npm run typecheck && npm run lint && npm run test:offline && npm run test:scan-queue && npm run test:accounts && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test:offline && npm run test:scan-queue && npm run test:accounts && npm run test:register && npm run build",
+    "test:register": "node --experimental-strip-types --test scripts/verify-register.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

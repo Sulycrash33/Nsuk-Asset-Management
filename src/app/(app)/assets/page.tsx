@@ -12,7 +12,9 @@ import {
   type AssetWithRefs,
   type AssetCategory,
 } from "@/lib/types";
-import { descendantIds, unitPath } from "@/lib/tree";
+import { registerQuery, registerPage, summaryArgs } from "@/lib/asset-query";
+import { registerScope } from "@/lib/register-scope";
+import { unitPath } from "@/lib/tree";
 
 export const metadata = { title: "Assets" };
 export const dynamic = "force-dynamic";
@@ -30,7 +32,8 @@ export default async function AssetsPage({
     return typeof v === "string" && v.trim() !== "" ? v : undefined;
   };
 
-  const { isAdmin, scopedUnitIds, units, campuses, profile } = await requireSession();
+  const session = await requireSession();
+  const { isAdmin, scopedUnitIds, units, campuses, profile } = session;
   const supabase = await createClient();
 
   const { data: categories } = await supabase.from("asset_categories").select("*").order("name");
@@ -42,59 +45,24 @@ export default async function AssetsPage({
   const condition = one("condition");
   const from = one("from");
   const to = one("to");
-  const sort = one("sort");
   const filtered = Boolean(q || unit || campus || category || condition || from || to);
 
-  let query = supabase
-    .from("assets")
-    .select(ASSET_WITH_REFS_AND_CAMPUS)
-    .limit(PAGE_SIZE);
-
-  // Newest first unless asked otherwise. Sorting by unit uses the joined row so
-  // a schedule reads in the same order as the tree on screen.
-  switch (sort) {
-    case "oldest":
-      query = query.order("created_at", { ascending: true });
-      break;
-    case "name":
-      query = query.order("name", { ascending: true });
-      break;
-    case "value":
-      query = query.order("value", { ascending: false });
-      break;
-    case "unit":
-      query = query.order("org_unit_id", { ascending: true }).order("name", { ascending: true });
-      break;
-    default:
-      query = query.order("created_at", { ascending: false });
-  }
-
-  if (!isAdmin) query = query.in("org_unit_id", scopedUnitIds.length ? scopedUnitIds : ["-"]);
-
-  // A faculty, school or directorate stands for everything beneath it, so
-  // picking one has to include its departments rather than matching it alone.
-  if (unit) {
-    query = query.in("org_unit_id", descendantIds([unit], units));
-  } else if (campus) {
-    const onCampus = units.filter((u) => u.campus_id === campus).map((u) => u.id);
-    query = query.in("org_unit_id", onCampus.length ? onCampus : ["-"]);
-  }
-
-  if (category) query = query.eq("category_id", category);
-  if (condition) query = query.eq("condition", condition);
-  if (from) query = query.gte("created_at", `${from}T00:00:00`);
-  // The "to" date is inclusive of the whole day, which is what a person means.
-  if (to) query = query.lte("created_at", `${to}T23:59:59.999`);
-  if (q) {
-    const term = q.replace(/[%,()]/g, " ").trim();
-    query = query.or(
-      `name.ilike.%${term}%,barcode.ilike.%${term}%,serial_number.ilike.%${term}%,location.ilike.%${term}%`,
-    );
-  }
-
-  const { data: assets, error } = await query;
-  const rows = (assets ?? []) as AssetWithRefs[];
-  const totalValue = rows.reduce((sum, a) => sum + Number(a.value ?? 0), 0);
+  const filters = registerScope(params, session);
+  const page = registerPage(one("page"));
+  const [{ data: assets, count, error }, summary] = await Promise.all([
+    registerQuery(supabase, ASSET_WITH_REFS_AND_CAMPUS, filters).range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
+    supabase.rpc("register_summary", summaryArgs(filters)),
+  ]);
+  const rows = (assets ?? []) as unknown as AssetWithRefs[];
+  const total = count ?? 0;
+  const totalValue = summary.error ? null : Number(summary.data?.total_value ?? 0);
+  const pageHref = (next: number) => {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) if (typeof value === "string" && key !== "page") search.set(key, value);
+    search.set("page", String(next)); return `/assets?${search}`;
+  };
+  const exportParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (typeof value === "string" && key !== "page") exportParams.set(key, value);
 
   const campusName = campus ? (campuses.find((c) => c.id === campus)?.name ?? null) : null;
 
@@ -120,16 +88,17 @@ export default async function AssetsPage({
             <span className="tabular font-semibold text-nsuk-ink">
               {rows.length.toLocaleString()}
             </span>{" "}
-            shown ·{" "}
+            shown of {total.toLocaleString()} matching ·{" "}
             <span className="tabular font-semibold text-nsuk-green">
-              {formatNaira(totalValue)}
+              {totalValue === null ? "Total value unavailable" : formatNaira(totalValue)}
             </span>
-            {rows.length === PAGE_SIZE && " · refine the filters to narrow this list"}
+            
           </p>
         </div>
         <div className="flex gap-2">
           <RegisterExportButton
-            assets={rows}
+            assetCount={total}
+            exportQuery={exportParams.toString()}
             unitName={scopeName}
             campusName={
               campusName ??
@@ -158,7 +127,13 @@ export default async function AssetsPage({
         <p className="card text-sm text-nsuk-danger">Could not load assets: {error.message}</p>
       )}
 
-      {rows.length === 0 ? (
+      {summary.error && <p role="alert" className="card text-sm text-nsuk-danger">Could not calculate the total value. Refresh to try again.</p>}
+      {total > PAGE_SIZE && <nav aria-label="Asset pages" className="flex items-center justify-between gap-3">
+        {page > 1 ? <Link className="btn-ghost btn-sm" href={pageHref(page - 1)}>Previous</Link> : <span />}
+        <span className="text-sm text-nsuk-muted">Page {page} of {Math.max(1, Math.ceil(total / PAGE_SIZE))}</span>
+        {page * PAGE_SIZE < total ? <Link className="btn-ghost btn-sm" href={pageHref(page + 1)}>Next</Link> : <span />}
+      </nav>}
+      {error ? null : rows.length === 0 && total > 0 ? <p className="card">This page is empty. <Link href={pageHref(1)} className="text-nsuk-blue underline">Return to page 1</Link>.</p> : rows.length === 0 ? (
         filtered ? (
           <EmptyState
             icon={SearchX}
