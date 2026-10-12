@@ -358,13 +358,13 @@ export default function VerifyClient({
 
   async function showResult(id: string) {
     setBusy(true);
-    const { data, error } = await createClient().rpc("verification_result", { p_session_id: id });
-    setBusy(false);
-    if (error) {
-      toast.error("Could not load that result", error.message);
-      return;
-    }
-    setResult(data as Result);
+    try {
+      const { data, error } = await createClient().rpc("verification_result", { p_session_id: id });
+      if (error || !data) throw new Error(error?.message ?? "The report response was empty.");
+      setResult(data as Result);
+    } catch (error) {
+      toast.error("Could not load that result", error instanceof Error ? error.message : "Reconnect and try again.");
+    } finally { setBusy(false); }
   }
 
   async function recoverOlderScans() {

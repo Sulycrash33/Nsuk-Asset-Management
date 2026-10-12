@@ -239,21 +239,16 @@ export default function UsersClient({
     if (!editing) return;
     setBusy(true);
     setFormError(null);
-    const supabase = createClient();
-
-    const { error: roleError } = await supabase.rpc("assign_account_scope", {
-      p_user_id: editing.id, p_role: editRole, p_unit_ids: editUnits,
-    });
-    if (roleError) {
-      setBusy(false);
-      setFormError(roleError.message);
-      return;
-    }
-
-    setBusy(false);
-    toast.success("Account updated", editing.name || editing.email);
-    setEditing(null);
-    router.refresh();
+    try {
+      const { error } = await createClient().rpc("assign_account_scope", {
+        p_user_id: editing.id, p_role: editRole, p_unit_ids: editUnits,
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Account updated", editing.name || editing.email);
+      setEditing(null); router.refresh();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "The change was not confirmed. Refresh before retrying.");
+    } finally { setBusy(false); }
   }
 
   /**

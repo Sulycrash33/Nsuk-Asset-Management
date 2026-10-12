@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Camera, CameraOff, Keyboard, Loader2, SwitchCamera } from "lucide-react";
+import { CameraSession } from "@/lib/camera-session";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 
@@ -13,8 +14,9 @@ export default function ScanClient() {
   const toast = useToast();
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsRef = useRef<{ stop: () => void } | null>(null);
+  const cameraRef = useRef(new CameraSession());
   const busyRef = useRef(false);
+  const lookupVersion = useRef(0);
 
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -27,45 +29,35 @@ export default function ScanClient() {
       const code = rawCode.trim();
       if (!code || busyRef.current) return;
       busyRef.current = true;
+      const requestVersion = ++lookupVersion.current;
       setStatus("looking-up");
       setMessage(null);
 
-      const { data, error } = await createClient()
-        .from("assets")
-        .select("id,name")
-        .or(`barcode.eq.${code},qr_payload.eq.${code}`)
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        setStatus("error");
-        setMessage(error.message);
-        busyRef.current = false;
-        return;
-      }
-
-      if (!data) {
-        setStatus("error");
-        setMessage(
-          `No asset found for “${code}”. It may belong to a unit outside your access, or the code may not be registered yet.`,
-        );
-        // Vibrate on a miss so the failure registers without looking at the screen.
-        navigator.vibrate?.(120);
-        busyRef.current = false;
-        return;
-      }
-
-      navigator.vibrate?.(40);
-      toast.success("Asset found", data.name as string);
-      controlsRef.current?.stop();
-      router.push(`/assets/${data.id}`);
+      let found = false;
+      try {
+        // QR payload mirrors the asset code in the database. Use an exact filter,
+        // keeping scanner text out of PostgREST's OR-expression syntax.
+        const { data, error } = await createClient().from("assets").select("id,name")
+          .eq("barcode", code).limit(1).maybeSingle();
+        if (requestVersion !== lookupVersion.current) return;
+        if (error) throw new Error(error.message);
+        if (!data) {
+          navigator.vibrate?.(120);
+          throw new Error(`No asset found for “${code}”. It may be outside your access or unregistered.`);
+        }
+        navigator.vibrate?.(40); toast.success("Asset found", data.name as string);
+        cameraRef.current.stop(); router.push(`/assets/${data.id}`); found = true;
+      } catch (error) {
+        if (requestVersion !== lookupVersion.current) return;
+        cameraRef.current.stop();
+        setStatus("error"); setMessage(error instanceof Error ? error.message : "The lookup was not confirmed. Reconnect and try again.");
+      } finally { if (!found && requestVersion === lookupVersion.current) busyRef.current = false; }
     },
     [router, toast],
   );
 
   const stopCamera = useCallback(() => {
-    controlsRef.current?.stop();
-    controlsRef.current = null;
+    cameraRef.current.stop();
     setStatus("idle");
   }, []);
 
@@ -73,6 +65,8 @@ export default function ScanClient() {
     setStatus("starting");
     setMessage(null);
     busyRef.current = false;
+    lookupVersion.current++;
+    const generation = cameraRef.current.start();
 
     try {
       // Loaded lazily so the scanner bundle never blocks first paint.
@@ -83,12 +77,13 @@ export default function ScanClient() {
         { video: { facingMode: { ideal: facingMode } } },
         videoRef.current!,
         (result) => {
-          if (result) lookup(result.getText());
+          if (result && cameraRef.current.isCurrent(generation)) lookup(result.getText());
         },
       );
-      controlsRef.current = controls;
+      if (!cameraRef.current.attach(generation, controls)) return;
       setStatus("scanning");
     } catch (err) {
+      if (!cameraRef.current.isCurrent(generation)) return;
       setStatus("error");
       setMessage(
         err instanceof Error && err.name === "NotAllowedError"
@@ -98,7 +93,7 @@ export default function ScanClient() {
     }
   }, [facingMode, lookup]);
 
-  useEffect(() => () => controlsRef.current?.stop(), []);
+  useEffect(() => { const camera = cameraRef.current; return () => { lookupVersion.current++; camera.stop(); }; }, []);
 
   const scanning = status === "scanning" || status === "starting";
 
