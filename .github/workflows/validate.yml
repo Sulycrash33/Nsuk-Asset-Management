@@ -1,0 +1,38 @@
+name: Validate application
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-key
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Check application
+        shell: bash
+        run: |
+          set +e
+          npm run check 2>&1 | tee validation.log
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            while IFS= read -r line; do
+              line="${line//'%'/'%25'}"
+              echo "::error::$line"
+            done < <(tail -n 60 validation.log)
+          fi
+          exit "$result"
