@@ -22,9 +22,12 @@ import {
   forgetExpected,
   forgetScan,
   isOnline,
+  isRetryableScanError,
+  legacyScanCount,
   pendingScans,
   queueScan,
   readExpected,
+  recoverLegacyScans,
 } from "@/lib/offline";
 import type { flattenTree } from "@/lib/tree";
 
@@ -77,10 +80,12 @@ function useOnlineStatus() {
 }
 
 export default function VerifyClient({
+  ownerId,
   units,
   openSessions,
   recentSessions,
 }: {
+  ownerId: string;
   units: Unit[];
   openSessions: Session[];
   recentSessions: Session[];
@@ -101,12 +106,15 @@ export default function VerifyClient({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [queued, setQueued] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [legacyCount, setLegacyCount] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const sessionRef = useRef<Session | null>(session);
   const inFlight = useRef(false);
   const finishing = useRef(false);
+  const syncTask = useRef<Promise<void> | null>(null);
 
   // `record` is handed to the camera once and then reads the session through
   // this ref, so it always scans against the current one without the decoder
@@ -119,7 +127,7 @@ export default function VerifyClient({
     async (raw: string) => {
       const barcode = raw.trim();
       const current = sessionRef.current;
-      if (!barcode || !current || inFlight.current || finishing.current) return;
+      if (!barcode || !current || inFlight.current || finishing.current) return false;
       inFlight.current = true;
 
       const show = (outcome: Outcome, name: string | null) => {
@@ -127,41 +135,37 @@ export default function VerifyClient({
         setLines((prev) => [{ outcome, barcode, name, at: Date.now() }, ...prev]);
       };
 
-      // Nothing is attempted over a dead network: it would stall the scanner
-      // for the whole timeout while somebody stands there waiting.
-      if (!isOnline()) {
-        await queueScan(current.id, barcode);
-        const known = (await readExpected(current.id)).find((a) => a.barcode === barcode);
-        show("queued", known?.name ?? null);
-        setQueued((n) => n + 1);
-        setTimeout(() => {
-          inFlight.current = false;
-        }, 700);
-        return;
+      const saveLocally = async () => {
+        const before = await pendingScans(ownerId, current.id);
+        await queueScan(ownerId, current.id, barcode);
+        const known = (await readExpected(ownerId, current.id)).find((a) => a.barcode === barcode);
+        show(before.some((scan) => scan.barcode === barcode) ? "repeat" : "queued", known?.name ?? null);
+        setQueued((await pendingScans(ownerId, current.id)).length);
+      };
+      try {
+        if (!isOnline()) { await saveLocally(); return true; }
+        const { data, error, status } = await createClient().rpc("record_verification_scan", {
+          p_session_id: current.id, p_barcode: barcode,
+        });
+        if (error) {
+          if (isRetryableScanError(status)) { await saveLocally(); return true; }
+          toast.error("Scan was not saved", error.message);
+          return false;
+        } else if (data) {
+          const row = data as { outcome: Outcome; asset_name: string | null };
+          show(row.outcome, row.asset_name);
+          return true;
+        } else toast.error("Scan was not saved", "No result was returned. Scan the item again.");
+        return false;
+      } catch {
+        toast.error("Scan was not confirmed", "Check the connection and device storage, then scan the item again.");
+        return false;
+      } finally {
+        // Release even after quota errors, aborted transactions or exceptions.
+        setTimeout(() => { inFlight.current = false; }, 700);
       }
-
-      const { data, error } = await createClient().rpc("record_verification_scan", {
-        p_session_id: current.id,
-        p_barcode: barcode,
-      });
-
-      if (error) {
-        // The signal can drop between the check above and the request itself,
-        // so a failure here is queued rather than reported as lost.
-        await queueScan(current.id, barcode);
-        const known = (await readExpected(current.id)).find((a) => a.barcode === barcode);
-        show("queued", known?.name ?? null);
-        setQueued((n) => n + 1);
-      } else {
-        const row = data as { outcome: Outcome; asset_name: string | null };
-        show(row.outcome, row.asset_name);
-      }
-      // Brief pause so the camera does not fire the same code repeatedly.
-      setTimeout(() => {
-        inFlight.current = false;
-      }, 700);
     },
-    [],
+    [ownerId, toast],
   );
 
   const stopCamera = useCallback(() => {
@@ -193,42 +197,47 @@ export default function VerifyClient({
   }, [record]);
 
   /** Send everything that was scanned while the signal was gone. */
-  const flush = useCallback(async () => {
-    const current = sessionRef.current;
-    if (!current || !isOnline()) return;
-
-    const waiting = await pendingScans(current.id);
-    if (waiting.length === 0) {
-      setQueued(0);
-      return;
-    }
-
-    setSyncing(true);
-    const supabase = createClient();
-    let sent = 0;
-
-    for (const scan of waiting) {
-      const { error } = await supabase.rpc("record_verification_scan", {
-        p_session_id: scan.sessionId,
-        p_barcode: scan.barcode,
-      });
-      // Only forget a scan once the server has it. A failure leaves it queued
-      // for the next attempt rather than losing it quietly.
-      if (!error) {
-        await forgetScan(scan.key);
-        sent += 1;
-      }
-    }
-
-    setQueued((await pendingScans(current.id)).length);
-    setSyncing(false);
-    if (sent > 0) {
-      toast.success(
-        `${sent} scan${sent === 1 ? "" : "s"} sent`,
-        "Everything recorded while offline is now on the register.",
-      );
-    }
-  }, [toast]);
+  const flush = useCallback((): Promise<void> => {
+    if (syncTask.current) return syncTask.current;
+    const task = (async () => {
+      const current = sessionRef.current;
+      if (!current || !isOnline()) return;
+      setSyncError(null);
+      try {
+        const waiting = await pendingScans(ownerId, current.id);
+        if (!waiting.length) { setQueued(0); return; }
+        setSyncing(true);
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id !== ownerId) throw new Error("Sign in to the account that saved these scans before sending them.");
+        let sent = 0;
+        for (const scan of waiting) {
+          const { data: { session: active } } = await supabase.auth.getSession();
+          if (active?.user.id !== ownerId) throw new Error("The signed-in account changed. Remaining scans are retained.");
+          const { error, data } = await supabase.rpc("record_verification_scan", {
+            p_session_id: scan.sessionId, p_barcode: scan.barcode,
+          });
+          if (error) throw new Error(error.message);
+          if (!data) throw new Error("The server did not confirm the scan. Its local copy is retained.");
+          await forgetScan(ownerId, scan.key);
+          sent += 1;
+        }
+        const left = (await pendingScans(ownerId, current.id)).length;
+        if (sessionRef.current?.id === current.id) setQueued(left);
+        if (sent) toast.success(`${sent} scan${sent === 1 ? "" : "s"} sent`,
+          left ? `${left} still saved on this device.` : "All queued scans for this verification are on the register.");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Check the connection and local storage, then try again.";
+        setSyncError(message);
+        toast.error("Some scans are still waiting", message);
+        if (current && sessionRef.current?.id === current.id) {
+          try { setQueued((await pendingScans(ownerId, current.id)).length); } catch { /* Keep the last known count. */ }
+        }
+      } finally { setSyncing(false); }
+    })().finally(() => { syncTask.current = null; });
+    syncTask.current = task;
+    return task;
+  }, [ownerId, toast]);
 
   // Send whatever is queued as soon as the signal is back. `flush` returns
   // straight away when there is nothing waiting, so arriving already online
@@ -240,21 +249,23 @@ export default function VerifyClient({
   // Anything left over from a previous visit is picked up on arrival.
   useEffect(() => {
     if (!session) return;
-    pendingScans(session.id).then((p) => setQueued(p.length));
+    pendingScans(ownerId, session.id).then((p) => setQueued(p.length))
+      .catch(() => setSyncError("Local scans could not be read. Check device storage before finishing."));
+    legacyScanCount(session.id).then(setLegacyCount).catch(() => setLegacyCount(0));
     flush();
     // Resuming a verification started on another day, or another device.
-    readExpected(session.id).then((cached) => {
+    readExpected(ownerId, session.id).then((cached) => {
       if (cached.length === 0 && isOnline()) {
         createClient()
           .from("assets")
           .select("barcode,name")
           .eq("org_unit_id", session.org_unit_id)
           .then(({ data }) => {
-            if (data) cacheExpected(session.id, data as { barcode: string; name: string }[]);
+            if (data) cacheExpected(ownerId, session.id, data as { barcode: string; name: string }[]).catch(() => undefined);
           });
       }
     });
-  }, [session, flush]);
+  }, [session, flush, ownerId]);
 
   useEffect(() => () => controlsRef.current?.stop(), []);
 
@@ -288,7 +299,10 @@ export default function VerifyClient({
       .from("assets")
       .select("barcode,name")
       .eq("org_unit_id", s.org_unit_id);
-    if (data) await cacheExpected(s.id, data as { barcode: string; name: string }[]);
+    if (data) {
+      try { await cacheExpected(ownerId, s.id, data as { barcode: string; name: string }[]); }
+      catch { toast.error("Offline names are unavailable", "Device storage could not save this unit's list."); }
+    }
   }
 
   async function finish() {
@@ -300,9 +314,13 @@ export default function VerifyClient({
     finishing.current = true;
     stopCamera();
     try {
+      if (await legacyScanCount(session.id)) {
+        toast.error("Older scans are waiting", "Recover the older scans for this verification before finishing.");
+        return;
+      }
       // Check actual storage, even if the displayed queue count is stale.
       await flush();
-      const left = await pendingScans(session.id);
+      const left = await pendingScans(ownerId, session.id);
       if (left.length > 0) {
         toast.error(
           `${left.length} scan${left.length === 1 ? "" : "s"} still waiting`,
@@ -325,7 +343,7 @@ export default function VerifyClient({
         toast.error("Could not finish the verification", error?.message ?? "No completed result was returned. Try again.");
         return;
       }
-      await forgetExpected(session.id);
+      await forgetExpected(ownerId, session.id);
       setResult(data as Result);
       setSession(null);
     } catch {
@@ -345,6 +363,27 @@ export default function VerifyClient({
       return;
     }
     setResult(data as Result);
+  }
+
+  async function recoverOlderScans() {
+    if (!session || !online) return;
+    const ok = await confirm({
+      title: "Recover older scans?",
+      body: "These scans were saved by the older app without an account owner. Recover them only if they belong to this verification and should be sent using your account.",
+      confirmLabel: "Recover and send",
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const { data: { user } } = await createClient().auth.getUser();
+      if (user?.id !== ownerId) throw new Error("Sign in to your account before recovering scans.");
+      await recoverLegacyScans(ownerId, session.id);
+      setLegacyCount(await legacyScanCount(session.id));
+      setQueued((await pendingScans(ownerId, session.id)).length);
+      await flush();
+    } catch (error) {
+      toast.error("Older scans were not recovered", error instanceof Error ? error.message : "Check device storage and try again.");
+    } finally { setBusy(false); }
   }
 
   // ---- A finished exercise ----------------------------------------------
@@ -466,23 +505,34 @@ export default function VerifyClient({
               )}
               <div className="flex-1">
                 <p className="font-semibold">
-                  {online ? "Catching up" : "No signal — carry on scanning"}
+                  {online ? (syncing ? "Sending saved scans" : "Saved scans are waiting") : "No signal — carry on scanning"}
                 </p>
                 <p className="mt-0.5 leading-relaxed">
                   {queued > 0
                     ? `${queued} scan${queued === 1 ? "" : "s"} saved on this device${
                         online
-                          ? ", being sent now."
+                          ? (syncing ? ", being sent now." : ". Use Send now to retry.")
                           : ", they will be sent when the signal returns."
                       }`
                     : "Scans are saved on this device and sent when the signal returns."}
                 </p>
+                {syncError && <p role="alert" className="mt-2 text-nsuk-danger">{syncError}</p>}
               </div>
               {online && queued > 0 && !syncing && (
                 <button onClick={flush} className="btn-ghost btn-sm shrink-0">
                   Send now
                 </button>
               )}
+            </div>
+          )}
+
+          {syncError && queued === 0 && online && <p role="alert" className="text-sm text-nsuk-danger">{syncError}</p>}
+          {legacyCount > 0 && (
+            <div className="rounded-xl border border-nsuk-gold/40 bg-nsuk-gold-50 p-3 text-sm">
+              <p>{legacyCount} older scan{legacyCount === 1 ? "" : "s"} for this verification need account recovery.</p>
+              <button onClick={recoverOlderScans} disabled={!online || busy || syncing} className="btn-ghost btn-sm mt-2">
+                Recover older scans
+              </button>
             </div>
           )}
 
@@ -513,8 +563,10 @@ export default function VerifyClient({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              record(manual);
-              setManual("");
+              const submitted = manual;
+              record(submitted).then((saved) => {
+                if (saved) setManual((value) => value === submitted ? "" : value);
+              });
             }}
             className="flex gap-2"
           >
