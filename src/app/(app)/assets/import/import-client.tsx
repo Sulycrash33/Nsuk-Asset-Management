@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Check, Copy, Download, FileUp, Loader2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isDuplicateSerialError } from "@/lib/serials";
+import { fileFingerprint, importRowKey, parseAssetDate, parseAssetValue, type DateOrder } from "@/lib/asset-validation";
 import {
   ACCEPTED_DESCRIPTION,
   ACCEPTED_FILE_TYPES,
@@ -122,21 +123,31 @@ export default function ImportClient({
     key: "",
     found: NO_SERIALS,
   });
-  const [allowDuplicates, setAllowDuplicates] = useState(false);
+  const [serialCheckError, setSerialCheckError] = useState<string | null>(null);
+  const [fileHash, setFileHash] = useState("");
+  const [dateOrder, setDateOrder] = useState<DateOrder>("ymd");
+  const [acceptedDefaults, setAcceptedDefaults] = useState<string | null>(null);
   const [imported, setImported] = useState<Asset[] | null>(null);
   const toast = useToast();
 
   const selectableUnits = isAdmin ? undefined : scopedUnitIds;
 
   const unitByName = useMemo(() => {
-    const map = new Map<string, OrgUnit>();
-    for (const u of units) map.set(u.name.trim().toLowerCase(), u);
+    const map = new Map<string, OrgUnit | null>();
+    for (const u of units) {
+      for (const key of new Set([u.id, u.name.trim().toLowerCase(), unitPath(u.id, units).toLowerCase()])) {
+        map.set(key, map.has(key) ? null : u);
+      }
+    }
     return map;
   }, [units]);
 
   const categoryByName = useMemo(() => {
     const map = new Map<string, AssetCategory>();
-    for (const c of categories) map.set(c.name.trim().toLowerCase(), c);
+    for (const c of categories) {
+      map.set(c.name.trim().toLowerCase(), c);
+      if (c.code) map.set(c.code.trim().toLowerCase(), c);
+    }
     return map;
   }, [categories]);
 
@@ -185,30 +196,28 @@ export default function ImportClient({
       let unitId: string | null = defaultUnit;
       if (unitRaw) {
         const match = unitByName.get(unitRaw.toLowerCase());
-        if (!match) problems.push(`Unknown unit “${unitRaw}”`);
+        if (!match) problems.push(unitByName.has(unitRaw.toLowerCase())
+          ? `Ambiguous unit “${unitRaw}”. Use its full path or a default unit without mapping this column`
+          : `Unknown unit “${unitRaw}”`);
         else unitId = match.id;
       }
       if (!unitId) problems.push("No unit. Select a default unit above");
       else if (allowed && !allowed.has(unitId)) problems.push("Unit is outside your access");
 
       const conditionRaw = get("condition");
-      const condition = (CONDITIONS as readonly string[]).includes(conditionRaw)
-        ? (conditionRaw as Condition)
-        : "Working";
-      if (conditionRaw && condition !== conditionRaw) {
+      const matchedCondition = CONDITIONS.find((c) => c.toLowerCase() === conditionRaw.toLowerCase());
+      const condition = matchedCondition ?? "Working";
+      if (conditionRaw && !matchedCondition) {
         problems.push(`Unknown condition “${conditionRaw}”. Defaulting to Working`);
       }
 
-      const valueRaw = get("value").replace(/[₦,\s]/g, "");
-      const value = valueRaw ? Number(valueRaw) : 0;
-      if (valueRaw && !Number.isFinite(value)) problems.push(`Value “${valueRaw}” is not a number`);
+      const valueRaw = get("value");
+      const value = parseAssetValue(valueRaw);
+      if (value === null) problems.push(`Value “${valueRaw}” must be a non-negative amount with at most two decimal places`);
 
       const dateRaw = get("acquisition_date");
-      const acquisition_date =
-        dateRaw && !Number.isNaN(Date.parse(dateRaw))
-          ? new Date(dateRaw).toISOString().slice(0, 10)
-          : null;
-      if (dateRaw && !acquisition_date) problems.push(`Date “${dateRaw}” is not readable`);
+      const acquisition_date = dateRaw ? parseAssetDate(dateRaw, dateOrder) : null;
+      if (dateRaw && !acquisition_date) problems.push(`Date “${dateRaw}” is invalid or does not match the selected date format`);
 
       // A repeated serial number almost always means the same physical item has
       // been entered twice, which is exactly what a register must not contain.
@@ -230,25 +239,22 @@ export default function ImportClient({
         org_unit_id: unitId,
         location: get("location") || null,
         condition,
-        value: Number.isFinite(value) ? value : 0,
+        value: value ?? 0,
         serial_number: serial || null,
         acquisition_date,
         notes: get("notes") || null,
         problems,
       };
     });
-  }, [rows, mapping, defaultUnit, unitByName, categoryByName, selectableUnits, alreadyRegistered]);
+  }, [rows, mapping, defaultUnit, unitByName, categoryByName, selectableUnits, alreadyRegistered, dateOrder]);
 
   const isDuplicate = (p: string) => p.startsWith("Duplicate serial number");
 
-  const blocked = prepared.filter((r) =>
-    r.problems.some(
-      (p) =>
-        !p.startsWith("Unknown condition") &&
-        !p.startsWith("Unknown category") &&
-        !(allowDuplicates && isDuplicate(p)),
-    ),
-  );
+  const defaultsKey = JSON.stringify([fileHash, mapping, defaultUnit, dateOrder]);
+  const isDefaultWarning = (p: string) => p.startsWith("Unknown condition") || p.startsWith("Unknown category");
+  const defaultWarnings = prepared.filter((r) => r.problems.some(isDefaultWarning)).length;
+  const blocked = prepared.filter((r) => r.problems.some((p) =>
+    !(acceptedDefaults === defaultsKey && isDefaultWarning(p))));
 
   const duplicateCount = prepared.filter((r) => r.problems.some(isDuplicate)).length;
   const importable = prepared.filter((r) => !blocked.includes(r));
@@ -272,14 +278,18 @@ export default function ImportClient({
         // Matched without regard to case: the register holding "SN-ABC-001"
         // and the spreadsheet saying "sn-abc-001" is the same physical item,
         // and that is exactly the duplicate worth catching.
-        const { data } = await supabase.rpc("existing_serial_numbers", {
+        const { data, error: lookupError } = await supabase.rpc("existing_serial_numbers", {
           p_serials: serials.slice(i, i + BATCH),
         });
+        if (lookupError) {
+          if (!cancelled) setSerialCheckError("Serial numbers could not be checked. Reconnect and reload the file before importing.");
+          return;
+        }
         for (const serial of (data ?? []) as string[]) found.add(serial);
         if (cancelled) return;
       }
 
-      if (!cancelled) setChecked({ key: serialKey, found });
+      if (!cancelled) { setChecked({ key: serialKey, found }); setSerialCheckError(null); }
     })();
 
     return () => {
@@ -292,12 +302,17 @@ export default function ImportClient({
     setCaution(null);
     setFileName(file.name);
     setReading(true);
+    setFileHash("");
+    setAcceptedDefaults(null);
+    setSerialCheckError(null);
     try {
       const table = await readTable(file);
+      const fingerprint = await fileFingerprint(await file.arrayBuffer());
       setHeaders(table.headers);
       setRows(table.rows);
       setMapping(autoMap(table.headers));
       setCaution(table.caution ?? null);
+      setFileHash(fingerprint);
       setStep(2);
     } catch (cause) {
       setHeaders([]);
@@ -318,6 +333,7 @@ export default function ImportClient({
   }
 
   async function runImport() {
+    if (busy || !fileHash || checkingSerials || (serials.length && serialCheckError) || !importable.length) return;
     setBusy(true);
     setError(null);
     const supabase = createClient();
@@ -325,45 +341,44 @@ export default function ImportClient({
 
     // Batched so a large store-room upload does not hit request limits, and so
     // a mid-file failure still leaves everything before it correctly coded.
-    const CHUNK = 50;
-    for (let i = 0; i < importable.length; i += CHUNK) {
-      const chunk = importable.slice(i, i + CHUNK).map((r) => ({
-        name: r.name,
-        category_id: r.category_id,
-        org_unit_id: r.org_unit_id!,
-        location: r.location,
-        condition: r.condition,
-        value: r.value,
-        serial_number: r.serial_number,
-        acquisition_date: r.acquisition_date,
-        notes: r.notes,
-      }));
+    try {
+      const CHUNK = 50;
+      for (let i = 0; i < importable.length; i += CHUNK) {
+        const chunk = await Promise.all(importable.slice(i, i + CHUNK).map(async (r) => ({
+          import_key: await importRowKey(fileHash, r.index, r.org_unit_id!),
+          name: r.name,
+          category_id: r.category_id,
+          org_unit_id: r.org_unit_id!,
+          location: r.location,
+          condition: r.condition,
+          value: r.value,
+          serial_number: r.serial_number,
+          acquisition_date: r.acquisition_date,
+          notes: r.notes,
+        })));
 
-      const { data, error: insertError } = await supabase.from("assets").insert(chunk).select("*");
-      if (insertError) {
-        setBusy(false);
-        // The rows were checked against the register before this ran, so a
-        // clash here means somebody else registered that serial in between.
-        // Saying so is more use than the constraint name.
-        setError(
-          isDuplicateSerialError(insertError)
-            ? `Imported ${created.length} of ${importable.length} rows, then stopped: a serial number in the next batch was registered by someone else while this import was running. Re-check the file and import what is left.`
-            : `Imported ${created.length} of ${importable.length} rows, then stopped: ${insertError.message}`,
-        );
-        if (created.length) setImported(created);
-        setStep(3);
-        return;
+        const { data, error: insertError } = await supabase.rpc("import_asset_rows", { p_rows: chunk });
+        if (insertError) {
+          throw new Error(
+            isDuplicateSerialError(insertError)
+              ? "A serial number in this batch was registered while the upload was running. Reload the file to re-check it."
+              : insertError.message,
+          );
+        }
+        if (!data || data.length !== chunk.length) throw new Error("The server did not confirm every row. Retry the same file and unit selections.");
+        created.push(...((data ?? []) as Asset[]));
       }
-      created.push(...((data ?? []) as Asset[]));
-    }
-
-    setBusy(false);
-    setImported(created);
-    setStep(3);
-    toast.success(
-      `${created.length.toLocaleString()} asset${created.length === 1 ? "" : "s"} imported`,
-      "Every one now has its own asset code.",
-    );
+      setImported(created);
+      setStep(3);
+      toast.success(
+        `${created.length.toLocaleString()} row${created.length === 1 ? "" : "s"} recorded`,
+        "Previously recorded rows from the same file were reused safely.",
+      );
+    } catch (cause) {
+      setError(`Confirmed ${created.length} of ${importable.length} rows before stopping. ${cause instanceof Error ? cause.message : "Reconnect and retry."} Re-uploading the same file to the same units will reuse already recorded rows.`);
+      setImported(created);
+      setStep(3);
+    } finally { setBusy(false); }
   }
 
   async function printBatch(assets: Asset[]) {
@@ -494,6 +509,15 @@ export default function ImportClient({
         <>
           <div className="card space-y-3">
             <h2 className="font-semibold text-nsuk-blue">2. Match the columns</h2>
+            <div>
+              <label htmlFor="date-order" className="label">Dates written as text</label>
+              <select id="date-order" value={dateOrder} onChange={(e) => setDateOrder(e.target.value as DateOrder)} className="field">
+                <option value="ymd">YYYY-MM-DD (unambiguous)</option>
+                <option value="dmy">Day / month / year</option>
+                <option value="mdy">Month / day / year</option>
+              </select>
+              <p className="hint">Spreadsheet date cells and YYYY-MM-DD dates keep their exact date. Blank conditions use Working; blank categories remain unassigned.</p>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {FIELDS.map((field) => (
                 <div key={field.key}>
@@ -543,17 +567,18 @@ export default function ImportClient({
                   whether it clashes with another row in this file or with an asset already
                   recorded.
                 </p>
-                <label className="mt-2 flex items-start gap-2 text-sm text-nsuk-gold-deep">
-                  <input
-                    type="checkbox"
-                    checked={allowDuplicates}
-                    onChange={(e) => setAllowDuplicates(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-[#1A3C6E]"
-                  />
-                  Import them anyway. Only if you are certain these really are separate items.
-                </label>
+                <p className="mt-2 text-sm text-nsuk-gold-deep">Duplicate serial numbers are excluded. Correct the file before importing those rows.</p>
               </div>
             )}
+
+            {defaultWarnings > 0 && (
+              <label className="flex items-start gap-2 rounded-xl border border-nsuk-gold/40 bg-nsuk-gold-50 p-3 text-sm">
+                <input type="checkbox" checked={acceptedDefaults === defaultsKey}
+                  onChange={(e) => setAcceptedDefaults(e.target.checked ? defaultsKey : null)} className="mt-1" />
+                <span>{defaultWarnings} rows have unrecognized categories or conditions. I approve leaving those categories unassigned and using Working for those conditions.</span>
+              </label>
+            )}
+            {serials.length > 0 && serialCheckError && <p role="alert" className="text-sm text-nsuk-danger">{serialCheckError}</p>}
 
             <div className="-mx-4 overflow-x-auto px-4">
               <table className="min-w-full text-left text-sm">
@@ -564,6 +589,7 @@ export default function ImportClient({
                     <th className="py-2 pr-3">Unit</th>
                     <th className="py-2 pr-3">Condition</th>
                     <th className="py-2 pr-3">Value</th>
+                    <th className="py-2 pr-3">Acquired</th>
                     <th className="py-2">Issues</th>
                   </tr>
                 </thead>
@@ -579,6 +605,7 @@ export default function ImportClient({
                       <td className="py-2 pr-3 text-nsuk-muted">
                         {row.value.toLocaleString("en-NG")}
                       </td>
+                      <td className="py-2 pr-3 text-nsuk-muted">{row.acquisition_date ?? "—"}</td>
                       <td className="py-2 text-xs text-nsuk-danger">
                         {row.problems.join("; ") || ""}
                       </td>
@@ -604,7 +631,7 @@ export default function ImportClient({
           <button
             onClick={runImport}
             className="btn-green w-full"
-            disabled={busy || importable.length === 0}
+            disabled={busy || !fileHash || checkingSerials || Boolean(serials.length && serialCheckError) || importable.length === 0}
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Import {importable.length.toLocaleString()} asset

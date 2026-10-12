@@ -10,6 +10,7 @@ import { QrImage } from "@/components/barcode-image";
 import { useToast } from "@/components/ui/toast";
 import { generateSingleLabel, savePdf } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
+import { parseAssetDate, parseAssetValue } from "@/lib/asset-validation";
 import {
   DUPLICATE_SERIAL_MESSAGE,
   isDuplicateSerialError,
@@ -149,6 +150,12 @@ export default function AssetForm({
       setError("Choose the unit this asset belongs to.");
       return;
     }
+    const value = parseAssetValue(form.value);
+    if (!form.name.trim() || value === null ||
+        (form.acquisition_date && !parseAssetDate(form.acquisition_date))) {
+      setError("Enter an asset name, a non-negative value with at most two decimal places, and a valid acquisition date.");
+      return;
+    }
     setBusy(true);
 
     // Asked once more here: the box may never have been left, and the answer
@@ -170,7 +177,7 @@ export default function AssetForm({
       org_unit_id: form.org_unit_id,
       location: form.location.trim() || null,
       condition: form.condition,
-      value: form.value === "" ? 0 : Number(form.value),
+      value,
       serial_number: form.serial_number.trim() || null,
       acquisition_date: form.acquisition_date || null,
       notes: form.notes.trim() || null,
