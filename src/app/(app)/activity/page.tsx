@@ -40,13 +40,22 @@ export default async function ActivityPage({
     query = query.eq("action", action);
   }
 
-  const { data: logs } = await query;
+  const { data: logs, error: logError } = await query;
   const rows = (logs ?? []) as AssetLog[];
 
   const actorIds = [...new Set(rows.map((l) => l.performed_by).filter(Boolean))] as string[];
-  const { data: actors } = actorIds.length
-    ? await supabase.from("profiles").select("id,name,email").in("id", actorIds)
-    : { data: [] as Pick<Profile, "id" | "name" | "email">[] };
+  const assetIds = [...new Set(rows.map(log => log.asset_id).filter(Boolean))] as string[];
+  const [{ data: actors }, { data: availableAssets }] = await Promise.all([
+    actorIds.length
+      ? supabase.from("profiles").select("id,name,email").in("id", actorIds)
+      : Promise.resolve({ data: [] as Pick<Profile, "id" | "name" | "email">[] }),
+    assetIds.length
+      ? supabase.from("assets").select("id").in("id", assetIds)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+  ]);
+  // History survives deletion or transfer. Link only records visible through
+  // the caller's current asset permissions; otherwise retain the recorded name.
+  const availableIds = new Set((availableAssets ?? []).map(asset => asset.id));
 
   const actorName = (uid: string | null) => {
     if (!uid) return "System";
@@ -86,7 +95,7 @@ export default async function ActivityPage({
       </div>
 
       <div className="card">
-        {rows.length === 0 ? (
+        {logError ? <p role="alert" className="py-6 text-sm text-nsuk-danger">Could not load activity. Refresh to try again.</p> : rows.length === 0 ? (
           <p className="py-6 text-center text-sm text-nsuk-faint">Nothing recorded yet.</p>
         ) : (
           <ul className="divide-y divide-nsuk-line">
@@ -96,7 +105,7 @@ export default async function ActivityPage({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-nsuk-ink">
                     <span className="font-semibold capitalize">{log.action}</span>{" "}
-                    {log.asset_id ? (
+                    {log.asset_id && availableIds.has(log.asset_id) ? (
                       <Link
                         href={`/assets/${log.asset_id}`}
                         className="font-medium text-nsuk-blue underline"
