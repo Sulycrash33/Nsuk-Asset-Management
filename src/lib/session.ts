@@ -25,13 +25,28 @@ export async function requireSession(): Promise<SessionContext> {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: units }, { data: campuses }, { data: assigned }] =
+  const [profileResult, unitResult, campusResult, assignmentResult] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("org_units").select("*").order("name"),
       supabase.from("campuses").select("*").order("name"),
       supabase.from("user_units").select("org_unit_id").eq("user_id", user.id),
     ]);
+
+  // A failed reference/scope query is not an empty scope. Let the page's error
+  // boundary offer a retry instead of rendering unknown units or missing data.
+  for (const [label, result] of [
+    ["profile", profileResult],
+    ["organizational units", unitResult],
+    ["campuses", campusResult],
+    ["unit assignments", assignmentResult],
+  ] as const) {
+    if (result.error) throw new Error(`Unable to load ${label}. Please try again.`);
+  }
+  const profile = profileResult.data;
+  const units = unitResult.data;
+  const campuses = campusResult.data;
+  const assigned = assignmentResult.data;
 
   if (!profile) redirect("/login?error=no-profile");
 
@@ -57,3 +72,4 @@ export async function requireAdmin(): Promise<SessionContext> {
   if (!ctx.isAdmin) redirect("/dashboard");
   return ctx;
 }
+

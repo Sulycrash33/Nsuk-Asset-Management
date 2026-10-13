@@ -15,18 +15,25 @@ export default async function VerifyPage() {
   const allowed = isAdmin ? units : units.filter((u) => scopedUnitIds.includes(u.id));
   const ordered = flattenTree(buildTree(allowed));
 
-  const { data: open } = await supabase
-    .from("verification_sessions")
-    .select("id,org_unit_id,started_at")
-    .is("closed_at", null)
-    .order("started_at", { ascending: false });
+  const [openResult, recentResult] = await Promise.all([
+    supabase
+      .from("verification_sessions")
+      .select("id,org_unit_id,started_at")
+      .is("closed_at", null)
+      .order("started_at", { ascending: false }),
+    supabase
+      .from("verification_sessions")
+      .select("id,org_unit_id,started_at,closed_at")
+      .not("closed_at", "is", null)
+      .order("closed_at", { ascending: false })
+      .limit(10),
+  ]);
 
-  const { data: recent } = await supabase
-    .from("verification_sessions")
-    .select("id,org_unit_id,started_at,closed_at")
-    .not("closed_at", "is", null)
-    .order("closed_at", { ascending: false })
-    .limit(10);
+  if (openResult.error || recentResult.error) {
+    throw new Error("Unable to load verification exercises. Please try again.");
+  }
+  const open = openResult.data;
+  const recent = recentResult.data;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -42,3 +49,4 @@ export default async function VerifyPage() {
     </div>
   );
 }
+
