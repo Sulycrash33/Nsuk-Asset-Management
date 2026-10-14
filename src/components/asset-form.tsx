@@ -4,7 +4,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signedAssetPhoto } from "@/lib/asset-photo";
 import { useRef, useState } from "react";
-import { AlertCircle, Camera, Check, Loader2, Plus, Printer, X } from "lucide-react";
+import {
+  AlertCircle,
+  Camera,
+  Check,
+  Loader2,
+  Plus,
+  Printer,
+  X,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import UnitSelect from "@/components/unit-select";
 import { QrImage } from "@/components/barcode-image";
@@ -35,6 +43,8 @@ type FormState = {
   value: string;
   serial_number: string;
   acquisition_date: string;
+  cost_known: boolean;
+  available_for_use_date: string;
   notes: string;
   photo_url: string;
 };
@@ -57,6 +67,8 @@ function initialState(asset: Asset | null, defaultUnitId: string): FormState {
     value: asset?.value != null ? String(asset.value) : "",
     serial_number: asset?.serial_number ?? "",
     acquisition_date: asset?.acquisition_date ?? "",
+    cost_known: asset?.cost_known ?? false,
+    available_for_use_date: asset?.available_for_use_date ?? "",
     notes: asset?.notes ?? "",
     photo_url: asset?.photo_url ?? "",
   };
@@ -71,6 +83,7 @@ export default function AssetForm({
   isAdmin,
   campusId,
   campuses,
+  accountingLocked = false,
 }: {
   units: OrgUnit[];
   categories: AssetCategory[];
@@ -80,6 +93,7 @@ export default function AssetForm({
   isAdmin: boolean;
   campusId: string | null;
   campuses: Campus[];
+  accountingLocked?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -134,16 +148,29 @@ export default function AssetForm({
     const path = `${crypto.randomUUID()}.${ext}`;
 
     try {
-      const { error: uploadError } = await supabase.storage.from("asset-photos")
+      const { error: uploadError } = await supabase.storage
+        .from("asset-photos")
         .upload(path, file, { cacheControl: "900", upsert: false });
       if (uploadError) throw new Error(uploadError.message);
-      const source = await signedAssetPhoto(supabase, path, process.env.NEXT_PUBLIC_SUPABASE_URL!);
-      if (!source) throw new Error("Upload completed but its private preview could not be confirmed. Try again.");
+      const source = await signedAssetPhoto(
+        supabase,
+        path,
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      );
+      if (!source)
+        throw new Error(
+          "Upload completed but its private preview could not be confirmed. Try again.",
+        );
       set("photo_url", path);
       setPhotoSource(source);
     } catch (error) {
-      toast.error("Photo upload failed", error instanceof Error ? error.message : "Try again.");
-    } finally { setUploading(false); }
+      toast.error(
+        "Photo upload failed",
+        error instanceof Error ? error.message : "Try again.",
+      );
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -155,9 +182,20 @@ export default function AssetForm({
       return;
     }
     const value = parseAssetValue(form.value);
-    if (!form.name.trim() || value === null ||
-        (form.acquisition_date && !parseAssetDate(form.acquisition_date))) {
-      setError("Enter an asset name, a non-negative value with at most two decimal places, and a valid acquisition date.");
+    if (
+      !form.name.trim() ||
+      value === null ||
+      (form.acquisition_date && !parseAssetDate(form.acquisition_date)) ||
+      (form.available_for_use_date &&
+        !parseAssetDate(form.available_for_use_date)) ||
+      (form.acquisition_date &&
+        form.available_for_use_date &&
+        form.available_for_use_date < form.acquisition_date) ||
+      (form.cost_known && !form.value.trim())
+    ) {
+      setError(
+        "Enter an asset name, a non-negative value with at most two decimal places, and a valid acquisition date.",
+      );
       return;
     }
     setBusy(true);
@@ -166,7 +204,10 @@ export default function AssetForm({
     // from the blur check may be stale by now. The index below is what actually
     // guarantees it; this is only so the refusal reads like a sentence.
     if (form.serial_number.trim()) {
-      const taken = await serialAlreadyRegistered(form.serial_number, asset?.serial_number);
+      const taken = await serialAlreadyRegistered(
+        form.serial_number,
+        asset?.serial_number,
+      );
       if (taken) {
         setSerialTaken(true);
         setError(DUPLICATE_SERIAL_MESSAGE);
@@ -184,6 +225,8 @@ export default function AssetForm({
       value,
       serial_number: form.serial_number.trim() || null,
       acquisition_date: form.acquisition_date || null,
+      cost_known: form.cost_known,
+      available_for_use_date: form.available_for_use_date || null,
       notes: form.notes.trim() || null,
       photo_url: form.photo_url || null,
     };
@@ -238,13 +281,18 @@ export default function AssetForm({
       const clash = isDuplicateSerialError(insertError);
       setSerialTaken(clash);
       setError(
-        clash ? DUPLICATE_SERIAL_MESSAGE : (insertError?.message ?? "Could not save the asset."),
+        clash
+          ? DUPLICATE_SERIAL_MESSAGE
+          : (insertError?.message ?? "Could not save the asset."),
       );
       return;
     }
 
     setCreated(data as Asset);
-    toast.success("Asset recorded", `Asset code ${(data as Asset).barcode} issued.`);
+    toast.success(
+      "Asset recorded",
+      `Asset code ${(data as Asset).barcode} issued.`,
+    );
     router.refresh();
   }
 
@@ -256,14 +304,24 @@ export default function AssetForm({
         name: target.name,
         unitName: unitPath(target.org_unit_id, units),
         campusName:
-          campuses.find((c) => c.id === units.find((u) => u.id === target.org_unit_id)?.campus_id)
-            ?.name ?? null,
-        categoryName: categories.find((c) => c.id === target.category_id)?.name ?? null,
+          campuses.find(
+            (c) =>
+              c.id ===
+              units.find((u) => u.id === target.org_unit_id)?.campus_id,
+          )?.name ?? null,
+        categoryName:
+          categories.find((c) => c.id === target.category_id)?.name ?? null,
       });
       savePdf(doc, `${target.barcode}.pdf`);
-      toast.success("Label ready", `${target.barcode}.pdf has been downloaded.`);
+      toast.success(
+        "Label ready",
+        `${target.barcode}.pdf has been downloaded.`,
+      );
     } catch {
-      toast.error("Could not generate the label", "Try again from the asset record.");
+      toast.error(
+        "Could not generate the label",
+        "Try again from the asset record.",
+      );
     } finally {
       setPrinting(false);
     }
@@ -290,12 +348,17 @@ export default function AssetForm({
             </p>
           </div>
           <p className="mt-3 text-xs text-nsuk-muted">
-            Print this label and stick it on the item. Scanning it will open this record.
+            Print this label and stick it on the item. Scanning it will open
+            this record.
           </p>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
-          <button onClick={() => printLabel(created)} disabled={printing} className="btn-gold">
+          <button
+            onClick={() => printLabel(created)}
+            disabled={printing}
+            className="btn-gold"
+          >
             {printing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -348,6 +411,7 @@ export default function AssetForm({
           </label>
           <select
             id="category"
+            disabled={accountingLocked}
             className="field"
             value={form.category_id}
             onChange={(e) => set("category_id", e.target.value)}
@@ -377,7 +441,9 @@ export default function AssetForm({
             restrictTo={isAdmin ? undefined : scopedUnitIds}
           />
           {!isAdmin && (
-            <p className="hint">You can only record assets in the units assigned to you.</p>
+            <p className="hint">
+              You can only record assets in the units assigned to you.
+            </p>
           )}
         </div>
 
@@ -422,13 +488,20 @@ export default function AssetForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label" htmlFor="value">
-              Value (₦)
+              Purchase cost (₦)
             </label>
             <input
               id="value"
+              disabled={accountingLocked}
               className="field tabular"
               value={form.value}
-              onChange={(e) => set("value", e.target.value)}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  value: e.target.value,
+                  cost_known: e.target.value.trim() !== "",
+                }))
+              }
               inputMode="decimal"
               type="number"
               min="0"
@@ -478,12 +551,45 @@ export default function AssetForm({
           </label>
           <input
             id="acquired"
+            disabled={accountingLocked}
             type="date"
             className="field"
             value={form.acquisition_date}
             onChange={(e) => set("acquisition_date", e.target.value)}
           />
         </div>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.cost_known}
+            disabled={accountingLocked}
+            onChange={(e) => set("cost_known", e.target.checked)}
+          />
+          Purchase cost is known (including a confirmed zero cost)
+        </label>
+        <div>
+          <label className="label" htmlFor="available">
+            Date available for use
+          </label>
+          <input
+            id="available"
+            type="date"
+            className="field"
+            disabled={accountingLocked}
+            value={form.available_for_use_date}
+            onChange={(e) => set("available_for_use_date", e.target.value)}
+          />
+          <p className="mt-1 text-xs text-nsuk-muted">
+            Use the date the item was ready to operate. Leave unknown details
+            blank for administrator review.
+          </p>
+        </div>
+        {accountingLocked && (
+          <p className="text-sm text-nsuk-muted">
+            Cost, classification and dates have an accounting record. An
+            administrator must record financial adjustments in Asset accounting.
+          </p>
+        )}
       </section>
 
       <section className="card space-y-4">
@@ -493,10 +599,21 @@ export default function AssetForm({
           {form.photo_url ? (
             <div className="relative overflow-hidden rounded-xl border border-nsuk-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photoSource ?? undefined} alt={photoSource ? "Asset" : "Photo preview unavailable; refresh to try again"} className="h-48 w-full object-cover" />
+              <img
+                src={photoSource ?? undefined}
+                alt={
+                  photoSource
+                    ? "Asset"
+                    : "Photo preview unavailable; refresh to try again"
+                }
+                className="h-48 w-full object-cover"
+              />
               <button
                 type="button"
-                onClick={() => { set("photo_url", ""); setPhotoSource(null); }}
+                onClick={() => {
+                  set("photo_url", "");
+                  setPhotoSource(null);
+                }}
                 aria-label="Remove photo"
                 className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-nsuk-ink/65 text-white backdrop-blur transition hover:bg-nsuk-ink/85"
               >
@@ -513,7 +630,9 @@ export default function AssetForm({
               <span className="text-sm font-semibold text-nsuk-blue">
                 {uploading ? "Uploading…" : "Take or choose a photo"}
               </span>
-              <span className="text-xs text-nsuk-faint">Opens the camera on a phone</span>
+              <span className="text-xs text-nsuk-faint">
+                Opens the camera on a phone
+              </span>
               <input
                 type="file"
                 accept="image/*"
@@ -566,3 +685,4 @@ export default function AssetForm({
     </form>
   );
 }
+

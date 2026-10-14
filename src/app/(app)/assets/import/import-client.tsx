@@ -35,9 +35,10 @@ const FIELDS = [
   { key: "unit", label: "Unit (name)", required: false },
   { key: "location", label: "Room / location", required: false },
   { key: "condition", label: "Condition", required: false },
-  { key: "value", label: "Value (₦)", required: false },
+  { key: "value", label: "Purchase cost (₦)", required: false },
   { key: "serial_number", label: "Serial number", required: false },
   { key: "acquisition_date", label: "Acquisition date (YYYY-MM-DD)", required: false },
+  { key: "available_for_use_date", label: "Date available for use", required: false },
   { key: "notes", label: "Notes", required: false },
 ] as const;
 
@@ -52,6 +53,8 @@ type PreparedRow = {
   location: string | null;
   condition: Condition;
   value: number;
+  cost_known: boolean;
+  available_for_use_date: string | null;
   serial_number: string | null;
   acquisition_date: string | null;
   notes: string | null;
@@ -59,9 +62,9 @@ type PreparedRow = {
 };
 
 const TEMPLATE =
-  "name,category,unit,location,condition,value,serial_number,acquisition_date,notes\n" +
-  "1.5HP Split Air Conditioner,AC,Computer Science,Block B Room 14,Working,450000,LG-AC-99213,2024-03-11,Staff common room\n" +
-  "Toyota Hilux,Vehicle,Transport Unit,Main car park,Under Repair,18500000,VIN-8891234,2019-08-02,\n";
+  "name,category,unit,location,condition,value,serial_number,acquisition_date,available_for_use_date,notes\n" +
+  "1.5HP Split Air Conditioner,Plant & Machinery,Fixed Assets Unit,Block B Room 14,Working,450000,LG-AC-99213,2024-03-11,2024-03-12,Staff common room\n" +
+  "Toyota Hilux,Motor Vehicles,Fixed Assets Unit,Main car park,Under Repair,18500000,VIN-8891234,2019-08-02,2019-08-02,\n";
 
 /** Guess a mapping from header names so most files need no manual work. */
 function autoMap(headers: string[]): Mapping {
@@ -76,6 +79,7 @@ function autoMap(headers: string[]): Mapping {
     value: ["value", "cost", "amount", "price", "naira"],
     serial_number: ["serialnumber", "serial", "serialno", "sn"],
     acquisition_date: ["acquisitiondate", "dateacquired", "purchasedate", "acquired", "date"],
+    available_for_use_date: ["availableforusedate", "inservicedate", "servicedate"],
     notes: ["notes", "note", "remarks", "comment", "comments"],
   };
 
@@ -215,8 +219,12 @@ export default function ImportClient({
       const value = parseAssetValue(valueRaw);
       if (value === null) problems.push(`Value “${valueRaw}” must be a non-negative amount with at most two decimal places`);
 
+      const serviceRaw = get("available_for_use_date");
+      const available_for_use_date = serviceRaw ? parseAssetDate(serviceRaw, dateOrder) : null;
+      if (serviceRaw && !available_for_use_date) problems.push("Date available for use is invalid");
       const dateRaw = get("acquisition_date");
       const acquisition_date = dateRaw ? parseAssetDate(dateRaw, dateOrder) : null;
+      if (available_for_use_date && acquisition_date && available_for_use_date < acquisition_date) problems.push("Date available for use cannot precede acquisition");
       if (dateRaw && !acquisition_date) problems.push(`Date “${dateRaw}” is invalid or does not match the selected date format`);
 
       // A repeated serial number almost always means the same physical item has
@@ -240,6 +248,8 @@ export default function ImportClient({
         location: get("location") || null,
         condition,
         value: value ?? 0,
+        cost_known: valueRaw.trim() !== "",
+        available_for_use_date,
         serial_number: serial || null,
         acquisition_date,
         notes: get("notes") || null,
@@ -352,6 +362,8 @@ export default function ImportClient({
           location: r.location,
           condition: r.condition,
           value: r.value,
+          cost_known: r.cost_known,
+          available_for_use_date: r.available_for_use_date,
           serial_number: r.serial_number,
           acquisition_date: r.acquisition_date,
           notes: r.notes,
@@ -603,7 +615,7 @@ export default function ImportClient({
                       </td>
                       <td className="py-2 pr-3 text-nsuk-muted">{row.condition}</td>
                       <td className="py-2 pr-3 text-nsuk-muted">
-                        {row.value.toLocaleString("en-NG")}
+                        {row.cost_known ? row.value.toLocaleString("en-NG") : "Unknown"}
                       </td>
                       <td className="py-2 pr-3 text-nsuk-muted">{row.acquisition_date ?? "—"}</td>
                       <td className="py-2 text-xs text-nsuk-danger">
@@ -642,3 +654,4 @@ export default function ImportClient({
     </div>
   );
 }
+

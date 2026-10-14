@@ -51,6 +51,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
   {
     heading: "Administration",
     items: [
+      { href: "/accounting", label: "Asset accounting", icon: Building2, adminOnly: true },
       { href: "/search", label: "Global search", icon: Search, adminOnly: true },
       { href: "/units", label: "Org units", icon: Building2, adminOnly: true },
       { href: "/users", label: "Staff accounts", icon: Users, adminOnly: true },
@@ -383,3 +384,4 @@ export default function AppShell({
     </ToastProvider>
   );
 }
+

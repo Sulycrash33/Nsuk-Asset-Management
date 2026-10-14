@@ -15,11 +15,13 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
   const { profile, isAdmin, isAuditor, scopedUnitIds, units, campuses } = await requireSession();
   const supabase = await createClient();
 
-  const [{ data: asset }, { data: categories }] = await Promise.all([
+  const [{ data: asset }, { data: categories }, { data: accountingLocked, error: accountingError }] = await Promise.all([
     supabase.from("assets").select("*").eq("id", id).maybeSingle(),
-    supabase.from("asset_categories").select("*").order("name"),
+    supabase.from("asset_categories").select("*").eq("active", true).order("name"),
+    supabase.rpc("asset_accounting_locked", { p_asset: id }),
   ]);
 
+  if (accountingError) throw new Error("Unable to load accounting status. Please try again.");
   if (!asset) notFound();
   if (isAuditor) redirect(`/assets/${id}`);
   if (!isAdmin && !scopedUnitIds.includes(asset.org_unit_id)) redirect(`/assets/${id}`);
@@ -41,6 +43,7 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
         units={units}
         categories={(categories ?? []) as AssetCategory[]}
         asset={asset as Asset}
+        accountingLocked={accountingLocked === true}
         initialPhotoSource={await signedAssetPhoto(supabase, asset.photo_url, process.env.NEXT_PUBLIC_SUPABASE_URL!)}
         scopedUnitIds={scopedUnitIds}
         isAdmin={isAdmin}
@@ -50,3 +53,4 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
     </div>
   );
 }
+

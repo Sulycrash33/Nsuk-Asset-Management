@@ -38,7 +38,7 @@ export default async function AssetsPage({
   const { isAdmin, isAuditor, scopedUnitIds, units, campuses, profile } = session;
   const supabase = await createClient();
 
-  const { data: categories } = await supabase.from("asset_categories").select("*").order("name");
+  const { data: categories } = await supabase.from("asset_categories").select("*").eq("active", true).order("name");
 
   const q = one("q");
   const unit = one("unit");
@@ -212,3 +212,4 @@ export default async function AssetsPage({
     </div>
   );
 }
+
