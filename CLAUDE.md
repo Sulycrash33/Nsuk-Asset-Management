@@ -242,3 +242,9 @@ turned out to be false. Prefer measuring to asserting.
 A multi-tenant platform serving many institutions was discussed at length and
 then withdrawn as raised in error. Do not build towards it unless the user
 raises it again.
+
+
+## Accounting scope update (14 October 2026)
+
+The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
+

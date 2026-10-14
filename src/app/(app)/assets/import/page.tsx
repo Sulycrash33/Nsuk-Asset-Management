@@ -11,7 +11,7 @@ export default async function ImportPage() {
   const { isAdmin, isAuditor, scopedUnitIds, units } = await requireSession();
   if (isAuditor) redirect("/assets");
   const supabase = await createClient();
-  const { data: categories } = await supabase.from("asset_categories").select("*").order("name");
+  const { data: categories } = await supabase.from("asset_categories").select("*").eq("active", true).order("name");
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -32,3 +32,4 @@ export default async function ImportPage() {
     </div>
   );
 }
+

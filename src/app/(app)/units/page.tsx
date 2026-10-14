@@ -14,7 +14,7 @@ export default async function UnitsPage() {
   // Counted in the database. Reading every asset row to tally them in
   // JavaScript is affordable for a store room and not for a University.
   const [{ data: categories }, { data: counts }] = await Promise.all([
-    supabase.from("asset_categories").select("*").order("name"),
+    supabase.from("asset_categories").select("*").eq("active", true).order("name"),
     supabase.rpc("unit_asset_counts"),
   ]);
 
@@ -39,3 +39,4 @@ export default async function UnitsPage() {
     </div>
   );
 }
+

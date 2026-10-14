@@ -199,3 +199,9 @@ A linked asset moving outside that scope removes future photo access even for it
 Existing signed URLs remain usable until their expiry. Refresh a long-open page if a preview expires.
 Run `npm run test:photos` for URL validation and permission-error checks; database policy fixtures
 are in `supabase/tests/private_photos.sql`.
+
+
+## Asset accounting
+
+Administrators manage depreciation, evidence-based adjustments, whole-class revaluation and finalized annual reports at /accounting. Staff record acquisition facts and retain the ordinary upload/photo/scan/print workflow. Active classifications and rates follow the supplied institutional policy. See [accounting operations](docs/ACCOUNTING.md).
+

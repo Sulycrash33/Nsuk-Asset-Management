@@ -53,6 +53,9 @@ export type AssetCategory = {
   name: string;
   /** Two letters used as the item type in the asset code. */
   code?: string | null;
+  active?: boolean;
+  annual_rate?: number;
+  measurement_model?: "cost" | "current_value";
 };
 
 export type Asset = {
@@ -67,6 +70,8 @@ export type Asset = {
   value: number;
   serial_number: string | null;
   acquisition_date: string | null;
+  cost_known?: boolean;
+  available_for_use_date?: string | null;
   photo_url: string | null;
   notes: string | null;
   created_by: string | null;
@@ -119,3 +124,4 @@ export const CONDITION_STYLES: Record<Condition, string> = {
   "Under Repair": "bg-[#F2B705]/20 text-[#8A6A00] border-[#F2B705]/50",
   Missing: "bg-[#B91C1C]/12 text-[#B91C1C] border-[#B91C1C]/30",
 };
+
