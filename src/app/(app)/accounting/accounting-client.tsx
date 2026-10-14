@@ -79,7 +79,7 @@ export default function AccountingClient({
         doc.text(`NSUK Asset accounting — ${shown.as_of}`, 14, 16);
         doc.setFontSize(9);
         doc.text(
-          `NGN | Book value ${formatNaira(shown.carrying_amount)} | ${shown.incomplete_count} incomplete | ${shown === report ? "Draft" : "Finalized snapshot"}`,
+          `NGN | Book value ${shown.carrying_amount.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | ${shown.incomplete_count} incomplete | ${shown === report ? "Draft" : "Finalized snapshot"}`,
           14,
           23,
         );
@@ -107,7 +107,7 @@ export default function AccountingClient({
               r.accumulated_depreciation,
               r.impairment,
               r.carrying_amount,
-            ].map((v) => (v === null ? "Unknown" : formatNaira(v))),
+            ].map((v) => (v === null ? "Unknown" : v.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))),
           ]),
           styles: { fontSize: 7 },
         });
@@ -675,4 +675,5 @@ export default function AccountingClient({
     </div>
   );
 }
+
 
