@@ -26,7 +26,9 @@ the following day. Only one financial event per asset per effective date is allo
 
 Rate changes require an administrator reason and apply to future acquisitions. Existing
 events retain their charges. Opening balances and subsequent adjustments require evidence,
-remaining useful life and a reason. Residual value, impairment and remaining life are reviewed
+remaining useful life and a reason. Corrections and impairment preserve the last established
+valuation basis (cost, fair value or current operational value); they do not silently change it.
+Residual value, impairment and remaining life are reviewed
 explicitly rather than inferred from the asset's physical condition.
 
 ## Revaluation and reporting
@@ -61,4 +63,5 @@ protection, grants and role refusals. Use an unused Office Equipment class for t
 [IPSAS 45](https://www.ipsasb.org/publications/ipsas-45-property-plant-and-equipment)
 describes historical cost and current-value measurement. The rates above come from the
 user-supplied institutional document; they are not claimed to be prescribed by IPSAS.
+
 
