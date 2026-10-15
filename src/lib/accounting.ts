@@ -28,6 +28,16 @@ export type AccountingReport = {
   year_depreciation: number;
 };
 
+/** Keep the draft tied to fresh server data; only an explicit saved ID selects a snapshot. */
+export function selectAccountingReport(
+  draft: AccountingReport,
+  saved: { id: string; snapshot: AccountingReport }[],
+  selectedId: string | null,
+) {
+  const snapshot = saved.find((item) => item.id === selectedId);
+  return { report: snapshot?.snapshot ?? draft, finalized: Boolean(snapshot) };
+}
+
 /** Explicit report columns; unknown financial amounts remain blank in exports. */
 export function accountingExportRows(report: AccountingReport) {
   return report.rows.map((row) => ({
@@ -46,4 +56,5 @@ export function accountingExportRows(report: AccountingReport) {
     "As of": report.as_of,
   }));
 }
+
 

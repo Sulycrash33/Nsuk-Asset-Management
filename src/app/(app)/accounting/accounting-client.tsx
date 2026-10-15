@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useConfirm } from "@/components/ui/confirm";
-import { accountingExportRows, type AccountingReport } from "@/lib/accounting";
+import { accountingExportRows, selectAccountingReport, type AccountingReport } from "@/lib/accounting";
 import { formatNaira, type AssetCategory } from "@/lib/types";
 
 type History = {
@@ -36,7 +36,8 @@ export default function AccountingClient({
     [notice, setNotice] = useState("");
   const [assetId, setAssetId] = useState(report.rows[0]?.id ?? ""),
     [classId, setClassId] = useState(categories[0]?.id ?? "");
-  const [shown, setShown] = useState(report);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const { report: shown, finalized } = selectAccountingReport(report, saved, selectedReportId);
   const asset = report.rows.find((r) => r.id === assetId);
   const classAssets = report.rows.filter((r) => r.category_id === classId);
   async function mutate(name: string, args: Record<string, unknown>) {
@@ -79,7 +80,7 @@ export default function AccountingClient({
         doc.text(`NSUK Asset accounting — ${shown.as_of}`, 14, 16);
         doc.setFontSize(9);
         doc.text(
-          `NGN | Book value ${shown.carrying_amount.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | ${shown.incomplete_count} incomplete | ${shown === report ? "Draft" : "Finalized snapshot"}`,
+          `NGN | Book value ${shown.carrying_amount.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | ${shown.incomplete_count} incomplete | ${finalized ? "Finalized snapshot" : "Draft"}`,
           14,
           23,
         );
@@ -177,7 +178,7 @@ export default function AccountingClient({
             className="btn-gold"
             disabled={
               busy ||
-              shown !== report ||
+              finalized ||
               report.incomplete_count > 0 ||
               !report.as_of.endsWith("12-31")
             }
@@ -198,9 +199,9 @@ export default function AccountingClient({
           </button>
         </div>
         <p className="text-xs text-nsuk-muted">
-          {shown === report
-            ? "Draft — current register, including incomplete records"
-            : "Finalized report — saved values"}
+          {finalized
+            ? "Finalized report — saved values"
+            : "Draft — current register, including incomplete records"}
           . {shown.asset_count} records; {shown.incomplete_count} need
           accounting review. Finalization requires a completed year and complete
           accounting details.
@@ -269,14 +270,14 @@ export default function AccountingClient({
           <div>
             <h3 className="font-semibold">Finalized years (latest 10)</h3>
             <div className="flex flex-wrap gap-2">
-              <button className="btn-ghost" onClick={() => setShown(report)}>
+              <button className="btn-ghost" onClick={() => setSelectedReportId(null)}>
                 Current draft
               </button>
               {saved.map((s) => (
                 <button
                   className="btn-ghost"
                   key={s.id}
-                  onClick={() => setShown(s.snapshot)}
+                  onClick={() => setSelectedReportId(s.id)}
                 >
                   {s.period_end}
                 </button>
@@ -675,5 +676,6 @@ export default function AccountingClient({
     </div>
   );
 }
+
 
 
