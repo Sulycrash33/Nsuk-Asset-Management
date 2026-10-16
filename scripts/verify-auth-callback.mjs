@@ -3,7 +3,7 @@ import test from "node:test";
 import { safeAppPath, expiredCallbackPath, completeEmailSession } from "../src/lib/auth-callback.ts";
 
 test("email and sign-in redirects cannot escape the application", () => {
-  for (const path of [null, "https://outside.invalid", "//outside.invalid", "/\\outside.invalid", "/%5coutside.invalid", "/%2foutside.invalid", "javascript:alert(1)", "/\n/outside.invalid", "/%0d/outside.invalid", "/%zz"]) {
+  for (const path of [null, "https://outside.invalid", "//outside.invalid", "/\\outside.invalid", "/%5coutside.invalid", "/%2foutside.invalid", "/a/..//outside.invalid", "/a/%2e%2e//outside.invalid", "javascript:alert(1)", "/\n/outside.invalid", "/%0d/outside.invalid", "/%zz"]) {
     assert.equal(safeAppPath(path), "/dashboard", String(path));
   }
   assert.equal(safeAppPath("/reset-password?welcome=1"), "/reset-password?welcome=1");
@@ -38,4 +38,5 @@ test("missing, expired and rejected email links cannot reuse an existing session
     clearFragment: () => {}, setSession: async () => { throw Error("unavailable"); },
   }), false);
 });
+
 

@@ -36,3 +36,35 @@ jobs:
             done < <(tail -n 60 validation.log)
           fi
           exit "$result"
+  database:
+    name: Isolated database integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - name: Start disposable Supabase stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes supabase@2.121.0 init --help
+          npx --yes supabase@2.121.0 start --help
+          npx --yes supabase@2.121.0 init
+          sed -i 's/^project_id = .*/project_id = "nsuk-ci"/' supabase/config.toml
+          docker network create -o 'com.docker.network.bridge.host_binding_ipv4=127.0.0.1' nsuk-ci
+          npx --yes supabase@2.121.0 start --network-id nsuk-ci --exclude studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime > /dev/null
+      - name: Run migrated database workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec -i supabase_db_nsuk-ci psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/ci/fixtures.sql
+          for fixture in supabase/tests/*.sql; do
+            echo "Running $fixture"
+            docker exec -i supabase_db_nsuk-ci psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$fixture"
+          done
+      - name: Stop disposable stack
+        if: always()
+        run: npx --yes supabase@2.121.0 stop --no-backup
+
