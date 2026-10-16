@@ -1,3 +1,4 @@
+begin;
 -- Remove the unused T segment without renumbering assets or rewriting history.
 -- Collision preflight runs before any label changes; all changes are transactional.
 lock table public.assets in share row exclusive mode;
@@ -73,3 +74,6 @@ set barcode=regexp_replace(barcode, '^(NSU/[^/]+/[^/]+/[^/]+)/T/([0-9]+)$', E'\\
 where barcode ~ '^NSU/[^/]+/[^/]+/[^/]+/T/[0-9]+$';
 
 drop function public.asset_code_segment();
+
+
+commit;
