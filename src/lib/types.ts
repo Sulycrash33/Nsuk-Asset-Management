@@ -34,7 +34,7 @@ export type OrgUnit = {
   name: string;
   unit_type: string;
   code: string | null;
-  /** Three letters used in the asset code, e.g. ACC in NSU/ADM/ACC/CP/T/001. */
+  /** Three letters used in the asset code, e.g. ACC in NSU/ADM/ACC/CP/001. */
   short_code: string | null;
   created_at?: string;
 };
