@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Check, Copy, Download, FileUp, Loader2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isDuplicateSerialError } from "@/lib/serials";
+import { importSerialProblems, reusableImportIndexes, type ExpectedImportRow } from "@/lib/import-recovery";
 import { fileFingerprint, importRowKey, parseAssetDate, parseAssetValue, type DateOrder } from "@/lib/asset-validation";
 import {
   ACCEPTED_DESCRIPTION,
@@ -27,6 +28,7 @@ import {
 
 /** Stable empty set, for a mapping with no serials to check. */
 const NO_SERIALS: ReadonlySet<string> = new Set<string>();
+const NO_REUSED_ROWS: ReadonlySet<number> = new Set<number>();
 
 /** Fields an uploaded column can be mapped onto. */
 const FIELDS = [
@@ -123,9 +125,10 @@ export default function ImportClient({
   const [error, setError] = useState<string | null>(null);
   // Serial numbers in this file that the register already holds. Looked up once
   // per file rather than per row, so a large import is still one round trip.
-  const [checked, setChecked] = useState<{ key: string; found: ReadonlySet<string> }>({
+  const [checked, setChecked] = useState<{ key: string; found: ReadonlySet<string>; reused: ReadonlySet<number> }>({
     key: "",
     found: NO_SERIALS,
+    reused: NO_REUSED_ROWS,
   });
   const [serialCheckError, setSerialCheckError] = useState<string | null>(null);
   const [fileHash, setFileHash] = useState("");
@@ -155,35 +158,9 @@ export default function ImportClient({
     return map;
   }, [categories]);
 
-  // The serial numbers the file offers, which is purely a function of the rows
-  // and the column they were mapped to. The key gives that list an identity the
-  // answer below can be matched against.
-  const { serials, serialKey } = useMemo(() => {
-    const column = mapping.serial_number;
-    const list = column
-      ? [...new Set(rows.map((r) => (r[column] ?? "").trim()).filter((v) => v.length > 0))]
-      : [];
-    return { serials: list, serialKey: list.join("\u0000") };
-  }, [rows, mapping.serial_number]);
-
-  // An answer counts only for the list it was asked about, so re-mapping the
-  // column or loading a new file discards it without anything being reset.
-  const alreadyRegistered = checked.key === serialKey ? checked.found : NO_SERIALS;
-  const checkingSerials = serials.length > 0 && checked.key !== serialKey;
-
-  const prepared: PreparedRow[] = useMemo(() => {
+  const parsedRows: PreparedRow[] = useMemo(() => {
     if (!mapping.name) return [];
     const allowed = selectableUnits ? new Set(selectableUnits) : null;
-
-    // Where each serial number first appears, so the second occurrence can say
-    // which row it clashes with rather than simply calling itself a duplicate.
-    const firstSeenAt = new Map<string, number>();
-    if (mapping.serial_number) {
-      rows.forEach((row, i) => {
-        const serial = (row[mapping.serial_number!] ?? "").trim().toLowerCase();
-        if (serial && !firstSeenAt.has(serial)) firstSeenAt.set(serial, i);
-      });
-    }
 
     return rows.map((row, index) => {
       const get = (key: FieldKey) => (mapping[key] ? (row[mapping[key]!] ?? "").trim() : "");
@@ -227,18 +204,7 @@ export default function ImportClient({
       if (available_for_use_date && acquisition_date && available_for_use_date < acquisition_date) problems.push("Date available for use cannot precede acquisition");
       if (dateRaw && !acquisition_date) problems.push(`Date “${dateRaw}” is invalid or does not match the selected date format`);
 
-      // A repeated serial number almost always means the same physical item has
-      // been entered twice, which is exactly what a register must not contain.
       const serial = get("serial_number");
-      const key = serial.toLowerCase();
-      if (serial) {
-        const first = firstSeenAt.get(key);
-        if (first !== undefined && first !== index) {
-          problems.push(`Duplicate serial number, same as row ${first + 2} of this file`);
-        } else if (alreadyRegistered.has(key)) {
-          problems.push("Duplicate serial number, already on the register");
-        }
-      }
 
       return {
         index,
@@ -256,7 +222,21 @@ export default function ImportClient({
         problems,
       };
     });
-  }, [rows, mapping, defaultUnit, unitByName, categoryByName, selectableUnits, alreadyRegistered, dateOrder]);
+  }, [rows, mapping, defaultUnit, unitByName, categoryByName, selectableUnits, dateOrder]);
+
+  // Scope the answer to file bytes, original row positions and resolved units.
+  // Changing a unit or loading a different file must invalidate a reuse decision.
+  const serialContext = useMemo(() => parsedRows.filter((row) => row.serial_number).map((row) => ({
+    index: row.index, serial_number: row.serial_number, org_unit_id: row.org_unit_id,
+  })), [parsedRows]);
+  const serialKey = JSON.stringify([fileHash, serialContext]);
+  const serials = useMemo(() => [...new Set(serialContext.map((row) => row.serial_number!))], [serialContext]);
+  const checkingSerials = serials.length > 0 && checked.key !== serialKey;
+  const prepared = useMemo(() => {
+    const matches = checked.key === serialKey ? checked : { found: NO_SERIALS, reused: NO_REUSED_ROWS };
+    const duplicates = importSerialProblems(parsedRows, matches.found, matches.reused);
+    return parsedRows.map((row) => ({ ...row, problems: [...row.problems, ...(duplicates.has(row.index) ? [duplicates.get(row.index)!] : [])] }));
+  }, [parsedRows, checked, serialKey]);
 
   const isDuplicate = (p: string) => p.startsWith("Duplicate serial number");
 
@@ -299,13 +279,35 @@ export default function ImportClient({
         if (cancelled) return;
       }
 
-      if (!cancelled) { setChecked({ key: serialKey, found }); setSerialCheckError(null); }
-    })();
+      // RLS limits this lookup to assets the uploader may read. Global serial
+      // matches outside that scope remain duplicates; no identity is disclosed.
+      const expected: ExpectedImportRow[] = [];
+      if (fileHash) {
+        for (const row of serialContext) {
+          if (row.org_unit_id && found.has(row.serial_number!.toLowerCase())) expected.push({
+            ...row, org_unit_id: row.org_unit_id,
+            import_key: await importRowKey(fileHash, row.index, row.org_unit_id),
+          });
+        }
+      }
+      const reused = new Set<number>();
+      for (let i = 0; i < expected.length; i += BATCH) {
+        const chunk = expected.slice(i, i + BATCH);
+        const { data, error: recoveryError } = await supabase.from("assets")
+          .select("import_key,serial_number,org_unit_id").in("import_key", chunk.map((row) => row.import_key));
+        if (recoveryError) throw recoveryError;
+        for (const index of reusableImportIndexes(chunk, data ?? [])) reused.add(index);
+        if (cancelled) return;
+      }
+      if (!cancelled) { setChecked({ key: serialKey, found, reused }); setSerialCheckError(null); }
+    })().catch(() => {
+      if (!cancelled) setSerialCheckError("Import recovery could not be checked. Reconnect and reload the file before importing.");
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [serials, serialKey]);
+  }, [serials, serialKey, serialContext, fileHash]);
 
   async function handleFile(file: File) {
     setError(null);
@@ -654,4 +656,5 @@ export default function ImportClient({
     </div>
   );
 }
+
 

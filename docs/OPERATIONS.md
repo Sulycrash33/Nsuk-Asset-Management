@@ -62,6 +62,10 @@ Use a separate test project or clearly identified pilot records. Check camera pe
 HTTPS, manual scanner input, repeat/unknown scans, offline queue/reconnect, account switching,
 permission refusal, finish/retry and saved reports. Test failed upload and replacement, strict dates,
 unknown import defaults, same-file retry, duplicates, partial failure and full Excel/PDF exports.
+For partial-import recovery, re-upload the identical file with the same unit selections.
+Saved serials are reusable only when their import reference, original unit and serial match
+an asset visible to the uploader. Changed units/files and repeated serials within a file
+remain blocked. The server compares all saved row values before confirming reuse.
 Verify staff cannot see or edit another unit and cannot overwrite/delete existing photo objects.
 Run invitations and password changes with designated test recipients only.
 
@@ -70,3 +74,4 @@ Use a privileged test connection and inspect the script first. Rollback-only SQL
 exercise camera hardware, email delivery, Storage HTTP behavior or simultaneous browser actions.
 
 Depreciation, maintenance scheduling and disposal/write-off workflows remain outside this build.
+
