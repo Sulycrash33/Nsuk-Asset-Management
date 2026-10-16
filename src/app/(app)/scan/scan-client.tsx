@@ -195,7 +195,7 @@ export default function ScanClient() {
           className="field font-mono text-lg tracking-wider"
           value={manualCode}
           onChange={(e) => setManualCode(e.target.value)}
-          placeholder="NSUK-CS-0001"
+          placeholder="NSU/BUR/FXA/FF/006"
           autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}

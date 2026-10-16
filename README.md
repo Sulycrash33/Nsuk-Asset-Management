@@ -82,7 +82,7 @@ backup coverage and the phone pilot checklist.
 ## How the barcodes work
 
 1. An asset record is saved (single entry or CSV import).
-2. A Postgres trigger issues a matric-style code such as `NSU/ADM/ACC/CP/T/001` — unique, sequential per unit — and mirrors it
+2. A Postgres trigger issues a matric-style code such as `NSU/ADM/ACC/CP/001` — unique, sequential per unit — and mirrors it
    into the QR payload.
 3. The label sheet is generated client-side as a PDF: Code 128 bars drawn as **vector** rects (not a
    bitmap, so they stay scannable at any size), the QR code, and the human-readable code.

@@ -323,7 +323,7 @@ export default function UnitsClient({
                   placeholder="Left blank, one is worked out"
                 />
                 <p className="hint">
-                  The segment this unit contributes, as in NSU/ADM/<b>ACC</b>/CP/T/001. Existing
+                  The segment this unit contributes, as in NSU/ADM/<b>ACC</b>/CP/001. Existing
                   asset numbers are not changed.
                 </p>
               </div>

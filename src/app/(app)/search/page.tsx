@@ -47,7 +47,7 @@ export default async function GlobalSearchPage({
           name="q"
           defaultValue={q}
           className="field pl-10"
-          placeholder="NSUK-CS-0001, LG-AC-99213, “projector”…"
+          placeholder="NSU/BUR/FXA/FF/006, LG-AC-99213, “projector”…"
           aria-label="Search all assets"
           autoFocus
         />

@@ -87,3 +87,14 @@ Maintenance scheduling and dedicated disposal/write-off workflows remain outside
 
 
 
+
+
+### Asset tag format
+
+Tags use NSU/top-level-unit/assigned-unit/category/sequence, for example
+NSU/BUR/FXA/FF/006: Nasarawa State University, Bursary Department, Fixed Assets
+Unit, Furniture & Fittings, unit sequence 006. Numbers run across categories
+within the unit; gaps are retained. The unused T segment has been removed from
+existing asset records and future generation. Regenerate old printed/downloaded
+labels after this migration. Existing closed verification and accounting snapshots
+remain unchanged as historical evidence. Asset record URLs keep the same UUIDs.
