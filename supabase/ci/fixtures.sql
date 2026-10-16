@@ -4,4 +4,6 @@ insert into auth.users(id,email,raw_user_meta_data)
 values(gen_random_uuid(),'admin-one@example.invalid','{"name":"CI Administrator One"}'),
       (gen_random_uuid(),'admin-two@example.invalid','{"name":"CI Administrator Two"}');
 update public.profiles set role='admin';
+insert into storage.objects(bucket_id,name,owner_id)
+select 'asset-photos','ci-placeholder.jpg',id::text from public.profiles limit 1;
 

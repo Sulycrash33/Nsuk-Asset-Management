@@ -7,7 +7,8 @@ export function safeAppPath(value: string | null, fallback = "/dashboard"): stri
     const decoded = decodeURIComponent(value.split(/[?#]/, 1)[0]);
     if (decoded.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(decoded)) return fallback;
     const url = new URL(value, APP_ORIGIN);
-    return url.origin === APP_ORIGIN ? url.pathname + url.search + url.hash : fallback;
+    if (url.origin !== APP_ORIGIN || url.pathname.startsWith("//")) return fallback;
+    return url.pathname + url.search + url.hash;
   } catch { return fallback; }
 }
 
@@ -36,4 +37,5 @@ export async function completeEmailSession(fragment: string, operations: EmailSe
     return !error;
   } catch { return false; }
 }
+
 

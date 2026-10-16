@@ -54,7 +54,7 @@ jobs:
           npx --yes supabase@2.121.0 init
           sed -i 's/^project_id = .*/project_id = "nsuk-ci"/' supabase/config.toml
           docker network create -o 'com.docker.network.bridge.host_binding_ipv4=127.0.0.1' nsuk-ci
-          npx --yes supabase@2.121.0 start --network-id nsuk-ci --exclude studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime
+          npx --yes supabase@2.121.0 start --network-id nsuk-ci --exclude studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime > /dev/null
       - name: Run migrated database workflows
         shell: bash
         run: |

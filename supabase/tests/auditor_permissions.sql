@@ -31,7 +31,11 @@ begin
  exception when insufficient_privilege then null; end;
  begin perform public.move_asset(a,u,'Forbidden');raise exception 'Auditor moved asset';exception when insufficient_privilege then null;end;
  begin perform public.bulk_update_assets(array[a],'Faulty',null,null);raise exception 'Auditor bulk write';exception when insufficient_privilege then null;end;
- begin perform public.import_asset_rows('[]'::jsonb);raise exception 'Auditor imported';exception when insufficient_privilege then null;end;
+ begin
+  perform public.import_asset_rows(jsonb_build_array(jsonb_build_object(
+    'import_key',repeat(md5(gen_random_uuid()::text),2),'name','Forbidden auditor import','org_unit_id',u,'value',0)));
+  raise exception 'Auditor imported';
+ exception when insufficient_privilege then null;end;
  begin perform public.record_verification_scan(open_s,code);raise exception 'Auditor recorded scan';exception when insufficient_privilege then null;end;
  begin perform public.finish_verification(open_s);raise exception 'Auditor closed exercise';exception when insufficient_privilege then null;end;
  begin insert into public.verification_sessions(org_unit_id) values(u);raise exception 'Auditor started exercise';exception when insufficient_privilege then null;end;
@@ -46,3 +50,4 @@ begin
 end $$;
 select 'auditor permission assertions passed' as result;
 rollback;
+
