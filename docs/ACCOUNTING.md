@@ -58,10 +58,15 @@ document does not supply a land class; land is not silently assigned an equipmen
 changes, the exact 33% rate, residual limits, full-class coverage, revaluation history,
 annual charges spanning events, corrections, impairment, finalized snapshots, deletion
 protection, grants and role refusals. Use an unused Office Equipment class for the fixture.
+`supabase/tests/accounting_finite_amounts.sql` checks that non-finite numeric values
+cannot enter opening balances, accumulated depreciation, impairment or revaluation,
+while valid finite amounts still post. Database constraints protect all six ledger
+amount columns, including requests made directly to accounting functions.
 `npm run test:accounting` verifies exports preserve unknown amounts and separate value bases.
 
 [IPSAS 45](https://www.ipsasb.org/publications/ipsas-45-property-plant-and-equipment)
 describes historical cost and current-value measurement. The rates above come from the
 user-supplied institutional document; they are not claimed to be prescribed by IPSAS.
+
 
 
