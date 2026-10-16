@@ -12,9 +12,11 @@ export default function ResetForm() {
   const router = useRouter();
   // An invited person has never had a password, so telling them to reset one
   // would be confusing. Same screen, different words.
-  const welcome = useSearchParams().get("welcome") === "1";
+  const params = useSearchParams();
+  const welcome = params.get("welcome") === "1";
+  const expired = params.get("link") === "expired";
 
-  const [ready, setReady] = useState<"checking" | "valid" | "invalid">("checking");
+  const [ready, setReady] = useState<"checking" | "valid" | "invalid">(expired ? "invalid" : "checking");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [reveal, setReveal] = useState(false);
@@ -26,16 +28,17 @@ export default function ResetForm() {
   // session before this page renders. If there is no session, the link was
   // never valid, has already been used, or has expired.
   useEffect(() => {
+    if (expired) return;
     let cancelled = false;
     createClient()
       .auth.getSession()
-      .then(({ data }) => {
-        if (!cancelled) setReady(data.session ? "valid" : "invalid");
-      });
+      .then(({ data, error }) => {
+        if (!cancelled) setReady(!error && data.session ? "valid" : "invalid");
+      }).catch(() => { if (!cancelled) setReady("invalid"); });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [expired]);
 
   const tooShort = password.length > 0 && password.length < MIN_LENGTH;
   const mismatch = confirmation.length > 0 && password !== confirmation;
@@ -69,7 +72,7 @@ export default function ResetForm() {
     return <div className="card h-72 animate-pulse" />;
   }
 
-  if (ready === "invalid") {
+  if (expired || ready === "invalid") {
     return (
       <div className="card space-y-4">
         <h1 className="text-xl font-bold text-nsuk-blue">This link is no longer valid</h1>
@@ -171,3 +174,4 @@ export default function ResetForm() {
     </form>
   );
 }
+
