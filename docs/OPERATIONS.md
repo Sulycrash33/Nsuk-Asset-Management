@@ -6,7 +6,10 @@ Use Node 24 and install the committed dependencies with `npm ci`. Set the public
 and the server-only service role key from `.env.example`. Keep production credentials out of
 GitHub Actions: its build uses placeholders. Configure the real project values separately for
 Vercel preview and production. Set Supabase Auth site/redirect URLs for the deployed origin and
-`/auth/callback`, and verify email delivery before inviting officers.
+`/auth/callback`, and verify email delivery before inviting officers. Also allow
+`/auth/complete` for invitation links. Invitations use the browser completion page;
+password recovery uses the server PKCE callback. Expired links must show the invalid-link
+screen even when another account is already signed in.
 
 Run `npm run check`. Review the exact pull-request head's Linux check result before merging.
 After deployment, verify sign-in, scoped asset lookup, entry, upload and account management on
@@ -73,5 +76,7 @@ SQL files in `supabase/tests/` run fixture assertions inside transactions ending
 Use a privileged test connection and inspect the script first. Rollback-only SQL checks do not
 exercise camera hardware, email delivery, Storage HTTP behavior or simultaneous browser actions.
 
-Depreciation, maintenance scheduling and disposal/write-off workflows remain outside this build.
+Asset depreciation and revaluation are described in `docs/ACCOUNTING.md`.
+Maintenance scheduling and dedicated disposal/write-off workflows remain outside this build.
+
 

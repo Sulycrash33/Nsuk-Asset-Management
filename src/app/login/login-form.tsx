@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { safeAppPath } from "@/lib/auth-callback";
 
 /**
  * Supabase returns terse technical strings. These are the ones a person signing
@@ -37,7 +38,7 @@ function readableAuthError(err: unknown): string {
 export default function LoginForm({ needsBootstrap }: { needsBootstrap: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
-  const nextPath = params.get("next") || "/dashboard";
+  const nextPath = safeAppPath(params.get("next"));
 
   const [mode, setMode] = useState<"login" | "bootstrap">(needsBootstrap ? "bootstrap" : "login");
   const [email, setEmail] = useState("");
@@ -104,9 +105,10 @@ export default function LoginForm({ needsBootstrap }: { needsBootstrap: boolean 
     setNotice(null);
     setBusy(true);
     try {
-      await createClient().auth.resetPasswordForEmail(email, {
+      const { error: resetError } = await createClient().auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
       });
+      if (resetError) throw new Error("The email request could not be completed. Please wait a few minutes and try again, or contact the administrator.");
       setNotice(
         `If an account exists for ${email}, a link to set a new password has been sent to it. The link is valid for one hour.`,
       );
@@ -225,3 +227,4 @@ export default function LoginForm({ needsBootstrap }: { needsBootstrap: boolean 
     </form>
   );
 }
+

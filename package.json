@@ -12,7 +12,7 @@
     "test:scan-queue": "node --experimental-strip-types --test scripts/verify-scan-queue.mjs",
     "test:asset-validation": "node --experimental-strip-types --test scripts/verify-asset-validation.mjs",
     "check": "npm run typecheck && npm run lint && npm run test:offline && npm run test:scan-queue && npm run test:asset-validation && npm run test:accounts && npm run test:register && npm run test:photos && npm run test:camera && npm run test:accounting && npm run build",
-    "test:accounts": "node --experimental-strip-types --test scripts/verify-account-provisioning.mjs",
+    "test:accounts": "node --experimental-strip-types --test scripts/verify-account-provisioning.mjs scripts/verify-auth-callback.mjs",
     "test:register": "node --experimental-strip-types --test scripts/verify-register.mjs",
     "test:photos": "node --experimental-strip-types --test scripts/verify-asset-photos.mjs",
     "test:camera": "node --experimental-strip-types --test scripts/verify-camera-session.mjs",
@@ -49,4 +49,5 @@
     "typescript": "^5.7.3"
   }
 }
+
 

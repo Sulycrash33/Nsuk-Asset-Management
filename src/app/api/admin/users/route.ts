@@ -65,7 +65,7 @@ export async function POST(request: Request) {
         const result = body.invite
           ? await admin.auth.admin.inviteUserByEmail(body.email, {
               data: { name: body.name },
-              redirectTo: `${new URL(request.url).origin}/auth/callback?next=${encodeURIComponent("/reset-password?welcome=1")}`,
+              redirectTo: `${new URL(request.url).origin}/auth/complete?next=${encodeURIComponent("/reset-password?welcome=1")}`,
             })
           : await admin.auth.admin.createUser({ email: body.email, password: body.password,
               email_confirm: true, user_metadata: { name: body.name } });
@@ -191,3 +191,4 @@ export async function DELETE(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
