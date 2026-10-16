@@ -73,10 +73,17 @@ Verify staff cannot see or edit another unit and cannot overwrite/delete existin
 Run invitations and password changes with designated test recipients only.
 
 SQL files in `supabase/tests/` run fixture assertions inside transactions ending in `rollback`.
+CI starts a separate local Supabase Docker stack with a pinned CLI, applies every
+migration, seeds two synthetic administrators from `supabase/ci/fixtures.sql`, and
+runs all these SQL fixtures with errors treated as failures. That stack has no
+production connection or credentials and is stopped without retaining a backup.
+The CI seed must never be run against a hosted database. This verifies database
+workflows on a fresh installation; it does not replace a financial browser pilot.
 Use a privileged test connection and inspect the script first. Rollback-only SQL checks do not
 exercise camera hardware, email delivery, Storage HTTP behavior or simultaneous browser actions.
 
 Asset depreciation and revaluation are described in `docs/ACCOUNTING.md`.
 Maintenance scheduling and dedicated disposal/write-off workflows remain outside this build.
+
 
 
