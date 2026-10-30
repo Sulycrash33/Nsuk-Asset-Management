@@ -1,5 +1,16 @@
 # NSUK operations and recovery
 
+## Register performance pilot
+
+The asset policies evaluate caller-only role checks once per SQL statement using
+scalar subqueries. Keep the unit predicates and write checks when changing these
+policies; do not remove RLS to improve speed.
+An isolated API pilot on 30 October 2026 exercised 20,000 assets and up to 20
+signed-in officers, including scoped reads, concurrent entry/edit and complete
+export. After the policy optimization, the bounded run completed without errors.
+This is not a Vercel/browser rendering, photo-transfer or sustained-load result.
+Substring search remained slower than direct code lookup under peak concurrency.
+
 ## Explicit database access on fresh environments
 
 Apply `20261030023806_explicit_app_grants_and_accounting_actor_indexes.sql`
