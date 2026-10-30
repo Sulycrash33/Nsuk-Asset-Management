@@ -1,5 +1,15 @@
 # NSUK operations and recovery
 
+## Explicit database access on fresh environments
+
+Apply `20261030023806_explicit_app_grants_and_accounting_actor_indexes.sql`
+after the preceding migrations when preparing a branch or restoring the schema.
+It grants the table operations used by the application while retaining row-level
+policies and accounting write restrictions. It also indexes the three accounting
+actor foreign keys. Do not rely on project-specific default table grants.
+Check migration parity against production: the hosted branch replay may omit a
+recent migration. A healthy branch status alone does not establish schema parity.
+
 ## Setup and release checks
 
 Use Node 24 and install the committed dependencies with `npm ci`. Set the public Supabase URL/key
