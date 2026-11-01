@@ -37,8 +37,8 @@ export default async function LabelsPage({
       <header>
         <h1 className="text-2xl font-bold text-nsuk-blue">Print labels</h1>
         <p className="text-sm text-nsuk-muted">
-          Select the assets to be tagged, then download an A4 sheet of QR labels, twelve
-          to a page.
+          Select the assets to be tagged, choose your label size, then download one QR
+          label per page for your label printer.
         </p>
       </header>
 
