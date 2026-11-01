@@ -16,7 +16,7 @@ each one a unique barcode and QR code, prints the label, and turns verification 
 | Area | Detail |
 |---|---|
 | **Entry** | One-by-one from a phone (with camera photo capture) **or** bulk spreadsheet/CSV import — both always available |
-| **Barcodes** | Auto-generated matric-style `NSU/...` codes, rendered as Code 128 + QR, printed as A4 label sheets (12 per page) |
+| **Barcodes** | Auto-generated matric-style `NSU/...` codes, printed as QR labels with one asset per PDF page; default 60 × 40 mm for the Xprinter XP-365B |
 | **Scanning** | Phone camera (ZXing) or any handheld scanner — the latter works as keyboard input with no integration |
 | **Scope** | Staff see only their assigned units (and everything nested beneath them); admins see the whole University |
 | **Transfers** | Moving an asset between units records from, to, reason, who and when |
@@ -84,8 +84,15 @@ backup coverage and the phone pilot checklist.
 1. An asset record is saved (single entry or CSV import).
 2. A Postgres trigger issues a matric-style code such as `NSU/ADM/ACC/CP/001` — unique, sequential per unit — and mirrors it
    into the QR payload.
-3. The label sheet is generated client-side as a PDF: Code 128 bars drawn as **vector** rects (not a
-   bitmap, so they stay scannable at any size), the QR code, and the human-readable code.
+3. Labels are generated client-side as PDFs with **one asset per page**, including a QR code,
+   readable asset code, name, unit and available category/campus details. The default paper is
+   **60 × 40 mm**, matching the institution's Xprinter XP-365B label roll. Other selectable
+   sizes are 80 × 50 mm and 100 × 50 mm for other stock/printers; the choice is remembered on
+   that browser and applies to individual entry, asset details, batches and imports.
+   Match the PDF and printer-driver paper sizes and print at **Actual size / 100%**, one page
+   per sheet. QR codes include a four-module quiet zone. Long descriptive details are shortened;
+   the asset identifier is never truncated. A physical printer/phone trial is still required.
+
 4. Staff print and stick the label on the physical item.
 5. Scanning the barcode or QR — by camera or handheld scanner — opens the full record.
 
@@ -109,7 +116,7 @@ src/
       dashboard/              role-scoped totals, value, condition breakdown
       assets/                 list, detail, add, edit, CSV import
       scan/                   camera + manual code lookup
-      labels/                 batch label sheet generation
+      labels/                 batch label-printer PDF generation
       units/                  org tree, campuses, categories   (admin)
       users/                  staff accounts and unit assignment (admin)
       activity/               university-wide audit trail        (admin)

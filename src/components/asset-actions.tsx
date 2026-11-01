@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ArrowRightLeft, Loader2, Printer, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import UnitSelect from "@/components/unit-select";
+import LabelPaperSelect from "@/components/label-paper-select";
 import Modal from "@/components/ui/modal";
 import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/toast";
@@ -103,10 +104,13 @@ export default function AssetActions({
 
   return (
     <>
-      <button onClick={printLabel} disabled={printing} className="btn-gold">
-        {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-        Print label
-      </button>
+      <div className="space-y-2 sm:col-span-2">
+        <LabelPaperSelect />
+        <button onClick={printLabel} disabled={printing} className="btn-gold w-full">
+          {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+          Print label
+        </button>
+      </div>
 
       <button onClick={() => setMoveOpen(true)} className="btn-ghost">
         <ArrowRightLeft className="h-4 w-4" /> Transfer to another unit

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Loader2, Printer } from "lucide-react";
 import UnitSelect from "@/components/unit-select";
+import LabelPaperSelect from "@/components/label-paper-select";
 import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
@@ -77,11 +78,11 @@ export default function LabelsClient({
       const doc = await generateLabelSheet(labels);
       savePdf(doc, `nsuk-labels-${new Date().toISOString().slice(0, 10)}.pdf`);
       toast.success(
-        "Label sheet ready",
-        `${labels.length.toLocaleString()} label${labels.length === 1 ? "" : "s"} across ${Math.ceil(labels.length / 12)} page${Math.ceil(labels.length / 12) === 1 ? "" : "s"}.`,
+        "Labels ready",
+        `${labels.length.toLocaleString()} label${labels.length === 1 ? "" : "s"} across ${labels.length} label-sized page${labels.length === 1 ? "" : "s"}.`,
       );
     } catch {
-      toast.error("Could not build the label sheet", "Try selecting fewer assets.");
+      toast.error("Could not build the labels", "Try selecting fewer assets.");
     } finally {
       setBusy(false);
     }
@@ -172,6 +173,7 @@ export default function LabelsClient({
         )}
       </div>
 
+      <div className="card"><LabelPaperSelect /></div>
       <button onClick={print} className="btn-gold w-full" disabled={busy || selected.size === 0}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
         Download {selected.size.toLocaleString()} label

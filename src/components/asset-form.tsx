@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import UnitSelect from "@/components/unit-select";
+import LabelPaperSelect from "@/components/label-paper-select";
 import { QrImage } from "@/components/barcode-image";
 import { useToast } from "@/components/ui/toast";
 import { generateSingleLabel, savePdf } from "@/lib/pdf";
@@ -353,6 +354,7 @@ export default function AssetForm({
           </p>
         </div>
 
+        <LabelPaperSelect />
         <div className="grid gap-2 sm:grid-cols-2">
           <button
             onClick={() => printLabel(created)}

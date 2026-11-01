@@ -15,6 +15,7 @@ import {
   type TableRow,
 } from "@/lib/import-file";
 import UnitSelect from "@/components/unit-select";
+import LabelPaperSelect from "@/components/label-paper-select";
 import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
@@ -396,14 +397,21 @@ export default function ImportClient({
   }
 
   async function printBatch(assets: Asset[]) {
-    const labels: LabelInput[] = assets.map((a) => ({
-      barcode: a.barcode,
-      name: a.name,
-      unitName: unitPath(a.org_unit_id, units),
-      categoryName: categories.find((c) => c.id === a.category_id)?.name ?? null,
-    }));
-    const doc = await generateLabelSheet(labels);
-    savePdf(doc, `nsuk-labels-${new Date().toISOString().slice(0, 10)}.pdf`);
+    setBusy(true);
+    try {
+      const labels: LabelInput[] = assets.map((a) => ({
+        barcode: a.barcode,
+        name: a.name,
+        unitName: unitPath(a.org_unit_id, units),
+        categoryName: categories.find((c) => c.id === a.category_id)?.name ?? null,
+      }));
+      const doc = await generateLabelSheet(labels);
+      savePdf(doc, `nsuk-labels-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      toast.error("Could not generate the labels", "Try again from the Print labels screen.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function downloadTemplate() {
@@ -440,9 +448,10 @@ export default function ImportClient({
           </p>
         )}
 
+        <LabelPaperSelect />
         <div className="grid gap-2 sm:grid-cols-2">
-          <button onClick={() => printBatch(imported)} className="btn-gold">
-            <Printer className="h-4 w-4" /> Print {imported.length} labels
+          <button onClick={() => printBatch(imported)} disabled={busy || imported.length === 0} className="btn-gold">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />} Print {imported.length} labels
           </button>
           <Link href="/assets" className="btn-primary">
             View assets

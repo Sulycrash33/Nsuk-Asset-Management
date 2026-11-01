@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
 import type { AssetWithRefs } from "./types";
+import { readLabelPaper, type LabelPaper } from "./label-paper";
 
 const BLUE: [number, number, number] = [26, 60, 110];
 const GOLD: [number, number, number] = [242, 183, 5];
@@ -16,27 +17,6 @@ export type LabelInput = {
   categoryName?: string | null;
   campusName?: string | null;
 };
-
-/**
- * The asset code as a QR symbol.
- *
- * QR rather than Code 128 because these labels are read with ordinary phone
- * cameras and have to survive years on dusty equipment. A QR reads at an angle
- * and in poor light, and error correction level Q means the symbol still
- * decodes with about a quarter of it scratched, scuffed or peeled away. A
- * damaged Code 128 simply stops reading.
- *
- * The payload is the printed code and nothing else, so what a scanner returns
- * is exactly what a person would type.
- */
-async function qrDataUrl(text: string): Promise<string> {
-  return QRCode.toDataURL(text, {
-    margin: 0,
-    width: 480,
-    errorCorrectionLevel: "Q",
-    color: { dark: "#111111", light: "#FFFFFF" },
-  });
-}
 
 /**
  * The University crest as a data URL, fetched once and reused. jsPDF cannot
@@ -73,100 +53,68 @@ function fitText(doc: jsPDF, text: string, maxWidth: number): string {
   return cut + "\u2026";
 }
 
-/**
- * Printable label sheet: 2 columns x 5 rows of 95x55mm labels on A4.
- *
- * The layout is the one the University approved. Crest and system name at the
- * head, the QR symbol across the middle, the readable code beneath it,
- * then the item and where it belongs. What is printed under the symbol is
- * exactly what the symbol encodes, so a scan and a typed entry agree.
- */
-export async function generateLabelSheet(labels: LabelInput[]): Promise<jsPDF> {
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const crest = await crestDataUrl();
-
-  const cols = 2;
-  const rows = 5;
-  const labelW = 95;
-  const labelH = 55;
-  const marginX = (210 - cols * labelW) / 2;
-  const marginY = (297 - rows * labelH) / 2;
-  const perPage = cols * rows;
-  const pad = 4;
+/** Roll-printer PDF: one QR code and asset details per physical label. */
+export async function generateLabelSheet(
+  labels: LabelInput[],
+  paper: LabelPaper = readLabelPaper(),
+): Promise<jsPDF> {
+  if (!labels.length) throw new Error("Select at least one asset to label.");
+  const { width, height } = paper;
+  const orientation = width >= height ? "landscape" : "portrait";
+  const doc = new jsPDF({ unit: "mm", format: [width, height], orientation });
+  doc.setProperties({ title: "NSUK asset labels", subject: `${width} x ${height} mm, one asset per page` });
+  const pad = 3;
+  const qrSize = Math.min(30, height - 18);
+  const textX = pad + qrSize + 3;
+  const textWidth = width - textX - pad;
 
   for (let i = 0; i < labels.length; i++) {
-    if (i > 0 && i % perPage === 0) doc.addPage();
-
-    const slot = i % perPage;
-    const x = marginX + (slot % cols) * labelW;
-    const y = marginY + Math.floor(slot / cols) * labelH;
+    if (i > 0) doc.addPage([width, height], orientation);
     const label = labels[i];
-    const centre = x + labelW / 2;
-    const innerW = labelW - 2 * pad;
-
-    // A dashed boundary to cut along.
-    doc.setDrawColor(190, 200, 215);
-    doc.setLineWidth(0.2);
-    doc.setLineDashPattern([1, 1], 0);
-    doc.rect(x, y, labelW, labelH);
-    doc.setLineDashPattern([], 0);
-
-    // Gold rule across the head, the University's colour.
-    doc.setFillColor(...GOLD);
-    doc.rect(x + pad, y + pad, innerW, 1.2, "F");
-
-    if (crest) doc.addImage(crest, "PNG", centre - 4, y + 6, 8, 8);
-
-    doc.setTextColor(...BLUE);
+    doc.setTextColor(...INK);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.6);
-    doc.text("NSUK ASSET MANAGEMENT SYSTEM", centre, y + 17.4, { align: "center" });
+    doc.setFontSize(8);
+    doc.text("NSUK ASSET MANAGEMENT", width / 2, 6, { align: "center" });
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.2);
-    doc.setTextColor(90, 97, 110);
-    doc.text("Nasarawa State University, Keffi", centre, y + 20.4, { align: "center" });
+    // Include a four-module white quiet zone so text cannot crowd the QR.
+    const qr = await QRCode.toDataURL(label.barcode, {
+      margin: 4, width: 480, errorCorrectionLevel: "Q",
+      color: { dark: "#000000", light: "#FFFFFF" },
+    });
+    doc.addImage(qr, "PNG", pad, 10, qrSize, qrSize);
 
-    // The symbol is printed large on purpose. A QR is read by recovering whole
-    // modules, so a scratch of a given size destroys more of a small symbol
-    // than a large one: measured against a fixed speck of wear, 17mm failed
-    // every time where 22mm mostly survived. The header was tightened to make
-    // the room for it.
-    const qr = await qrDataUrl(label.barcode);
-    const qrSize = 22;
-    doc.addImage(qr, "PNG", centre - qrSize / 2, y + 21.5, qrSize, qrSize);
+    let y = 13;
+    function detail(text: string, bold: boolean, maxLines: number) {
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setFontSize(bold ? 8.5 : 7);
+      const lines = doc.splitTextToSize(text, textWidth) as string[];
+      const shown = lines.slice(0, maxLines);
+      if (lines.length > maxLines) {
+        shown[maxLines - 1] = fitText(doc, shown[maxLines - 1] + "...", textWidth);
+      }
+      for (const line of shown) {
+        doc.text(line, textX, y);
+        y += 3.2;
+      }
+      y += 0.8;
+    }
+    detail(label.name, true, 2);
+    const unit = label.unitName.split("\u203a").pop()?.trim() || label.unitName;
+    detail(`Unit: ${unit || "-"}`, false, 2);
+    if (label.categoryName) detail(label.categoryName, false, 1);
+    if (label.campusName) detail(label.campusName, false, 1);
 
-    // The code in words, monospaced, so it can be read aloud or typed when a
-    // label is too damaged to scan.
+    // Never truncate the identifier: it must agree with the QR payload.
     doc.setFont("courier", "bold");
-    doc.setFontSize(9.2);
-    doc.setTextColor(...INK);
-    doc.text(label.barcode, centre, y + 47.2, { align: "center" });
-
-    doc.setDrawColor(201, 210, 224);
-    doc.setLineWidth(0.3);
-    doc.line(x + pad, y + 48.6, x + labelW - pad, y + 48.6);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    doc.setTextColor(...INK);
-    doc.text(fitText(doc, label.name, innerW), centre, y + 51.2, { align: "center" });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.4);
-    doc.setTextColor(90, 97, 110);
-    const unitLeaf = label.unitName.split("\u203a").pop()?.trim() || label.unitName;
-    const footer = [unitLeaf, label.campusName, label.categoryName]
-      .filter(Boolean)
-      .join("  \u2022  ");
-    doc.text(fitText(doc, footer, innerW), centre, y + 53.6, { align: "center" });
+    doc.setFontSize(9);
+    const codeWidth = doc.getTextWidth(label.barcode);
+    if (codeWidth > width - 2 * pad) doc.setFontSize(9 * (width - 2 * pad) / codeWidth);
+    doc.text(label.barcode, width / 2, height - 3.5, { align: "center" });
   }
-
   return doc;
 }
 
-
-/** Single-label PDF, used straight after one-by-one asset entry. */
+/** Single and batch downloads share the selected label-sized paper. */
 export async function generateSingleLabel(label: LabelInput): Promise<jsPDF> {
   return generateLabelSheet([label]);
 }
