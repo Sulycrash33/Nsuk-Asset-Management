@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
 import type { AssetWithRefs } from "./types";
-import { readLabelPaper, type LabelPaper } from "./label-paper";
+import { LABEL_PAPER } from "./label-paper";
 
 const BLUE: [number, number, number] = [26, 60, 110];
 const GOLD: [number, number, number] = [242, 183, 5];
@@ -56,16 +56,15 @@ function fitText(doc: jsPDF, text: string, maxWidth: number): string {
 /** Roll-printer PDF: one QR code and asset details per physical label. */
 export async function generateLabelSheet(
   labels: LabelInput[],
-  paper: LabelPaper = readLabelPaper(),
 ): Promise<jsPDF> {
   if (!labels.length) throw new Error("Select at least one asset to label.");
-  const { width, height } = paper;
+  const { width, height } = LABEL_PAPER;
   const orientation = width >= height ? "landscape" : "portrait";
   const doc = new jsPDF({ unit: "mm", format: [width, height], orientation });
   doc.setProperties({ title: "NSUK asset labels", subject: `${width} x ${height} mm, one asset per page` });
-  const pad = 3;
-  const qrSize = Math.min(30, height - 18);
-  const textX = pad + qrSize + 3;
+  const pad = 2;
+  const qrSize = 22;
+  const textX = pad + qrSize + 2;
   const textWidth = width - textX - pad;
 
   for (let i = 0; i < labels.length; i++) {
@@ -73,20 +72,23 @@ export async function generateLabelSheet(
     const label = labels[i];
     doc.setTextColor(...INK);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("NSUK ASSET MANAGEMENT", width / 2, 6, { align: "center" });
+    doc.setFontSize(9);
+    doc.text("NSUK ASSET MANAGEMENT", width / 2, 4.5, { align: "center" });
+    // Give the item name the full sticker width at a readable fixed size.
+    doc.setFontSize(14);
+    doc.text(fitText(doc, label.name, width - 2 * pad), width / 2, 10.5, { align: "center" });
 
     // Include a four-module white quiet zone so text cannot crowd the QR.
     const qr = await QRCode.toDataURL(label.barcode, {
       margin: 4, width: 480, errorCorrectionLevel: "Q",
       color: { dark: "#000000", light: "#FFFFFF" },
     });
-    doc.addImage(qr, "PNG", pad, 10, qrSize, qrSize);
+    doc.addImage(qr, "PNG", pad, 12, qrSize, qrSize);
 
-    let y = 12;
-    function detail(text: string, bold: boolean, maxLines: number) {
-      doc.setFont("helvetica", bold ? "bold" : "normal");
-      doc.setFontSize(bold ? 10.5 : 8.5);
+    let y = 16;
+    function detail(text: string, maxLines: number) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
       const lines = doc.splitTextToSize(text, textWidth) as string[];
       const shown = lines.slice(0, maxLines);
       if (lines.length > maxLines) {
@@ -94,27 +96,26 @@ export async function generateLabelSheet(
       }
       for (const line of shown) {
         doc.text(line, textX, y);
-        y += 3.5;
+        y += 3.7;
       }
-      y += 0.4;
+      y += 0.3;
     }
-    detail(label.name, true, 2);
     const unit = label.unitName.split("\u203a").pop()?.trim() || label.unitName;
-    detail(`Unit: ${unit || "-"}`, false, 2);
-    if (label.categoryName) detail(label.categoryName, false, 1);
-    if (label.campusName) detail(label.campusName, false, 1);
+    detail(unit || "-", 2);
+    if (label.categoryName) detail(label.categoryName, 2);
+    if (label.campusName) detail(label.campusName, 1);
 
     // Never truncate the identifier: it must agree with the QR payload.
-    doc.setFont("courier", "bold");
-    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
     const codeWidth = doc.getTextWidth(label.barcode);
-    if (codeWidth > width - 2 * pad) doc.setFontSize(11 * (width - 2 * pad) / codeWidth);
-    doc.text(label.barcode, width / 2, height - 3.5, { align: "center" });
+    if (codeWidth > width - 2 * pad) doc.setFontSize(14 * (width - 2 * pad) / codeWidth);
+    doc.text(label.barcode, width / 2, height - 2.5, { align: "center" });
   }
   return doc;
 }
 
-/** Single and batch downloads share the selected label-sized paper. */
+/** Single and batch downloads share the exact 60 x 40 mm roll size. */
 export async function generateSingleLabel(label: LabelInput): Promise<jsPDF> {
   return generateLabelSheet([label]);
 }

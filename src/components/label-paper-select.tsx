@@ -1,40 +1,13 @@
 "use client";
 
-import { useSyncExternalStore, useId } from "react";
-import { LABEL_PAPERS, DEFAULT_LABEL_PAPER, readLabelPaper, saveLabelPaper } from "@/lib/label-paper";
-
-const CHANGE_EVENT = "nsuk-label-paper-change";
-
-function subscribe(notify: () => void) {
-  window.addEventListener("storage", notify);
-  window.addEventListener(CHANGE_EVENT, notify);
-  return () => {
-    window.removeEventListener("storage", notify);
-    window.removeEventListener(CHANGE_EVENT, notify);
-  };
-}
-
 export default function LabelPaperSelect() {
-  const id = useId();
-  const paper = useSyncExternalStore(subscribe, readLabelPaper, () => DEFAULT_LABEL_PAPER);
   return (
-    <div className="space-y-1 text-left">
-      <label htmlFor={id} className="label">Label size (width × height)</label>
-      <select
-        id={id}
-        className="field"
-        value={paper.id}
-        onChange={(event) => {
-          saveLabelPaper(event.target.value);
-          window.dispatchEvent(new Event(CHANGE_EVENT));
-        }}
-      >
-        {LABEL_PAPERS.map((option) => (
-          <option key={option.id} value={option.id}>{option.width} × {option.height} mm</option>
-        ))}
-      </select>
+    <div className="space-y-2 text-left">
+      <p className="font-semibold text-nsuk-blue">Xprinter XP-365B · 60 × 40 mm labels</p>
       <p className="text-xs text-nsuk-muted">
-        One asset per label. Match your printer paper to this size and print at Actual size (100%).
+        One asset per sticker. In the printer properties, set paper width to 60 mm
+        and height to 40 mm. In the PDF print window, choose Actual size (100%),
+        one page per sheet, and turn off Fit to page. Check the preview before printing a batch.
       </p>
     </div>
   );

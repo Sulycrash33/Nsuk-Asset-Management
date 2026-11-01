@@ -86,12 +86,13 @@ backup coverage and the phone pilot checklist.
    into the QR payload.
 3. Labels are generated client-side as PDFs with **one asset per page**, including a QR code,
    readable asset code, name, unit and available category/campus details. The default paper is
-   **60 × 40 mm**, matching the institution's Xprinter XP-365B label roll. Other selectable
-   sizes are 80 × 50 mm and 100 × 50 mm for other stock/printers; the choice is remembered on
-   that browser and applies to individual entry, asset details, batches and imports.
-   Match the PDF and printer-driver paper sizes and print at **Actual size / 100%**, one page
-   per sheet. QR codes include a four-module quiet zone. Long descriptive details are shortened;
-   the asset identifier is never truncated. A physical printer/phone trial is still required.
+   **60 × 40 mm**, matching the institution's Xprinter XP-365B label roll. All label
+   downloads use these exact dimensions and ignore old browser size preferences. The item
+   name and code use full-width bold 14 pt text (very long codes fit the available width),
+   with bold 10 pt details beside a 22 mm QR code. Long descriptions are shortened.
+   In the printer driver set paper width 60 mm and height 40 mm; in the PDF print window
+   choose **Actual size / 100%**, one page per sheet, and disable Fit to page.
+   QR codes include a four-module quiet zone. A physical feed/alignment trial is required.
 
 4. Staff print and stick the label on the physical item.
 5. Scanning the barcode or QR — by camera or handheld scanner — opens the full record.
