@@ -9,12 +9,15 @@ test("account input validates runtime types, privileges, units and normalizes va
   const parsed = parseAccountInput({ ...valid, name: " Officer ", email: " OFFICER@example.invalid ", unit_ids: [unit,unit] });
   assert.equal(parsed.email,"officer@example.invalid");
   assert.deepEqual(parsed.unit_ids,[unit]);
-  for (const body of [null, [], {...valid,name:3}, {...valid,email:[]}, {...valid,role:"root"}, {...valid,unit_ids:[]},
+  for (const body of [null, [], {...valid,name:3}, {...valid,email:[]}, {...valid,role:"root"},
     {...valid,password:12345678}, {...valid,invite:"true"}, {...valid,unit_ids:["bad"]}, {...valid,campus_id:"bad"}]) {
     assert.throws(()=>parseAccountInput(body));
   }
   assert.equal(parseAccountInput({...valid,invite:true,password:undefined}).invite,true);
   assert.deepEqual(parseAccountInput({...valid,role:"admin",unit_ids:[]}).unit_ids,[]);
+  // Units are optional at creation; they can be assigned later.
+  assert.deepEqual(parseAccountInput({...valid,unit_ids:[]}).unit_ids,[]);
+  assert.deepEqual(parseAccountInput({...valid,unit_ids:undefined}).unit_ids,[]);
 });
 
 test("a failed new password-account setup is compensated by deleting only its new ID", async () => {
@@ -44,8 +47,8 @@ test("auth creation refusal never attempts provisioning or cleanup", async () =>
   assert.deepEqual(calls,[]);
 });
 
-test("auditors keep assigned read scope and cannot be created without units",()=>{
+test("auditors keep assigned read scope and may be created without units",()=>{
  const account=parseAccountInput({...valid,role:"auditor"});
  assert.equal(account.role,"auditor");assert.deepEqual(account.unit_ids,[unit]);
- assert.throws(()=>parseAccountInput({...valid,role:"auditor",unit_ids:[]}));
+ assert.deepEqual(parseAccountInput({...valid,role:"auditor",unit_ids:[]}).unit_ids,[]);
 });

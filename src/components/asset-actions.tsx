@@ -83,9 +83,10 @@ export default function AssetActions({
 
   async function remove() {
     const ok = await confirm({
-      title: "Delete this asset?",
-      body: `“${asset.name}” (${asset.barcode}) will be removed from the register. The activity log keeps a record of the deletion, but the asset itself cannot be restored.`,
+      title: "Are you sure you want to delete this asset?",
+      body: `“${asset.name}” (${asset.barcode}) will be removed from the register. The activity log and any accounting records keep a note of it, but the asset itself cannot be restored.`,
       confirmLabel: "Delete asset",
+      typeToConfirm: "delete",
     });
     if (!ok) return;
 

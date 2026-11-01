@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { QrImage } from "@/components/barcode-image";
 import AssetActions from "@/components/asset-actions";
 import { unitPath } from "@/lib/tree";
-import { ASSET_WITH_REFS, CONDITION_STYLES, formatNaira, type AssetLog, type AssetWithRefs, type Profile } from "@/lib/types";
+import { ASSET_WITH_REFS, CONDITION_STYLES, formatAcquisitionDate, formatNaira, type AssetLog, type AssetWithRefs, type Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -60,12 +60,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     ["Room / location", record.location ?? "—"],
     ["Value", formatNaira(record.value)],
     ["Serial number", record.serial_number ?? "—"],
-    [
-      "Acquired",
-      record.acquisition_date
-        ? new Date(record.acquisition_date).toLocaleDateString("en-NG", { dateStyle: "medium" })
-        : "—",
-    ],
+    ["Acquired", formatAcquisitionDate(record.acquisition_date, record.acquisition_year_only)],
     ["Recorded", new Date(record.created_at).toLocaleString("en-NG")],
     ["Last updated", new Date(record.updated_at).toLocaleString("en-NG")],
   ];

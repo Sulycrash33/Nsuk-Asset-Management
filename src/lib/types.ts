@@ -70,6 +70,8 @@ export type Asset = {
   value: number;
   serial_number: string | null;
   acquisition_date: string | null;
+  /** Only the year is known; acquisition_date then holds 1 January of it. */
+  acquisition_year_only?: boolean;
   cost_known?: boolean;
   available_for_use_date?: string | null;
   photo_url: string | null;
@@ -116,6 +118,16 @@ export function formatNaira(value: number | string | null | undefined): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/** The acquisition date as recorded: just the year when only the year is known. */
+export function formatAcquisitionDate(
+  date: string | null | undefined,
+  yearOnly: boolean | null | undefined,
+): string {
+  if (!date) return "—";
+  if (yearOnly) return `${date.slice(0, 4)} (year only)`;
+  return new Date(date).toLocaleDateString("en-NG", { dateStyle: "medium" });
 }
 
 export const CONDITION_STYLES: Record<Condition, string> = {

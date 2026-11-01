@@ -171,9 +171,6 @@ export default function UsersClient({
         message: "The password must be at least 8 characters.",
       };
     }
-    if (form.role !== "admin" && form.unit_ids.length === 0) {
-      return { id: "new-units", message: "Assign at least one unit to this account." };
-    }
     return null;
   }
 
@@ -562,12 +559,16 @@ export default function UsersClient({
 
           {form.role !== "admin" ? (
             <div id="new-units" tabIndex={-1}>
-              <span className="label">Assigned units</span>
+              <span className="label">Assigned units (optional)</span>
               <UnitPicker
                 ordered={ordered}
                 selected={form.unit_ids}
                 onToggle={(id) => setForm({ ...form, unit_ids: toggle(form.unit_ids, id) })}
               />
+              <p className="hint">
+                You can assign units now or later from Manage. Until a unit is assigned, this
+                account cannot see or record any assets.
+              </p>
             </div>
           ) : (
             <p className="rounded-xl border border-nsuk-gold/30 bg-nsuk-gold-50 p-3 text-sm text-nsuk-gold-deep">

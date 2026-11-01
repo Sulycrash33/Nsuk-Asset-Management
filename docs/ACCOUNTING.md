@@ -45,7 +45,8 @@ in that year, including depreciation before a revaluation. Current draft reports
 current physical register and current units; they are not a reconstruction of every past
 physical transfer. Finalized December 31 snapshots retain the exact rows, units and amounts
 saved then. Future years and incomplete reports cannot be finalized. Events dated in or
-before a finalized period are refused. Accounted physical assets cannot be deleted.
+before a finalized period are refused. An administrator may delete an accounted asset after
+typing "delete" to confirm; its accounting events are kept and finalized snapshots are unchanged.
 
 This module provides asset schedules and evidence trails, not general-ledger journal posting.
 Revaluation-surplus and surplus/deficit postings require the institution's accounting review.
@@ -57,7 +58,7 @@ document does not supply a land class; land is not silently assigned an equipmen
 `supabase/tests/accounting.sql` runs rollback-only assertions for full/leap years, rate
 changes, the exact 33% rate, residual limits, full-class coverage, revaluation history,
 annual charges spanning events, corrections, impairment, finalized snapshots, deletion
-protection, grants and role refusals. Use an unused Office Equipment class for the fixture.
+that keeps accounting events, grants and role refusals. Use an unused Office Equipment class for the fixture.
 `supabase/tests/accounting_finite_amounts.sql` checks that non-finite numeric values
 cannot enter opening balances, accumulated depreciation, impairment or revaluation,
 while valid finite amounts still post. Database constraints protect all six ledger

@@ -1,11 +1,12 @@
 import { formatNaira, type AssetLog, type OrgUnit } from "@/lib/types";
 import { unitPath } from "@/lib/tree";
-const labels: Record<string,string> = { name: "Name", barcode: "Asset code", qr_payload: "QR code", category_id: "Category", org_unit_id: "Unit", location: "Location", condition: "Condition", value: "Value", serial_number: "Serial number", acquisition_date: "Acquisition date", photo_url: "Photo", notes: "Notes" };
+const labels: Record<string,string> = { name: "Name", barcode: "Asset code", qr_payload: "QR code", category_id: "Category", org_unit_id: "Unit", location: "Location", condition: "Condition", value: "Value", serial_number: "Serial number", acquisition_date: "Acquisition date", acquisition_year_only: "Only the acquisition year is known", photo_url: "Photo", notes: "Notes" };
 export default function AssetChangeDetails({ changes, units }: { changes: AssetLog["changes"]; units: OrgUnit[] }) {
   if (!changes || !Object.keys(changes).length) return null;
   const display = (key: string, value: unknown): string => {
     if (value === null || value === undefined || value === "") return "—";
     if (key === "value") return formatNaira(String(value));
+    if (typeof value === "boolean") return value ? "Yes" : "No";
     if (key === "org_unit_id") return unitPath(String(value),units) || String(value);
     return typeof value === "object" ? JSON.stringify(value) : String(value);
   };

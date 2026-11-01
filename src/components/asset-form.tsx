@@ -44,6 +44,9 @@ type FormState = {
   value: string;
   serial_number: string;
   acquisition_date: string;
+  /** Only the year is known; the date box gives way to a year box. */
+  acquisition_year_only: boolean;
+  acquisition_year: string;
   cost_known: boolean;
   available_for_use_date: string;
   notes: string;
@@ -58,7 +61,11 @@ const CONDITION_TONE: Record<Condition, string> = {
   Missing: "border-nsuk-danger bg-nsuk-danger text-white",
 };
 
+/** Saved when the name is left blank; the record can be renamed later. */
+const UNNAMED_ASSET = "Unnamed asset";
+
 function initialState(asset: Asset | null, defaultUnitId: string): FormState {
+  const yearOnly = Boolean(asset?.acquisition_year_only && asset.acquisition_date);
   return {
     name: asset?.name ?? "",
     category_id: asset?.category_id ?? "",
@@ -67,7 +74,10 @@ function initialState(asset: Asset | null, defaultUnitId: string): FormState {
     condition: asset?.condition ?? "Working",
     value: asset?.value != null ? String(asset.value) : "",
     serial_number: asset?.serial_number ?? "",
-    acquisition_date: asset?.acquisition_date ?? "",
+    // A year-only record holds 1 January, which nobody recorded as a day.
+    acquisition_date: yearOnly ? "" : (asset?.acquisition_date ?? ""),
+    acquisition_year_only: yearOnly,
+    acquisition_year: yearOnly ? asset!.acquisition_date!.slice(0, 4) : "",
     cost_known: asset?.cost_known ?? false,
     available_for_use_date: asset?.available_for_use_date ?? "",
     notes: asset?.notes ?? "",
@@ -182,21 +192,45 @@ export default function AssetForm({
       setError("Choose the unit this asset belongs to.");
       return;
     }
+    // Blank fields are fine: the record can be completed later. Only what was
+    // typed and cannot be stored is refused.
     const value = parseAssetValue(form.value);
-    if (
-      !form.name.trim() ||
-      value === null ||
-      (form.acquisition_date && !parseAssetDate(form.acquisition_date)) ||
-      (form.available_for_use_date &&
-        !parseAssetDate(form.available_for_use_date)) ||
-      (form.acquisition_date &&
-        form.available_for_use_date &&
-        form.available_for_use_date < form.acquisition_date) ||
-      (form.cost_known && !form.value.trim())
+    const year = form.acquisition_year.trim();
+    const yearOnly = form.acquisition_year_only && year !== "";
+    const acquisitionDate = form.acquisition_year_only
+      ? yearOnly
+        ? `${year}-01-01`
+        : ""
+      : form.acquisition_date;
+    let problem: string | null = null;
+    if (value === null) {
+      problem =
+        "Enter the purchase cost as a non-negative amount with at most two decimal places, or leave it blank.";
+    } else if (
+      yearOnly &&
+      (!/^\d{4}$/.test(year) ||
+        Number(year) < 1900 ||
+        Number(year) > new Date().getFullYear())
     ) {
-      setError(
-        "Enter an asset name, a non-negative value with at most two decimal places, and a valid acquisition date.",
-      );
+      problem = `Enter the acquisition year as four digits, between 1900 and ${new Date().getFullYear()}.`;
+    } else if (acquisitionDate && !parseAssetDate(acquisitionDate)) {
+      problem = "Enter a valid acquisition date, or leave it blank.";
+    } else if (
+      form.available_for_use_date &&
+      !parseAssetDate(form.available_for_use_date)
+    ) {
+      problem = "Enter a valid date available for use, or leave it blank.";
+    } else if (
+      acquisitionDate &&
+      form.available_for_use_date &&
+      form.available_for_use_date < acquisitionDate
+    ) {
+      problem = yearOnly
+        ? `The date available for use cannot be before ${year}.`
+        : "The date available for use cannot be before the acquisition date.";
+    }
+    if (problem) {
+      setError(problem);
       return;
     }
     setBusy(true);
@@ -218,14 +252,15 @@ export default function AssetForm({
     }
 
     const payload = {
-      name: form.name.trim(),
+      name: form.name.trim() || UNNAMED_ASSET,
       category_id: form.category_id || null,
       org_unit_id: form.org_unit_id,
       location: form.location.trim() || null,
       condition: form.condition,
       value,
       serial_number: form.serial_number.trim() || null,
-      acquisition_date: form.acquisition_date || null,
+      acquisition_date: acquisitionDate || null,
+      acquisition_year_only: yearOnly,
       cost_known: form.cost_known,
       available_for_use_date: form.available_for_use_date || null,
       notes: form.notes.trim() || null,
@@ -395,16 +430,19 @@ export default function AssetForm({
 
         <div>
           <label className="label" htmlFor="name">
-            Asset name *
+            Asset name
           </label>
           <input
             id="name"
             className="field"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
-            required
             placeholder="e.g. 1.5HP Split Air Conditioner"
           />
+          <p className="hint">
+            Leave blank if not known yet. It is saved as “{UNNAMED_ASSET}” and
+            can be edited later.
+          </p>
         </div>
 
         <div>
@@ -549,16 +587,51 @@ export default function AssetForm({
 
         <div>
           <label className="label" htmlFor="acquired">
-            Acquisition date
+            {form.acquisition_year_only ? "Acquisition year" : "Acquisition date"}
           </label>
-          <input
-            id="acquired"
-            disabled={accountingLocked}
-            type="date"
-            className="field"
-            value={form.acquisition_date}
-            onChange={(e) => set("acquisition_date", e.target.value)}
-          />
+          {form.acquisition_year_only ? (
+            <input
+              id="acquired"
+              disabled={accountingLocked}
+              className="field tabular"
+              value={form.acquisition_year}
+              onChange={(e) =>
+                set("acquisition_year", e.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="e.g. 2019"
+            />
+          ) : (
+            <input
+              id="acquired"
+              disabled={accountingLocked}
+              type="date"
+              className="field"
+              value={form.acquisition_date}
+              onChange={(e) => set("acquisition_date", e.target.value)}
+            />
+          )}
+          <label className="mt-2 flex min-h-11 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.acquisition_year_only}
+              disabled={accountingLocked}
+              onChange={(e) => {
+                const yearOnly = e.target.checked;
+                setForm((f) => ({
+                  ...f,
+                  acquisition_year_only: yearOnly,
+                  // Carry the year across when switching to year only.
+                  acquisition_year:
+                    yearOnly && !f.acquisition_year && f.acquisition_date
+                      ? f.acquisition_date.slice(0, 4)
+                      : f.acquisition_year,
+                }));
+              }}
+            />
+            I only know the year
+          </label>
         </div>
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
@@ -569,6 +642,11 @@ export default function AssetForm({
           />
           Purchase cost is known (including a confirmed zero cost)
         </label>
+        {form.cost_known && !form.value.trim() && (
+          <p className="hint -mt-2">
+            With the cost left blank, this is saved as a confirmed cost of ₦0.
+          </p>
+        )}
         <div>
           <label className="label" htmlFor="available">
             Date available for use
