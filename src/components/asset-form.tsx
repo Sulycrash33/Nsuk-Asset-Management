@@ -206,9 +206,6 @@ export default function AssetForm({
     if (value === null) {
       problem =
         "Enter the purchase cost as a non-negative amount with at most two decimal places, or leave it blank.";
-    } else if (form.cost_known && !form.value.trim()) {
-      problem =
-        "“Purchase cost is known” is ticked but the cost is blank. Enter the cost (0 for a confirmed zero cost), or untick the box.";
     } else if (
       yearOnly &&
       (!/^\d{4}$/.test(year) ||
@@ -645,6 +642,11 @@ export default function AssetForm({
           />
           Purchase cost is known (including a confirmed zero cost)
         </label>
+        {form.cost_known && !form.value.trim() && (
+          <p className="hint -mt-2">
+            With the cost left blank, this is saved as a confirmed cost of ₦0.
+          </p>
+        )}
         <div>
           <label className="label" htmlFor="available">
             Date available for use
