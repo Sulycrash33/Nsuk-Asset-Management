@@ -73,7 +73,7 @@ export async function generateLabelSheet(
     const label = labels[i];
     doc.setTextColor(...INK);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
+    doc.setFontSize(10);
     doc.text("NSUK ASSET MANAGEMENT", width / 2, 6, { align: "center" });
 
     // Include a four-module white quiet zone so text cannot crowd the QR.
@@ -83,10 +83,10 @@ export async function generateLabelSheet(
     });
     doc.addImage(qr, "PNG", pad, 10, qrSize, qrSize);
 
-    let y = 13;
+    let y = 12;
     function detail(text: string, bold: boolean, maxLines: number) {
       doc.setFont("helvetica", bold ? "bold" : "normal");
-      doc.setFontSize(bold ? 8.5 : 7);
+      doc.setFontSize(bold ? 10.5 : 8.5);
       const lines = doc.splitTextToSize(text, textWidth) as string[];
       const shown = lines.slice(0, maxLines);
       if (lines.length > maxLines) {
@@ -94,9 +94,9 @@ export async function generateLabelSheet(
       }
       for (const line of shown) {
         doc.text(line, textX, y);
-        y += 3.2;
+        y += 3.5;
       }
-      y += 0.8;
+      y += 0.4;
     }
     detail(label.name, true, 2);
     const unit = label.unitName.split("\u203a").pop()?.trim() || label.unitName;
@@ -106,9 +106,9 @@ export async function generateLabelSheet(
 
     // Never truncate the identifier: it must agree with the QR payload.
     doc.setFont("courier", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(11);
     const codeWidth = doc.getTextWidth(label.barcode);
-    if (codeWidth > width - 2 * pad) doc.setFontSize(9 * (width - 2 * pad) / codeWidth);
+    if (codeWidth > width - 2 * pad) doc.setFontSize(11 * (width - 2 * pad) / codeWidth);
     doc.text(label.barcode, width / 2, height - 3.5, { align: "center" });
   }
   return doc;
