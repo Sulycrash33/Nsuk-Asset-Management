@@ -10,6 +10,8 @@ type ConfirmOptions = {
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: "danger" | "default";
+  /** When set, the person must type this word before the action is allowed. */
+  typeToConfirm?: string;
 };
 
 type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>;
@@ -28,10 +30,12 @@ export function useConfirm(): ConfirmFn {
 
 export default function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [options, setOptions] = useState<ConfirmOptions | null>(null);
+  const [typed, setTyped] = useState("");
   const resolverRef = useRef<((value: boolean) => void) | null>(null);
 
   const confirm = useCallback<ConfirmFn>((next) => {
     setOptions(next);
+    setTyped("");
     return new Promise<boolean>((resolve) => {
       resolverRef.current = resolve;
     });
@@ -44,6 +48,8 @@ export default function ConfirmProvider({ children }: { children: React.ReactNod
   }, []);
 
   const danger = options?.tone !== "default";
+  const word = options?.typeToConfirm;
+  const allowed = !word || typed.trim().toLowerCase() === word.toLowerCase();
 
   return (
     <ConfirmContext.Provider value={confirm}>
@@ -61,6 +67,7 @@ export default function ConfirmProvider({ children }: { children: React.ReactNod
             </button>
             <button
               onClick={() => settle(true)}
+              disabled={!allowed}
               className={danger ? "btn bg-nsuk-danger text-white hover:bg-[#951616]" : "btn-primary"}
             >
               {options?.confirmLabel ?? "Confirm"}
@@ -74,7 +81,28 @@ export default function ConfirmProvider({ children }: { children: React.ReactNod
               <AlertTriangle className="h-5 w-5 text-nsuk-danger" />
             </span>
           )}
-          <p className="text-sm leading-relaxed text-nsuk-muted">{options?.body}</p>
+          <div className="min-w-0 flex-1 space-y-3">
+            <p className="text-sm leading-relaxed text-nsuk-muted">{options?.body}</p>
+            {word && (
+              <div>
+                <label className="label" htmlFor="confirm-word">
+                  Type <span className="font-mono">{word}</span> to confirm
+                </label>
+                <input
+                  id="confirm-word"
+                  className="field"
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && allowed) settle(true);
+                  }}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoFocus
+                />
+              </div>
+            )}
+          </div>
         </div>
       </Modal>
     </ConfirmContext.Provider>

@@ -42,7 +42,11 @@ begin
  perform public.record_accounting_event(it_id,'2023-01-03','impairment',it_class,120,120,99.06,5,0,1,'Damage review','Rollback impairment');
  select * into event from public.accounting_events where asset_id=it_id order by effective_date desc limit 1;
  if public.accounting_amount(event,'2023-01-03')<>15.94 then raise exception 'Impairment balances failed'; end if;
- begin delete from public.assets where id=it_id; raise exception 'Accounted asset deleted'; exception when raise_exception then if sqlerrm='Accounted asset deleted' then raise; end if; end;
+ -- An accounted asset can be deleted; its financial events are retained.
+ select count(*) into before_count from public.accounting_events where asset_id=it_id;
+ delete from public.assets where id=it_id;
+ if exists(select 1 from public.assets where id=it_id) then raise exception 'Accounted asset deletion refused'; end if;
+ if before_count=0 or (select count(*) from public.accounting_events where asset_id=it_id)<>before_count then raise exception 'Deleting an asset removed its accounting events'; end if;
  if not exists(select 1 from public.accounting_reports where id=doc and snapshot=report) then raise exception 'Later changes rewrote finalized report'; end if;
  begin perform public.record_accounting_event(a_id,'2021-12-31','impairment',class_id,1000000,800000,0,1000,0,7,'Ref','Reason'); raise exception 'Closed period accepted'; exception when raise_exception then if sqlerrm='Closed period accepted' then raise; end if; end;
  -- Existing original administrator is temporarily demoted inside this rollback-only transaction.

@@ -79,7 +79,7 @@ export default function RegisterExportButton({
           Unit: units.find(u => u.id === a.org_unit_id)?.name ?? "",
           Campus: campuses.find(c => c.id === units.find(u => u.id === a.org_unit_id)?.campus_id)?.name ?? "",
           Location: a.location ?? "", Condition: a.condition, "Value (NGN)": Number(a.value),
-          "Serial number": a.serial_number ?? "", "Acquisition date": a.acquisition_date ?? "", Notes: a.notes ?? "",
+          "Serial number": a.serial_number ?? "", "Acquisition date": a.acquisition_year_only && a.acquisition_date ? a.acquisition_date.slice(0, 4) : a.acquisition_date ?? "", Notes: a.notes ?? "",
         })));
         const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, sheet, "Assets");
         XLSX.writeFile(book, `nsuk-asset-register-${slug}.xlsx`);

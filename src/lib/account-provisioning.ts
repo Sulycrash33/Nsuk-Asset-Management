@@ -20,7 +20,6 @@ export function parseAccountInput(value: unknown): AccountInput {
   if (body.unit_ids !== undefined && (!Array.isArray(body.unit_ids) || body.unit_ids.length > 500 || !body.unit_ids.every(isUserId))) throw new Error("Choose valid unit assignments.");
   const role = body.role === "admin" ? "admin" : body.role === "auditor" ? "auditor" : "staff";
   const units = [...new Set((body.unit_ids as string[] | undefined) ?? [])];
-  if (role !== "admin" && !units.length) throw new Error("Assign at least one unit so this account can use the register.");
   return { name: body.name.trim(), email: body.email.trim().toLowerCase(), password, role,
     campus_id: role === "admin" ? null : (body.campus_id as string | null | undefined) ?? null,
     unit_ids: role === "admin" ? [] : units, invite };
