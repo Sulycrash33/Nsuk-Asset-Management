@@ -38,43 +38,24 @@ function verifyPages(doc, paper, count) {
   }
 }
 
-for (const paper of paperSettings.LABEL_PAPERS) {
-  test(`batch has one ${paper.id} mm label per asset`, async () => {
-    verifyPages(await generateLabelSheet(samples, paper), paper, samples.length);
-  });
-}
+test("batch has one 60 x 40 mm label per asset", async () => {
+  verifyPages(await generateLabelSheet(samples), paperSettings.LABEL_PAPER, samples.length);
+});
 
-test("single asset uses the printer size selected in this browser", async () => {
-  globalThis.window = { localStorage: { getItem: () => "80x50" } };
+test("single label ignores obsolete browser paper sizes", async () => {
+  globalThis.window = { localStorage: { getItem: () => "100x50" } };
   try {
-    verifyPages(await generateSingleLabel(samples[0]), paperSettings.labelPaper("80x50"), 1);
+    verifyPages(await generateSingleLabel(samples[0]), paperSettings.LABEL_PAPER, 1);
   } finally { delete globalThis.window; }
 });
 
-test("missing, blocked or obsolete browser storage falls back to 60x40", () => {
-  assert.equal(paperSettings.readLabelPaper().id, "60x40");
+test("printing does not need browser storage access", async () => {
   globalThis.window = { localStorage: { getItem: () => { throw new Error("blocked"); } } };
-  try { assert.equal(paperSettings.readLabelPaper().id, "60x40"); }
-  finally { delete globalThis.window; }
-  assert.equal(paperSettings.labelPaper("obsolete").id, "60x40");
+  try {
+    verifyPages(await generateSingleLabel(samples[0]), paperSettings.LABEL_PAPER, 1);
+  } finally { delete globalThis.window; }
 });
 
 test("empty selection does not generate an empty printable page", async () => {
   await assert.rejects(generateLabelSheet([]), /Select at least one asset/);
-});
-
-test("chosen size still works for this session when storage is blocked", async () => {
-  globalThis.window = { localStorage: {
-    getItem: () => { throw new Error("blocked"); },
-    setItem: () => { throw new Error("blocked"); },
-  } };
-  try {
-    paperSettings.saveLabelPaper("80x50");
-    verifyPages(await generateSingleLabel(samples[0]), paperSettings.labelPaper("80x50"), 1);
-  } finally {
-    // Reset the in-memory fallback through a successful save.
-    globalThis.window = { localStorage: { setItem: () => {} } };
-    paperSettings.saveLabelPaper("60x40");
-    delete globalThis.window;
-  }
 });
