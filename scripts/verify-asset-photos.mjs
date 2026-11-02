@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { photoObjectKey, signedAssetPhoto, signedAssetPhotos, signedAssetThumbnails } from "../src/lib/asset-photo.ts";
+import { photoObjectKey, signedAssetPhoto, signedAssetPhotos, signedAssetThumbnails, removeUnusedAssetPhoto } from "../src/lib/asset-photo.ts";
 const project="https://example.supabase.co";
 test("photos accept stored keys and the same-project legacy public URL only",()=>{
  assert.equal(photoObjectKey("abc.jpg",project),"abc.jpg");
@@ -49,4 +49,24 @@ test("the asset list signs thumbnails and falls back to the photo where none exi
   requests.length = 0;
   assert.equal((await signedAssetThumbnails(client, [{ id: "3", photo_url: null }], project)).size, 0);
   assert.equal(requests.length, 0);
+});
+
+test("deleting an asset removes its photo and thumbnail unless another asset uses the photo", async () => {
+  function client(count, removeError = null) {
+    const calls = { query: [], removed: [] };
+    return { calls, from(table) { assert.equal(table, "assets"); return { select(cols, opts) { assert.deepEqual(opts, { count: "exact", head: true }); return { async eq(col, key) { calls.query.push([col, key]); return { count, error: null }; } }; } }; },
+      storage: { from(bucket) { assert.equal(bucket, "asset-photos"); return { async remove(paths) { calls.removed.push(paths); return { data: [], error: removeError }; } }; } } };
+  }
+  const unused = client(0);
+  assert.equal(await removeUnusedAssetPhoto(unused, "a.jpg", project), true);
+  assert.deepEqual(unused.calls.query, [["photo_url", "a.jpg"]]);
+  assert.deepEqual(unused.calls.removed, [["a.jpg", "a.jpg.thumb.jpg"]]);
+  const shared = client(1);
+  assert.equal(await removeUnusedAssetPhoto(shared, "a.jpg", project), true);
+  assert.deepEqual(shared.calls.removed, []);
+  const none = client(0);
+  assert.equal(await removeUnusedAssetPhoto(none, null, project), true);
+  assert.equal(await removeUnusedAssetPhoto(none, "https://tracker.invalid/a.jpg", project), true);
+  assert.deepEqual(none.calls.query, []);
+  assert.equal(await removeUnusedAssetPhoto(client(0, { message: "Denied" }), "a.jpg", project), false);
 });

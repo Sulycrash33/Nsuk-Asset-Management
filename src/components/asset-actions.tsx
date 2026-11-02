@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRightLeft, Loader2, Printer, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { removeUnusedAssetPhoto } from "@/lib/asset-photo";
 import UnitSelect from "@/components/unit-select";
 import LabelPaperSelect from "@/components/label-paper-select";
 import Modal from "@/components/ui/modal";
@@ -84,21 +85,32 @@ export default function AssetActions({
   async function remove() {
     const ok = await confirm({
       title: "Are you sure you want to delete this asset?",
-      body: `“${asset.name}” (${asset.barcode}) will be removed from the register. The activity log and any accounting records keep a note of it, but the asset itself cannot be restored.`,
+      body: `“${asset.name}” (${asset.barcode}) will be removed from the register, along with its photo. The activity log and any accounting records keep a note of it, but the asset and its photo cannot be restored.`,
       confirmLabel: "Delete asset",
       typeToConfirm: "delete",
     });
     if (!ok) return;
 
     setBusy(true);
-    const { error } = await createClient().from("assets").delete().eq("id", asset.id);
-    setBusy(false);
-
+    const supabase = createClient();
+    const { error } = await supabase.from("assets").delete().eq("id", asset.id);
     if (error) {
+      setBusy(false);
       toast.error("Could not delete the asset", error.message);
       return;
     }
+    // The asset is gone; its photo and thumbnail go with it, so storage is
+    // not left holding pictures of things no longer in the register.
+    const photoRemoved = await removeUnusedAssetPhoto(
+      supabase,
+      asset.photo_url,
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    );
+    setBusy(false);
     toast.success("Asset deleted", asset.barcode);
+    if (!photoRemoved) {
+      toast.info("The asset's photo could not be removed", "It stays in storage; the asset itself is deleted.");
+    }
     router.push("/assets");
     router.refresh();
   }
