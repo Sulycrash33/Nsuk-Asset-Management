@@ -9,8 +9,9 @@ loaded real data. **That makes now the cheap moment for anything that would
 later require relabelling physical items.**
 
 The unit tree is the University's own as of migration 22 — 191 units across all
-four campuses — and two accounts exist, both administrators. The next step is
-the people: ten officers who will record assets across the institution.
+four campuses. Six accounts exist (2 Nov 2026): two administrators and four
+staff. The next step is the people: ten officers who will record assets across
+the institution. Supabase is on the **Pro plan** since 2 Nov 2026.
 
 ## Stack
 
@@ -75,7 +76,7 @@ Role/unit changes use `assign_account_scope` as one transaction.
 **A staff account can only record into the units assigned to it**
 (`assets_insert`: `is_admin() or org_unit_id in (my_unit_ids())`). Assignments
 live in `user_units`, and `POST /api/admin/users` takes `unit_ids` when the
-account is created. Someone covering a whole faculty needs that faculty's unit,
+account is created — optional since 1 Nov 2026, so units can be assigned later. Someone covering a whole faculty needs that faculty's unit,
 not each department under it — `my_unit_ids()` handles the descent. An account
 with no units assigned can read nothing and record nothing, which looks like a
 broken login rather than a missing assignment.
@@ -116,15 +117,15 @@ planning to check that, watch selectivity: a first attempt gave one session half
 the table, where a sequential scan was genuinely cheaper and the plan proved
 nothing.
 
-**Asset codes read like matriculation numbers**: `NSU/ADM/ACC/CP/T/001` —
-University / faculty or school / department / item type / segment / running
-number. Built in the database by `next_barcode(unit, category)` from
+**Asset codes read like matriculation numbers**: `NSU/ADM/ACC/CP/001` —
+University / faculty or school / department / item type / running number. Built in the database by `next_barcode(unit, category)` from
 `org_units.short_code` and `asset_categories.code`, both editable by an
 administrator because no rule derives ACC from "Accounting" and CSC from
 "Computer Science" at once.
 
-The fifth segment is a placeholder whose meaning the University has not settled.
-It is isolated in `asset_code_segment()` so it is a one line change.
+The old placeholder `T` segment was removed on 16 Oct 2026
+(`remove_unused_asset_tag_segment`); `asset_code_segment()` no longer exists.
+The running number counts per unit and is never reused after a deletion.
 
 **Labels are QR, not barcodes.** Phones are the only scanners this University
 will own. The Code 128 encoder (`src/lib/code128.ts`) and `BarcodeImage` are
@@ -194,15 +195,15 @@ turned out to be false. Prefer measuring to asserting.
 
 ## Open items
 
-- What the `T` segment stands for.
-- The `T` segment aside, the unit tree is now the University's own. Two gaps in
+- The unit tree is the University's own. Two gaps in
   the source document are worth putting back to the Fixed Assets Unit: its
   numbered sections skip **6** and **11**, so two groups may have been left out
   when it was typed.
 - Whether to print both a QR and a barcode. On the measurements that is the most
   robust option.
-- In Supabase: leaked password protection is still off and needs a Pro plan.
-  Public signup **is** off — `/auth/v1/settings` reports `disable_signup: true`,
+- In Supabase: the project is now on Pro, so leaked password protection can be
+  turned on (Authentication → password settings). Not confirmed on as of
+  2 Nov 2026 — check the setting itself. Public signup **is** off — `/auth/v1/settings` reports `disable_signup: true`,
   email provider only, no external OAuth. Confirmed 3 Sep 2026.
 - The security advisor is clean apart from that, and a row per `SECURITY
   DEFINER` function saying signed-in users can call it. Those are the point of
@@ -217,7 +218,7 @@ turned out to be false. Prefer measuring to asserting.
   `SELECT` on five tables, so both run on every read. Real, if small. Folding
   them together means rewriting access rules, so it wants more care than an
   index does.
-- Agreed but unbuilt: bulk actions, Excel export, a read only auditor role. The
+- Bulk actions, Excel export and the read-only auditor role are built. The
   custodian feature was started and deliberately removed at the user's request.
 - `TOP_TIERS` in `src/lib/types.ts` is declared and never read. Either the
   schedule grouping it was meant to drive went elsewhere, or it was left behind.
@@ -248,3 +249,62 @@ raises it again.
 
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
+
+## Handoff: changes on 1–2 November 2026
+
+**How the user works.** Do only what is asked. Anything extra — even an obvious
+improvement — is described first and waits for approval. Open a draft PR; merge
+only when the user says "merge" (usually "merge when it passes": wait for both
+`check` and `Isolated database integration`, then squash-merge).
+
+Merged in #66–#71, migrations applied live and committed:
+
+- **Accounts**: assigning units at creation is optional (form and
+  `parseAccountInput`). An account with no units still sees nothing.
+- **Asset form**: only Unit is required (the asset code is built from it). A
+  blank name saves as "Unnamed asset"; "Purchase cost is known" ticked with a
+  blank cost saves as a confirmed ₦0. The importer still refuses rows with no
+  name, deliberately (it catches PDF wrapped lines).
+- **Year-only acquisition date**: opt-in "I only know the year". Stored as
+  1 January with `assets.acquisition_year_only`, checked by constraint, shown as
+  the year alone on the record, export and history. Acquisition date only, not
+  "available for use".
+- **Deleting assets**: any asset, including one with accounting records, after
+  "Are you sure?" plus typing `delete` (`useConfirm({ typeToConfirm })`). The
+  `protect_accounted_asset_delete` trigger is gone; accounting events are kept
+  (no FK, by design). Deletion also removes the photo and thumbnail via the
+  Storage API unless another asset uses the photo (`removeUnusedAssetPhoto`).
+- **Photos**: reduced in the browser to ≤300 KB, 1600 px, JPEG
+  (`src/lib/photo-compress.ts`), plus a ~6 KB 192 px thumbnail stored as
+  `<photo>.thumb.jpg`. The asset list shows thumbnails, falling back to the
+  photo. Storage rules: `can_read_asset_photo` resolves a thumbnail to its
+  photo; `can_upload_asset_photo` only allows a thumbnail for a photo the same
+  account uploaded. Bucket limit lowered from 10 MB to 1 MB.
+- **Land**: active class `LD` at 0%. A 0% class has a zero annual charge in
+  automatic recognition and in `record_accounting_event` /
+  `revalue_accounting_class`, whatever useful life is typed.
+
+Tests added: `supabase/tests/land_classification.sql`,
+`supabase/tests/photo_thumbnails.sql`, and cases in
+`scripts/verify-asset-photos.mjs` and `verify-account-provisioning.mjs`.
+
+**Waiting on the user**
+
+- Delete the six leftover photos in Supabase → Storage → `asset-photos` (all six
+  are unreferenced; the register has 0 assets). Direct SQL deletion is blocked
+  by `storage.protect_delete` and would leave the files, so it must be the
+  dashboard or Storage API. Then confirm the bucket is empty.
+- Turn on leaked password protection.
+- Before using email invitations or "forgot password": set up custom SMTP.
+  Supabase's built-in email only reaches organisation team members, a few per
+  hour. Until then, create officer accounts with a password.
+
+**Not built — needs approval first**
+
+- Removing the old photo (and thumbnail) when a photo is replaced on the edit
+  form; today it stays in storage.
+- Year-only option for "Date available for use".
+
+**Not yet tried on a real phone**: photo upload and thumbnail, the typed delete
+confirmation, the year-only date, and saving an asset with blank fields. Worth
+doing on the preview before the pilot.
