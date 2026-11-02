@@ -22,3 +22,13 @@ test("page photos are deduplicated into one request and object denials stay hidd
  assert.deepEqual([...result],[["1","private-a"],["2","private-a"]]);assert.equal(calls,1);
  await signedAssetPhotos(client,[{id:"4",photo_url:null}],project);assert.equal(calls,1);
 });
+
+test("photos are scaled to fit 1600 px on the long side and never enlarged", async () => {
+  const { fitWithin, PHOTO_MAX_EDGE, PHOTO_TARGET_BYTES } = await import("../src/lib/photo-compress.ts");
+  assert.equal(PHOTO_MAX_EDGE, 1600);
+  assert.equal(PHOTO_TARGET_BYTES, 300 * 1024);
+  assert.deepEqual(fitWithin(4000, 3000, 1600), { width: 1600, height: 1200 });
+  assert.deepEqual(fitWithin(3000, 4000, 1600), { width: 1200, height: 1600 });
+  assert.deepEqual(fitWithin(800, 600, 1600), { width: 800, height: 600 });
+  assert.deepEqual(fitWithin(10000, 1, 1600), { width: 1600, height: 1 });
+});
