@@ -291,8 +291,9 @@ export default function AccountingClient({
           Classifications and future acquisition rates
         </summary>
         <p className="my-2 text-xs text-nsuk-muted">
-          The nine classifications follow the supplied institutional policy.
-          Rate changes affect future acquisitions; existing events retain their
+          The nine classifications follow the supplied institutional policy,
+          plus Land at 0%, which is never depreciated: for Land the remaining
+          useful life entered on an adjustment is not used. Rate changes affect future acquisitions; existing events retain their
           rate. Straight-line depreciation uses actual calendar-day proration
           and zero residual at initial entry. Review residual value and
           remaining life through evidenced adjustments.

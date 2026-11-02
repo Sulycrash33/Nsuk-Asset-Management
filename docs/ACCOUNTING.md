@@ -14,7 +14,10 @@ asset for review. Existing legacy values are never silently interpreted as recog
 
 The nine active categories follow the supplied policy: Buildings 2%; Plant & Machinery 10%;
 Furniture & Fittings 20%; Motor Vehicles 20%; Office Equipment 25%; Specialised Equipment 10%;
-IT Equipment 33%; Library books 10%; Infrastructure 10%. Legacy category rows remain inactive
+IT Equipment 33%; Library books 10%; Infrastructure 10%. Land (code LD) is added at 0% and is
+never depreciated: a 0% class has a zero annual charge in automatic recognition, opening
+balances, corrections, impairment and revaluation alike, whatever remaining useful life is
+entered. Legacy category rows remain inactive
 for compatibility; known old categories are mapped without changing existing printed codes.
 
 Initial policy uses historical cost, zero residual value and actual calendar-day proration
@@ -51,7 +54,8 @@ typing "delete" to confirm; its accounting events are kept and finalized snapsho
 This module provides asset schedules and evidence trails, not general-ledger journal posting.
 Revaluation-surplus and surplus/deficit postings require the institution's accounting review.
 Dedicated disposal/derecognition and inventory valuation are separate workflows. The provided
-document does not supply a land class; land is not silently assigned an equipment rate.
+document does not supply a land class, so Land was added at 0% at the user's request rather
+than assigned an equipment rate.
 
 ## Verification
 
