@@ -46,3 +46,18 @@ export async function signedAssetThumbnails(client: SupabaseClient, rows: { id: 
   if (missing.length) for (const [id, source] of await signedAssetPhotos(client, missing, projectUrl)) result.set(id, source);
   return result;
 }
+
+/**
+ * After an asset is deleted, remove its photo and thumbnail from storage,
+ * unless another asset still shows the same photo. Returns false when the
+ * files could not be removed, so the caller can say so.
+ */
+export async function removeUnusedAssetPhoto(client: SupabaseClient, reference: string | null | undefined, projectUrl: string): Promise<boolean> {
+  const key = photoObjectKey(reference, projectUrl);
+  if (!key) return true;
+  const { count, error } = await client.from("assets").select("id", { count: "exact", head: true }).eq("photo_url", key);
+  if (error) return false;
+  if ((count ?? 0) > 0) return true;
+  const { error: removeError } = await client.storage.from("asset-photos").remove([key, `${key}.thumb.jpg`]);
+  return !removeError;
+}
