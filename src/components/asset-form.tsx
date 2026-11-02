@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signedAssetPhoto } from "@/lib/asset-photo";
-import { compressPhoto } from "@/lib/photo-compress";
+import { preparePhoto, thumbnailKey } from "@/lib/photo-compress";
 import { useRef, useState } from "react";
 import {
   AlertCircle,
@@ -159,8 +159,9 @@ export default function AssetForm({
     const path = `${crypto.randomUUID()}.jpg`;
 
     try {
-      // Reduced to about 300 KB before it leaves the phone.
-      const photo = await compressPhoto(file);
+      // Reduced to about 300 KB before it leaves the phone, with a small
+      // thumbnail for the asset list.
+      const { photo, thumbnail } = await preparePhoto(file);
       const { error: uploadError } = await supabase.storage
         .from("asset-photos")
         .upload(path, photo, {
@@ -169,6 +170,16 @@ export default function AssetForm({
           upsert: false,
         });
       if (uploadError) throw new Error(uploadError.message);
+      // The thumbnail can only follow its photo. If it fails, the list simply
+      // shows the photo itself, so the upload still succeeds.
+      await supabase.storage
+        .from("asset-photos")
+        .upload(thumbnailKey(path), thumbnail, {
+          cacheControl: "900",
+          contentType: "image/jpeg",
+          upsert: false,
+        })
+        .catch(() => undefined);
       const source = await signedAssetPhoto(
         supabase,
         path,

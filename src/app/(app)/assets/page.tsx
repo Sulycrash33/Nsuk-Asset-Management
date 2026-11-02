@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signedAssetPhotos } from "@/lib/asset-photo";
+import { signedAssetThumbnails } from "@/lib/asset-photo";
 import BulkAssetActions from "@/components/bulk-asset-actions";
 import { Boxes, ChevronRight, Plus, SearchX } from "lucide-react";
 import { requireSession } from "@/lib/session";
@@ -56,7 +56,7 @@ export default async function AssetsPage({
     supabase.rpc("register_summary", summaryArgs(filters)),
   ]);
   const rows = (assets ?? []) as unknown as AssetWithRefs[];
-  const photoSources = await signedAssetPhotos(supabase, rows, process.env.NEXT_PUBLIC_SUPABASE_URL!);
+  const photoSources = await signedAssetThumbnails(supabase, rows, process.env.NEXT_PUBLIC_SUPABASE_URL!);
   const total = count ?? 0;
   const totalValue = summary.error ? null : Number(summary.data?.total_value ?? 0);
   const pageHref = (next: number) => {

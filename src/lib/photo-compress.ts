@@ -7,6 +7,9 @@
 export const PHOTO_TARGET_BYTES = 300 * 1024;
 /** Longest side, in pixels, of a stored photo. */
 export const PHOTO_MAX_EDGE = 1600;
+/** Longest side of the list thumbnail: a 56 px tile on a 3x phone screen. */
+export const THUMBNAIL_MAX_EDGE = 192;
+const THUMBNAIL_QUALITY = 0.7;
 /** Never shrink below this on the way to the target; detail matters more. */
 const PHOTO_MIN_EDGE = 640;
 const START_QUALITY = 0.82;
@@ -74,12 +77,22 @@ function encode(
   );
 }
 
+/** Storage key of a photo's list thumbnail, kept beside the photo. */
+export function thumbnailKey(photoKey: string): string {
+  return `${photoKey}.thumb.jpg`;
+}
+
 /**
  * Returns a JPEG of about PHOTO_TARGET_BYTES or less. Quality is lowered
  * first, then the picture is made smaller, so a photo keeps as much size as
  * the target allows.
  */
 export async function compressPhoto(file: File): Promise<File> {
+  return (await preparePhoto(file)).photo;
+}
+
+/** The reduced photo and its small list thumbnail, from one decode. */
+export async function preparePhoto(file: File): Promise<{ photo: File; thumbnail: File }> {
   let decoded: Decoded;
   try {
     decoded = await decode(file);
@@ -89,23 +102,30 @@ export async function compressPhoto(file: File): Promise<File> {
     );
   }
   try {
-    let { width, height } = fitWithin(decoded.width, decoded.height, PHOTO_MAX_EDGE);
-    let best: Blob | null = null;
-    for (;;) {
-      for (let quality = START_QUALITY; quality >= MIN_QUALITY - 1e-9; quality -= 0.08) {
-        const blob = await encode(decoded.source, width, height, quality);
-        if (!best || blob.size < best.size) best = blob;
-        if (blob.size <= PHOTO_TARGET_BYTES) {
-          return new File([blob], "photo.jpg", { type: "image/jpeg" });
-        }
-      }
-      if (Math.max(width, height) <= PHOTO_MIN_EDGE) break;
-      ({ width, height } = fitWithin(width, height, Math.max(PHOTO_MIN_EDGE, Math.round(Math.max(width, height) * 0.8))));
-    }
-    // Only an unusually busy picture gets here; the smallest attempt is
-    // still a fraction of the original.
-    return new File([best!], "photo.jpg", { type: "image/jpeg" });
+    const photo = await reduce(decoded);
+    const edge = fitWithin(decoded.width, decoded.height, THUMBNAIL_MAX_EDGE);
+    const thumbnail = await encode(decoded.source, edge.width, edge.height, THUMBNAIL_QUALITY);
+    return { photo, thumbnail: new File([thumbnail], "thumbnail.jpg", { type: "image/jpeg" }) };
   } finally {
     decoded.release();
   }
+}
+
+async function reduce(decoded: Decoded): Promise<File> {
+  let { width, height } = fitWithin(decoded.width, decoded.height, PHOTO_MAX_EDGE);
+  let best: Blob | null = null;
+  for (;;) {
+    for (let quality = START_QUALITY; quality >= MIN_QUALITY - 1e-9; quality -= 0.08) {
+      const blob = await encode(decoded.source, width, height, quality);
+      if (!best || blob.size < best.size) best = blob;
+      if (blob.size <= PHOTO_TARGET_BYTES) {
+        return new File([blob], "photo.jpg", { type: "image/jpeg" });
+      }
+    }
+    if (Math.max(width, height) <= PHOTO_MIN_EDGE) break;
+    ({ width, height } = fitWithin(width, height, Math.max(PHOTO_MIN_EDGE, Math.round(Math.max(width, height) * 0.8))));
+  }
+  // Only an unusually busy picture gets here; the smallest attempt is
+  // still a fraction of the original.
+  return new File([best!], "photo.jpg", { type: "image/jpeg" });
 }

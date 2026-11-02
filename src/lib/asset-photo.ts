@@ -30,3 +30,19 @@ export async function signedAssetPhotos(client: SupabaseClient, rows: { id: stri
   const sources = new Map((data ?? []).filter(row => row.path && row.signedUrl && !row.error).map(row => [row.path!, row.signedUrl!]));
   return new Map([...keys].filter(([, key]) => key && sources.has(key)).map(([id, key]) => [id, sources.get(key!)!]));
 }
+
+/**
+ * Sign each row's small list thumbnail ('<photo>.thumb.jpg'). A photo uploaded
+ * before thumbnails existed has none, so those rows fall back to the photo.
+ */
+export async function signedAssetThumbnails(client: SupabaseClient, rows: { id: string; photo_url: string | null }[], projectUrl: string) {
+  const keys = new Map(rows.map(row => [row.id, photoObjectKey(row.photo_url, projectUrl)]));
+  const thumbs = [...new Set([...keys.values()].filter((key): key is string => key !== null).map(key => `${key}.thumb.jpg`))];
+  if (!thumbs.length) return new Map<string, string>();
+  const { data, error } = await client.storage.from("asset-photos").createSignedUrls(thumbs, 900);
+  const sources = new Map(error ? [] : (data ?? []).filter(row => row.path && row.signedUrl && !row.error).map(row => [row.path!, row.signedUrl!]));
+  const result = new Map([...keys].filter(([, key]) => key && sources.has(`${key}.thumb.jpg`)).map(([id, key]) => [id, sources.get(`${key}.thumb.jpg`)!]));
+  const missing = rows.filter(row => keys.get(row.id) && !result.has(row.id));
+  if (missing.length) for (const [id, source] of await signedAssetPhotos(client, missing, projectUrl)) result.set(id, source);
+  return result;
+}
