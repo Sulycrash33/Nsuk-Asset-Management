@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signedAssetPhoto } from "@/lib/asset-photo";
+import { compressPhoto } from "@/lib/photo-compress";
 import { useRef, useState } from "react";
 import {
   AlertCircle,
@@ -155,13 +156,18 @@ export default function AssetForm({
     setUploading(true);
     setError(null);
     const supabase = createClient();
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${crypto.randomUUID()}.${ext}`;
+    const path = `${crypto.randomUUID()}.jpg`;
 
     try {
+      // Reduced to about 300 KB before it leaves the phone.
+      const photo = await compressPhoto(file);
       const { error: uploadError } = await supabase.storage
         .from("asset-photos")
-        .upload(path, file, { cacheControl: "900", upsert: false });
+        .upload(path, photo, {
+          cacheControl: "900",
+          contentType: "image/jpeg",
+          upsert: false,
+        });
       if (uploadError) throw new Error(uploadError.message);
       const source = await signedAssetPhoto(
         supabase,
@@ -708,10 +714,11 @@ export default function AssetForm({
                 <Camera className="h-6 w-6 text-nsuk-blue" />
               )}
               <span className="text-sm font-semibold text-nsuk-blue">
-                {uploading ? "Uploading…" : "Take or choose a photo"}
+                {uploading ? "Reducing and uploading…" : "Take or choose a photo"}
               </span>
               <span className="text-xs text-nsuk-faint">
-                Opens the camera on a phone
+                Opens the camera on a phone. Photos are reduced to about
+                300 KB before upload.
               </span>
               <input
                 type="file"
