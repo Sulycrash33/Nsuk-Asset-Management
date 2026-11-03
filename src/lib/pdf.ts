@@ -143,6 +143,37 @@ export function labelLayout(size: LabelSize, withCrest = true): LabelLayout {
 }
 
 /**
+ * Draw the QR as filled squares instead of embedding a picture of it: a label
+ * then costs a few kilobytes rather than about 1 MB, and the modules stay sharp
+ * at any sticker size. The four-module white quiet zone sits inside the box,
+ * exactly as the picture's margin did, so `labelLayout` sizes are unchanged.
+ */
+function drawQr(doc: jsPDF, text: string, x: number, y: number, size: number) {
+  const { modules } = QRCode.create(text, { errorCorrectionLevel: "Q" });
+  const quiet = 4;
+  const cell = size / (modules.size + 2 * quiet);
+  // A hair of overlap between rows stops viewers drawing seams between them.
+  const overlap = Math.min(0.03, cell * 0.04);
+  doc.setFillColor(255, 255, 255);
+  doc.rect(x, y, size, size, "F");
+  doc.setFillColor(0, 0, 0);
+  for (let row = 0; row < modules.size; row++) {
+    let col = 0;
+    while (col < modules.size) {
+      if (!modules.get(row, col)) {
+        col++;
+        continue;
+      }
+      let end = col;
+      while (end < modules.size && modules.get(row, end)) end++;
+      const lastRow = row === modules.size - 1;
+      doc.rect(x + (quiet + col) * cell, y + (quiet + row) * cell, (end - col) * cell, cell + (lastRow ? 0 : overlap), "F");
+      col = end;
+    }
+  }
+}
+
+/**
  * Label PDF, one label per page, at the sticker size chosen on this device
  * (60 x 40 mm unless changed), laid out by `labelLayout`.
  */
@@ -153,7 +184,7 @@ export async function generateLabelSheet(
   if (!labels.length) throw new Error("Select at least one asset to label.");
   const { width, height } = size;
   const orientation = width >= height ? "landscape" : "portrait";
-  const doc = new jsPDF({ unit: "mm", format: [width, height], orientation });
+  const doc = new jsPDF({ unit: "mm", format: [width, height], orientation, compress: true });
   doc.setProperties({ title: "NSUK asset labels", subject: `${width} x ${height} mm, one asset per page` });
   const crest = await crestDataUrl();
   const layout = labelLayout(size, crest !== null);
@@ -167,7 +198,7 @@ export async function generateLabelSheet(
     // embeds the image once however many labels there are.
     if (crest && layout.crest) {
       const c = layout.crest;
-      doc.addImage(crest, "PNG", c.x, c.y, c.width, c.height, "nsuk-crest");
+      doc.addImage(crest, "PNG", c.x, c.y, c.width, c.height, "nsuk-crest", "FAST");
     }
     if (layout.title) {
       doc.setFont("helvetica", "bold");
@@ -175,12 +206,7 @@ export async function generateLabelSheet(
       doc.text(TITLE, width / 2, layout.title.baseline, { align: "center" });
     }
 
-    // QR with a four-module white quiet zone so nothing can crowd it.
-    const qr = await QRCode.toDataURL(label.barcode, {
-      margin: 4, width: 480, errorCorrectionLevel: "Q",
-      color: { dark: "#000000", light: "#FFFFFF" },
-    });
-    doc.addImage(qr, "PNG", layout.qr.x, layout.qr.y, layout.qr.size, layout.qr.size);
+    drawQr(doc, label.barcode, layout.qr.x, layout.qr.y, layout.qr.size);
 
     // Asset code under the QR. Never truncated: it must agree with the QR.
     doc.setFont("helvetica", "bold");

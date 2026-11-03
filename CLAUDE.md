@@ -328,6 +328,16 @@ rendering seven sizes with `pypdfium2` and decoding each QR exactly at 203 and
 for bounds, order and the QR-first rule. The picker itself has not been clicked
 through in the running app.
 
+**3 November — small label PDFs.** The QR is drawn as filled squares
+(`drawQr` in `src/lib/pdf.ts`) instead of an embedded picture, page streams are
+compressed, and the crest is embedded once with compression. A 100-label batch
+went from 88 MB and 4.3 s to 208 KB and 0.15 s. The module grid and its
+four-module quiet zone are unchanged, so `labelLayout` sizes hold. Verified:
+seven sizes decode exactly at 150, 203, 300 and 600 dpi, and all 100 batch labels
+decode to their own code at 203 dpi; `verify-labels.mjs` keeps 100 labels under
+1 MB. Rendered to one bit, as the thermal printer does, the colour crest comes
+out as a recognisable grey crest.
+
 **1–2 November — merged in #66–#71**, migrations applied live and committed:
 
 - **Accounts**: assigning units at creation is optional (form and
@@ -385,11 +395,6 @@ Tests added: `supabase/tests/land_classification.sql`,
 - Removing the old photo (and thumbnail) when a photo is replaced on the edit
   form; today it stays in storage.
 - Year-only option for "Date available for use".
-- Smaller label PDFs. Each label's QR is embedded as an uncompressed image, so a
-  label costs about 1 MB (three came to 2.9 MB). This predates #75 — the old
-  layout was the same size — and the crest adds only ~200 KB once per file.
-  Harmless for a few labels, slow for a batch of hundreds on a phone.
-
 **Not yet confirmed on a real phone or printer**: the typed delete confirmation,
 saving an asset with blank fields, and — as a staff account with no units —
 importing a file and printing labels. The new label has not been printed on a
