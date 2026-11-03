@@ -6,10 +6,15 @@ a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
 Not yet in production use. The pilot has not loaded real data. **That makes now
 the cheap moment for anything that would later require relabelling physical
-items.** As of 3 Nov 2026 (checked 10:58 UTC) the register holds four records, all with
-photos: one recorded by an administrator on 2 Nov and three recorded by staff on
-3 Nov, after staff could record into any unit. Whether they are trials to delete
-before the pilot is the user's call — ask, do not assume.
+items.** The register is **empty** again (3 Nov 2026, 11:11 UTC; re-checked
+11:14, unchanged): the four trial
+records were deleted in the app by the user (an administrator account) at
+11:05–11:09, as a deliberate clean-up, which also
+removed their photos, and at the user's choice the two automatic accounting
+entries they left were deleted too. Kept, also at the user's choice: four trial
+stock counts (`verification_sessions`), and the used running numbers — the next
+asset in Bursar's Office is `…/004`, Fixed Assets Unit `…/007`, and VC's Office,
+Conference Room and Economics `…/002`. Codes are never reused, by design.
 
 The unit tree is the University's own as of migration 22 — 191 units across all
 four campuses. Six accounts exist (3 Nov 2026): two administrators and four
@@ -262,7 +267,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–3 November 2026 (#66–#77)
+## Handoff: changes on 1–3 November 2026 (#66–#79)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -328,6 +333,16 @@ rendering seven sizes with `pypdfium2` and decoding each QR exactly at 203 and
 for bounds, order and the QR-first rule. The picker itself has not been clicked
 through in the running app.
 
+**3 November — small label PDFs, in #79.** The QR is drawn as filled squares
+(`drawQr` in `src/lib/pdf.ts`) instead of an embedded picture, page streams are
+compressed, and the crest is embedded once with compression. A 100-label batch
+went from 88 MB and 4.3 s to 208 KB and 0.15 s. The module grid and its
+four-module quiet zone are unchanged, so `labelLayout` sizes hold. Verified:
+seven sizes decode exactly at 150, 203, 300 and 600 dpi, and all 100 batch labels
+decode to their own code at 203 dpi; `verify-labels.mjs` keeps 100 labels under
+1 MB. Rendered to one bit, as the thermal printer does, the colour crest comes
+out as a recognisable grey crest.
+
 **1–2 November — merged in #66–#71**, migrations applied live and committed:
 
 - **Accounts**: assigning units at creation is optional (form and
@@ -359,12 +374,34 @@ Tests added: `supabase/tests/land_classification.sql`,
 `supabase/tests/photo_thumbnails.sql`, and cases in
 `scripts/verify-asset-photos.mjs` and `verify-account-provisioning.mjs`.
 
+**Before the pilot** — the user asked (3 Nov) whether the system is solid and
+what could go wrong. The answer: the foundation is sound (rules enforced in the
+database and tested in CI, codes and serials unique by constraint, documents
+verified by reading them back); the risks are operational. In order of cost:
+
+1. Nobody has used it end to end. Hold one rehearsal on the preview with two or
+   three officers, their phones and the XP-365B: add, import, print, scan,
+   verify, delete.
+2. Double recording. Officers record into any unit but see only their own
+   records, so two can tag the same item. Give each officer a written list of
+   rooms or units, and have an administrator review new records weekly.
+3. Wrong unit. The unit is part of the asset code, so a wrong pick means a
+   relabel. Confirm the unit codes, and the missing sections 6 and 11, with the
+   Fixed Assets Unit before tagging starts.
+4. Label wear. Print and stick a test label somewhere hot; use thermal-transfer
+   or laminated stock outdoors.
+5. Lock-outs and weak logins: SMTP, leaked password protection, one account per
+   person, leavers removed the same day (all listed below).
+
+Items 7–9 of that answer (label size, backups, trial data) were dealt with on
+3 Nov: see the sections above and the backup note below.
+
 **Waiting on the user**
 
-- Delete the six leftover photos in Supabase → Storage → `asset-photos`. Still
-  there on 3 Nov: the bucket holds 14 files, of which 8 (four photos and their
-  thumbnails) belong to the four assets and must stay. The other 6 are
-  unreferenced, dated 9 Aug–1 Nov: two `.jpg` from 9 Aug, two `.png` from
+- Delete the six leftover photos in Supabase → Storage → `asset-photos`. With
+  the register empty (3 Nov, 11:11 UTC) these six are the **only** files in the
+  bucket and none is referenced, so the bucket can simply be emptied. They are
+  dated 9 Aug–1 Nov: two `.jpg` from 9 Aug, two `.png` from
   13 Oct, and one `.png` and one `.jpg` from 1 Nov. Check each against `assets.photo_url` before
   deleting. Direct SQL deletion is blocked by `storage.protect_delete` and would
   leave the files, so it must be the dashboard or the Storage API.
@@ -374,8 +411,14 @@ Tests added: `supabase/tests/land_classification.sql`,
   comes first: on 40 × 30 and 50 × 30 the crest is left off, and below about
   50 × 25 the header goes and the picker warns. Swapping the order is a small
   change to the option list in `labelLayout`.
-- Decide whether the four records in the register are trials to delete before
-  the pilot.
+- Backups (checked against Supabase's docs, 3 Nov): Pro takes a **daily**
+  database backup automatically and keeps 7 days, under Database → Backups.
+  Confirm the list shows recent days. Two gaps: a restore can lose up to a day
+  of recording (Point-in-Time Recovery closes that, ~US$100/month extra), and
+  **backups do not include Storage — the asset photos**, which need their own
+  periodic download. Rehearse a restore only with **Restore to a New Project**
+  (a separate, billed copy; delete it after checking); an in-place restore takes
+  the live app down and rewinds it.
 - Before using email invitations or "forgot password": set up custom SMTP.
   Supabase's built-in email only reaches organisation team members, a few per
   hour. Until then, create officer accounts with a password.
@@ -385,11 +428,6 @@ Tests added: `supabase/tests/land_classification.sql`,
 - Removing the old photo (and thumbnail) when a photo is replaced on the edit
   form; today it stays in storage.
 - Year-only option for "Date available for use".
-- Smaller label PDFs. Each label's QR is embedded as an uncompressed image, so a
-  label costs about 1 MB (three came to 2.9 MB). This predates #75 — the old
-  layout was the same size — and the crest adds only ~200 KB once per file.
-  Harmless for a few labels, slow for a batch of hundreds on a phone.
-
 **Not yet confirmed on a real phone or printer**: the typed delete confirmation,
 saving an asset with blank fields, and — as a staff account with no units —
 importing a file and printing labels. The new label has not been printed on a

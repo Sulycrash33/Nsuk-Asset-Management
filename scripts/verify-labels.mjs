@@ -137,6 +137,13 @@ test("small stickers print the code with no header", async () => {
   verifyPages(await generateSingleLabel(samples[0], { width: 30, height: 20 }), { width: 30, height: 20 }, 1, { title: false });
 });
 
+test("a batch of 100 labels stays small enough to print from a phone", async () => {
+  // The QR is drawn, not embedded as a picture: before, 100 labels came to 88 MB.
+  const batch = Array.from({ length: 100 }, (_, i) => ({ barcode: `NSU/BUR/BUS/OE/${String(i + 1).padStart(3, "0")}` }));
+  const bytes = (await generateLabelSheet(batch)).output("arraybuffer").byteLength;
+  assert.ok(bytes < 1024 * 1024, `100 labels came to ${(bytes / 1024).toFixed(0)} KB`);
+});
+
 test("empty selection does not generate an empty printable page", async () => {
   await assert.rejects(generateLabelSheet([]), /Select at least one asset/);
 });
