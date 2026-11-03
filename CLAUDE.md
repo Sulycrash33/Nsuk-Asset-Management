@@ -7,7 +7,8 @@ a printed label, and thereafter tracked by scanning it with an ordinary phone.
 Not yet in production use. The pilot has not loaded real data. **That makes now
 the cheap moment for anything that would later require relabelling physical
 items.** The register is **empty** again (3 Nov 2026, 11:11 UTC): the four trial
-records were deleted in the app by an administrator at 11:05–11:09, which also
+records were deleted in the app by the user (an administrator account) at
+11:05–11:09, as a deliberate clean-up, which also
 removed their photos, and at the user's choice the two automatic accounting
 entries they left were deleted too. Kept, also at the user's choice: four trial
 stock counts (`verification_sessions`), and the used running numbers — the next
