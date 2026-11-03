@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signedAssetPhoto } from "@/lib/asset-photo";
+import { removeUnusedAssetPhoto, signedAssetPhoto } from "@/lib/asset-photo";
 import { preparePhoto, thumbnailKey } from "@/lib/photo-compress";
 import { useRef, useState } from "react";
 import {
@@ -20,7 +20,7 @@ import LabelPaperSelect from "@/components/label-paper-select";
 import { QrImage } from "@/components/barcode-image";
 import { useToast } from "@/components/ui/toast";
 import { generateSingleLabel, savePdf } from "@/lib/pdf";
-import { parseAssetDate, parseAssetValue } from "@/lib/asset-validation";
+import { parseAssetDate, parseAssetValue, yearOnlyAvailableDate } from "@/lib/asset-validation";
 import {
   DUPLICATE_SERIAL_MESSAGE,
   isDuplicateSerialError,
@@ -49,6 +49,9 @@ type FormState = {
   acquisition_year: string;
   cost_known: boolean;
   available_for_use_date: string;
+  /** Only the year it became available for use is known. */
+  available_year_only: boolean;
+  available_year: string;
   notes: string;
   photo_url: string;
 };
@@ -66,6 +69,9 @@ const UNNAMED_ASSET = "Unnamed asset";
 
 function initialState(asset: Asset | null, defaultUnitId: string): FormState {
   const yearOnly = Boolean(asset?.acquisition_year_only && asset.acquisition_date);
+  const availableYearOnly = Boolean(
+    asset?.available_for_use_year_only && asset.available_for_use_date,
+  );
   return {
     name: asset?.name ?? "",
     category_id: asset?.category_id ?? "",
@@ -79,7 +85,9 @@ function initialState(asset: Asset | null, defaultUnitId: string): FormState {
     acquisition_year_only: yearOnly,
     acquisition_year: yearOnly ? asset!.acquisition_date!.slice(0, 4) : "",
     cost_known: asset?.cost_known ?? false,
-    available_for_use_date: asset?.available_for_use_date ?? "",
+    available_for_use_date: availableYearOnly ? "" : (asset?.available_for_use_date ?? ""),
+    available_year_only: availableYearOnly,
+    available_year: availableYearOnly ? asset!.available_for_use_date!.slice(0, 4) : "",
     notes: asset?.notes ?? "",
     photo_url: asset?.photo_url ?? "",
   };
@@ -126,6 +134,14 @@ export default function AssetForm({
   /** The serial the in-flight lookup was asked about, so a late reply can be
    *  told apart from the current one. */
   const serialAskedFor = useRef("");
+  /**
+   * Photos a newer upload has replaced. They are removed from storage once the
+   * form saves without them, so a replaced photo does not stay behind. A photo
+   * that is only cleared, with nothing put in its place, is kept.
+   */
+  const replacedPhotos = useRef(new Set<string>());
+  /** The photo last cleared with the ✕ button, until something replaces it. */
+  const clearedPhoto = useRef<string | null>(null);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -188,6 +204,9 @@ export default function AssetForm({
         throw new Error(
           "Upload completed but its private preview could not be confirmed. Try again.",
         );
+      const displaced = form.photo_url || clearedPhoto.current;
+      if (displaced && displaced !== path) replacedPhotos.current.add(displaced);
+      clearedPhoto.current = null;
       set("photo_url", path);
       setPhotoSource(source);
     } catch (error) {
@@ -198,6 +217,24 @@ export default function AssetForm({
     } finally {
       setUploading(false);
     }
+  }
+
+  /**
+   * After a save, remove the photos replaced on this form that the asset no
+   * longer shows. The database decides who may remove which file and refuses
+   * any photo still in use; a file that cannot be removed only stays in
+   * storage, so the save is reported as done either way.
+   */
+  async function removeReplacedPhotos(saved: string | null) {
+    const supabase = createClient();
+    const stale = [...replacedPhotos.current].filter((key) => key !== saved);
+    replacedPhotos.current.clear();
+    clearedPhoto.current = null;
+    await Promise.all(
+      stale.map((key) =>
+        removeUnusedAssetPhoto(supabase, key, process.env.NEXT_PUBLIC_SUPABASE_URL!),
+      ),
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -218,6 +255,15 @@ export default function AssetForm({
         ? `${year}-01-01`
         : ""
       : form.acquisition_date;
+    // Year only: 1 January of that year, or the acquisition date if the item
+    // was acquired later that same year. Depreciation starts from this day.
+    const availableYear = form.available_year.trim();
+    const availableYearOnly = form.available_year_only && availableYear !== "";
+    const availableDate = form.available_year_only
+      ? availableYearOnly
+        ? yearOnlyAvailableDate(availableYear, acquisitionDate)
+        : ""
+      : form.available_for_use_date;
     let problem: string | null = null;
     if (value === null) {
       problem =
@@ -232,18 +278,24 @@ export default function AssetForm({
     } else if (acquisitionDate && !parseAssetDate(acquisitionDate)) {
       problem = "Enter a valid acquisition date, or leave it blank.";
     } else if (
-      form.available_for_use_date &&
-      !parseAssetDate(form.available_for_use_date)
+      availableYearOnly &&
+      (!/^\d{4}$/.test(availableYear) ||
+        Number(availableYear) < 1900 ||
+        Number(availableYear) > new Date().getFullYear())
     ) {
+      problem = `Enter the year available for use as four digits, between 1900 and ${new Date().getFullYear()}.`;
+    } else if (availableDate && !parseAssetDate(availableDate)) {
       problem = "Enter a valid date available for use, or leave it blank.";
     } else if (
       acquisitionDate &&
-      form.available_for_use_date &&
-      form.available_for_use_date < acquisitionDate
+      availableDate &&
+      availableDate < acquisitionDate
     ) {
-      problem = yearOnly
-        ? `The date available for use cannot be before ${year}.`
-        : "The date available for use cannot be before the acquisition date.";
+      problem = availableYearOnly
+        ? `The year available for use cannot be before the year acquired (${acquisitionDate.slice(0, 4)}).`
+        : yearOnly
+          ? `The date available for use cannot be before ${year}.`
+          : "The date available for use cannot be before the acquisition date.";
     }
     if (problem) {
       setError(problem);
@@ -278,7 +330,8 @@ export default function AssetForm({
       acquisition_date: acquisitionDate || null,
       acquisition_year_only: yearOnly,
       cost_known: form.cost_known,
-      available_for_use_date: form.available_for_use_date || null,
+      available_for_use_date: availableDate || null,
+      available_for_use_year_only: availableYearOnly,
       notes: form.notes.trim() || null,
       photo_url: form.photo_url || null,
     };
@@ -316,6 +369,7 @@ export default function AssetForm({
         setError(clash ? DUPLICATE_SERIAL_MESSAGE : updateError.message);
         return;
       }
+      await removeReplacedPhotos(payload.photo_url);
       toast.success("Changes saved", asset.barcode);
       router.push(`/assets/${asset.id}`);
       router.refresh();
@@ -340,6 +394,7 @@ export default function AssetForm({
       return;
     }
 
+    await removeReplacedPhotos(payload.photo_url);
     setCreated(data as Asset);
     toast.success(
       "Asset recorded",
@@ -647,19 +702,55 @@ export default function AssetForm({
         )}
         <div>
           <label className="label" htmlFor="available">
-            Date available for use
+            {form.available_year_only ? "Year available for use" : "Date available for use"}
           </label>
-          <input
-            id="available"
-            type="date"
-            className="field"
-            disabled={accountingLocked}
-            value={form.available_for_use_date}
-            onChange={(e) => set("available_for_use_date", e.target.value)}
-          />
+          {form.available_year_only ? (
+            <input
+              id="available"
+              disabled={accountingLocked}
+              className="field tabular"
+              value={form.available_year}
+              onChange={(e) =>
+                set("available_year", e.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="e.g. 2019"
+            />
+          ) : (
+            <input
+              id="available"
+              type="date"
+              className="field"
+              disabled={accountingLocked}
+              value={form.available_for_use_date}
+              onChange={(e) => set("available_for_use_date", e.target.value)}
+            />
+          )}
+          <label className="mt-2 flex min-h-11 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.available_year_only}
+              disabled={accountingLocked}
+              onChange={(e) => {
+                const yearOnly = e.target.checked;
+                setForm((f) => ({
+                  ...f,
+                  available_year_only: yearOnly,
+                  // Carry the year across when switching to year only.
+                  available_year:
+                    yearOnly && !f.available_year && f.available_for_use_date
+                      ? f.available_for_use_date.slice(0, 4)
+                      : f.available_year,
+                }));
+              }}
+            />
+            I only know the year
+          </label>
           <p className="mt-1 text-xs text-nsuk-muted">
-            Use the date the item was ready to operate. Leave unknown details
-            blank for administrator review.
+            {form.available_year_only
+              ? "Depreciation is counted from 1 January of that year, or from the acquisition date if the item was acquired later that year."
+              : "Use the date the item was ready to operate. Leave unknown details blank for administrator review."}
           </p>
         </div>
         {accountingLocked && (
@@ -689,6 +780,7 @@ export default function AssetForm({
               <button
                 type="button"
                 onClick={() => {
+                  clearedPhoto.current = form.photo_url;
                   set("photo_url", "");
                   setPhotoSource(null);
                 }}

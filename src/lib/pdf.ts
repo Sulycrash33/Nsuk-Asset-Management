@@ -55,10 +55,26 @@ export type LabelLayout = {
   crest: { x: number; y: number; width: number; height: number } | null;
   title: { size: number; baseline: number } | null;
   qr: { x: number; y: number; size: number };
-  code: { size: number; baseline: number; maxWidth: number };
+  /** charSpace and stroke are in mm, like everything else here. */
+  code: { size: number; baseline: number; maxWidth: number; charSpace: number; stroke: number };
   /** The QR is at least DURABLE_QR_MM. */
   durable: boolean;
 };
+
+/**
+ * The asset code is the one thing on the label a person reads, so it prints
+ * pure black (a near-black is dithered into grey dots by a thermal printer),
+ * slightly spaced so slashes and letters stay apart, and with a thin outline
+ * that thickens the strokes enough to survive 203 dpi. Both are at 60 x 40 mm
+ * and scale with the sticker.
+ */
+const CODE_CHAR_SPACE = 0.25;
+const CODE_STROKE = 0.1;
+
+/** Width of the asset code as printed, outline and letter spacing included. */
+function codeWidth(doc: jsPDF, code: string, charSpace: number, stroke: number): number {
+  return doc.getTextWidth(code) + charSpace * (code.length - 1) + stroke;
+}
 
 /** Helvetica Bold cap height is 718/1000 of the em; 1 pt = 0.3528 mm. */
 const capHeight = (pt: number) => pt * 0.3528 * 0.718;
@@ -92,9 +108,11 @@ export function labelLayout(size: LabelSize, withCrest = true): LabelLayout {
   const crestHeight = 7 * s;
   const titleSize = Math.min(8 * s, (width - 2 * padX) / titleWidth(1));
   const titleHeight = capHeight(titleSize);
-  const codeSize = 11 * s;
+  // The QR's own four-module quiet zone already keeps the code clear of it, so
+  // only a hair of extra space sits between them (it was 2.4 mm at 60 x 40).
+  const codeSize = 14 * s;
   const codeHeight = capHeight(codeSize);
-  const codeGap = 2.4 * s;
+  const codeGap = 0.6 * s;
   const fixed = top + codeGap + codeHeight + bottom;
 
   const options = [
@@ -137,7 +155,13 @@ export function labelLayout(size: LabelSize, withCrest = true): LabelLayout {
     crest,
     title,
     qr,
-    code: { size: codeSize, baseline: y + codeHeight, maxWidth: width - 2 * padX },
+    code: {
+      size: codeSize,
+      baseline: y + codeHeight,
+      maxWidth: width - 2 * padX,
+      charSpace: CODE_CHAR_SPACE * s,
+      stroke: CODE_STROKE * s,
+    },
     durable: chosen.qr >= DURABLE_QR_MM - 0.05,
   };
 }
@@ -208,12 +232,24 @@ export async function generateLabelSheet(
 
     drawQr(doc, label.barcode, layout.qr.x, layout.qr.y, layout.qr.size);
 
-    // Asset code under the QR. Never truncated: it must agree with the QR.
+    // Asset code under the QR. Never truncated: it must agree with the QR, so a
+    // long code shrinks (spacing and outline with it) to fit the width.
+    const code = layout.code;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(layout.code.size);
-    const codeWidth = doc.getTextWidth(label.barcode);
-    if (codeWidth > layout.code.maxWidth) doc.setFontSize((layout.code.size * layout.code.maxWidth) / codeWidth);
-    doc.text(label.barcode, width / 2, layout.code.baseline, { align: "center" });
+    doc.setFontSize(code.size);
+    const fit = Math.min(1, code.maxWidth / codeWidth(doc, label.barcode, code.charSpace, code.stroke));
+    const charSpace = code.charSpace * fit;
+    const stroke = code.stroke * fit;
+    doc.setFontSize(code.size * fit);
+    doc.setTextColor(0, 0, 0);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(stroke);
+    doc.setLineJoin("round");
+    const printed = codeWidth(doc, label.barcode, charSpace, stroke);
+    doc.text(label.barcode, (width - printed) / 2 + stroke / 2, code.baseline, {
+      charSpace,
+      renderingMode: "fillThenStroke",
+    });
   }
   return doc;
 }

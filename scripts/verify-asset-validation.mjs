@@ -67,3 +67,13 @@ test("same-file row retries keep their identity and distinct rows/units remain d
   assert.notEqual(key, await importRowKey(hash, 0, "unit-b"));
 });
 
+
+test("a year-only date available for use is 1 January, or a later acquisition date that year", async () => {
+  const { yearOnlyAvailableDate } = await import("../src/lib/asset-validation.ts");
+  assert.equal(yearOnlyAvailableDate("2019", null), "2019-01-01");
+  assert.equal(yearOnlyAvailableDate("2019", ""), "2019-01-01");
+  assert.equal(yearOnlyAvailableDate("2019", "2019-01-01"), "2019-01-01", "year-only acquisition the same year");
+  assert.equal(yearOnlyAvailableDate("2019", "2019-08-02"), "2019-08-02", "not in use before it was acquired");
+  assert.equal(yearOnlyAvailableDate("2020", "2019-08-02"), "2020-01-01", "acquired in an earlier year");
+  assert.equal(yearOnlyAvailableDate("2018", "2019-08-02"), "2018-01-01", "earlier than acquisition: the form refuses it");
+});
