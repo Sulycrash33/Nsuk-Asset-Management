@@ -7,7 +7,7 @@ a printed label, and thereafter tracked by scanning it with an ordinary phone.
 Not yet in production use. The pilot has not loaded real data. **That makes now
 the cheap moment for anything that would later require relabelling physical
 items.** The register is **empty** again (3 Nov 2026, 11:11 UTC; re-checked
-11:14, unchanged): the four trial
+11:14 and 20:55, unchanged): the four trial
 records were deleted in the app by the user (an administrator account) at
 11:05–11:09, as a deliberate clean-up, which also
 removed their photos, and at the user's choice the two automatic accounting
@@ -227,7 +227,10 @@ turned out to be false. Prefer measuring to asserting.
   DEFINER` function saying signed-in users can call it. Those are the point of
   the functions — each carries its own check — so they are expected, not a
   backlog. Read them as a list to recognise, and look for anything that is not
-  on it.
+  on it. Since #80 that list includes `can_remove_asset_photo`. It also shows
+  `needs_bootstrap()` as callable by `anon`. #80 did not add it and it has not
+  been looked into; it is presumably the first-administrator check made before
+  anyone can sign in, but confirm that rather than assume it.
 - The performance advisor reports most indexes as unused and will keep doing so
   until real data arrives: nothing has queried an empty register. Read that
   section as noise for now. Its two foreign key findings were real and are
@@ -267,7 +270,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–3 November 2026 (#66–#79)
+## Handoff: changes on 1–3 November 2026 (#66–#80)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -343,6 +346,58 @@ decode to their own code at 203 dpi; `verify-labels.mjs` keeps 100 labels under
 1 MB. Rendered to one bit, as the thermal printer does, the colour crest comes
 out as a recognisable grey crest.
 
+**3 November — merged in #80** (three things asked for together; migrations
+`20261103203814_remove_replaced_asset_photos` and
+`20261103204007_year_only_available_for_use_date`, applied live and committed):
+
+- **Label: asset code closer to the QR, larger and sharper.** The user said the
+  gap was too big and asked for the code to be clearer. `codeGap` is now 0.6 mm
+  at 60 × 40 (it was 2.4), so the visible white is 3.2 mm instead of 5.0. Nearly
+  all of what is left is the QR's four-module quiet zone, which is kept on
+  purpose: do not put text inside it. The code went from 11 to 14 pt, shrinking
+  only to fit the width. It prints pure black, because near-black `INK` is
+  dithered into grey dots by a thermal printer. It is letter-spaced
+  (`CODE_CHAR_SPACE`) and drawn fill-then-stroke (`CODE_STROKE`) so the strokes
+  stay solid at 203 dpi; both scale with the sticker. As always, the QR takes
+  the height left over: 22.1 → 23.1 mm at 60 × 40. Verified: seven sizes
+  rendered to one bit at 203 and 600 dpi, each QR decoded exactly.
+  `verify-labels.mjs` checks the gap, the colour, the outline and the width,
+  and fails on the old code. The title still prints in `INK`; making it pure
+  black too was not asked for.
+- **Replaced photos are removed from storage.** Replacing a photo on the form
+  means tapping ✕ and then adding a new one, so the form remembers the photo it
+  cleared (`clearedPhoto`) and collects whatever a new upload displaced
+  (`replacedPhotos`), including uploads replaced before the first save. After a
+  successful save it removes those through `removeUnusedAssetPhoto`. A photo
+  that is only cleared, with nothing in its place, is **kept**: the approval
+  was for "replaced". Extending it to cleared photos was offered and not taken
+  up. Only administrators could delete photo files before, so the delete policy
+  now uses `can_remove_asset_photo(name)`. An administrator may remove any file.
+  Anyone else must be able to write assets (auditors never can), no asset may
+  still show the photo, and they must either have uploaded it or be able to edit
+  an asset whose history (`asset_logs.changes->photo_url->before`) shows it was
+  that asset's photo. Postgres deletes only rows the caller can also read, so
+  `can_read_asset_photo` gained the same case for unused photos. Tests:
+  `supabase/tests/replaced_photo_removal.sql` (whose central case fails without
+  the migration), and `photo_permissions.sql`, which now checks that deletion
+  follows this rule rather than the administrator-only update rule. A test can
+  delete from `storage.objects` only after
+  `set_config('storage.allow_delete_query','true',true)`.
+- **"I only know the year" for Date available for use.** Depreciation starts on
+  that date, so the user was asked which day to store and chose **1 January**,
+  or the acquisition date when the item was acquired later that same year
+  (`yearOnlyAvailableDate` in `src/lib/asset-validation.ts`). The rejected
+  options were 1 July and 31 December. A year before the acquisition year is
+  refused, and the form says which day depreciation counts from. The checkbox
+  is disabled under the accounting lock, like the date itself. The new column is
+  `assets.available_for_use_year_only`. Its constraint only requires a date,
+  because a stored acquisition date later in the year is legitimate. The date
+  is shown nowhere but the form, so no other screen changed. The field history
+  does not record this date (it never did), and the importer does not offer
+  year-only for either date. Tests: `supabase/tests/available_year_only.sql`
+  (automatic recognition charges from 1 January) and unit tests in
+  `verify-asset-validation.mjs`.
+
 **1–2 November — merged in #66–#71**, migrations applied live and committed:
 
 - **Accounts**: assigning units at creation is optional (form and
@@ -353,8 +408,8 @@ out as a recognisable grey crest.
   name, deliberately (it catches PDF wrapped lines).
 - **Year-only acquisition date**: opt-in "I only know the year". Stored as
   1 January with `assets.acquisition_year_only`, checked by constraint, shown as
-  the year alone on the record, export and history. Acquisition date only, not
-  "available for use".
+  the year alone on the record, export and history. The same option for "Date
+  available for use" followed in #80.
 - **Deleting assets**: any asset, including one with accounting records, after
   "Are you sure?" plus typing `delete` (`useConfirm({ typeToConfirm })`). The
   `protect_accounted_asset_delete` trigger is gone; accounting events are kept
@@ -425,14 +480,17 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
 
 **Not built — needs approval first**
 
-- Removing the old photo (and thumbnail) when a photo is replaced on the edit
-  form; today it stays in storage.
-- Year-only option for "Date available for use".
+- Nothing is waiting on approval. The two items listed here before were built
+  in #80. Offered and not asked for: removing a photo that is only cleared with
+  ✕, with nothing put in its place (kept today).
+
 **Not yet confirmed on a real phone or printer**: the typed delete confirmation,
 saving an asset with blank fields, and — as a staff account with no units —
 importing a file and printing labels. The new label has not been printed on a
 real sticker of any size, and the Label size picker has not been used in the
-app. The records in the register show that photo upload
+app. From #80, nobody has yet replaced a photo in the app (check afterwards
+that the old file has gone from Storage), saved a year-only date available for
+use, or printed the larger asset code. The records in the register showed that photo upload
 with thumbnail and the year-only date have saved in the app, but nobody has
 said whether that was on a phone. Worth doing on the preview before the
 pilot.
