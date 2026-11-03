@@ -48,7 +48,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Access limited to assigned units",
-    body: "Departmental staff manage only the assets of the units assigned to them. Administrators hold University-wide access, together with a complete audit trail of every change.",
+    body: "Departmental staff record assets into any unit, and see only their assigned units and the assets they recorded themselves. Administrators hold University-wide access, together with a complete audit trail of every change.",
   },
   {
     icon: FileSpreadsheet,

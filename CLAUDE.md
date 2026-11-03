@@ -73,13 +73,20 @@ Failed password-account setup compensates by deleting only the newly created Aut
 failed invitation setup retains the recipient and reports the incomplete account for repair.
 Role/unit changes use `assign_account_scope` as one transaction.
 
-**A staff account can only record into the units assigned to it**
-(`assets_insert`: `is_admin() or org_unit_id in (my_unit_ids())`). Assignments
-live in `user_units`, and `POST /api/admin/users` takes `unit_ids` when the
-account is created — optional since 1 Nov 2026, so units can be assigned later. Someone covering a whole faculty needs that faculty's unit,
-not each department under it — `my_unit_ids()` handles the descent. An account
-with no units assigned can read nothing and record nothing, which looks like a
-broken login rather than a missing assignment.
+**A staff account records into any unit, and reads its units plus its own
+records** (since 3 Nov 2026, migration `staff_record_into_any_unit`). The
+officer picks the unit while tagging, assigned or not: `assets_insert` checks
+only `can_write_assets()`. What they may then read and correct is assets in
+their assigned units (`user_units`; a faculty's unit covers the departments
+under it via `my_unit_ids()`) **plus** the assets they recorded themselves
+(`created_by = auth.uid()`, extended to history, photo and the accounting lock).
+`created_by` therefore grants access, so the insert trigger always sets it from
+the caller and the update trigger never lets it change — do not loosen either.
+Auditors are excluded from the own-record branch and stay strictly unit-scoped.
+The register list and the labels page leave scope to row level security rather
+than filtering by assigned units, or an officer's own records elsewhere would
+vanish from them. An account with no units can record, but sees only what it
+recorded. Test: `supabase/tests/staff_record_any_unit.sql`.
 
 **The last administrator cannot be removed.** Enforced by trigger *and* checked
 in the delete endpoint, because deleting an auth user cascades past the trigger.
@@ -233,10 +240,9 @@ turned out to be false. Prefer measuring to asserting.
   the asset form, all pass typecheck, lint and build and were read back against
   the original — but no one has clicked through `/verify`, `/assets/import` or
   `/assets/new`. Worth doing on the preview before the pilot.
-- Staff can only record assets into units assigned to them
-  (`assets_insert`: `is_admin() or org_unit_id in (my_unit_ids())`). Several
-  people recording "across the University" therefore means either administrator
-  accounts or units assigned to each one — worth checking before a pilot day.
+- Staff record into any unit (3 Nov 2026). They see other people's assets only
+  in units assigned to them, so an officer checking a whole department's count
+  still needs that unit assigned.
 
 ## Things that are not this project
 
@@ -260,7 +266,7 @@ only when the user says "merge" (usually "merge when it passes": wait for both
 Merged in #66–#71, migrations applied live and committed:
 
 - **Accounts**: assigning units at creation is optional (form and
-  `parseAccountInput`). An account with no units still sees nothing.
+  `parseAccountInput`). An account with no units sees only what it records itself.
 - **Asset form**: only Unit is required (the asset code is built from it). A
   blank name saves as "Unnamed asset"; "Purchase cost is known" ticked with a
   blank cost saves as a confirmed ₦0. The importer still refuses rows with no

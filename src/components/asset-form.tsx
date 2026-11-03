@@ -495,13 +495,7 @@ export default function AssetForm({
             campuses={campuses}
             campusId={campusId}
             onUnitCreated={(u) => setUnits((prev) => [...prev, u])}
-            restrictTo={isAdmin ? undefined : scopedUnitIds}
           />
-          {!isAdmin && (
-            <p className="hint">
-              You can only record assets in the units assigned to you.
-            </p>
-          )}
         </div>
 
         <div>

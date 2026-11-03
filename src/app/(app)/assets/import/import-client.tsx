@@ -103,12 +103,10 @@ export default function ImportClient({
   units,
   categories,
   scopedUnitIds,
-  isAdmin,
 }: {
   units: OrgUnit[];
   categories: AssetCategory[];
   scopedUnitIds: string[];
-  isAdmin: boolean;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [fileName, setFileName] = useState("");
@@ -138,8 +136,6 @@ export default function ImportClient({
   const [imported, setImported] = useState<Asset[] | null>(null);
   const toast = useToast();
 
-  const selectableUnits = isAdmin ? undefined : scopedUnitIds;
-
   const unitByName = useMemo(() => {
     const map = new Map<string, OrgUnit | null>();
     for (const u of units) {
@@ -161,8 +157,6 @@ export default function ImportClient({
 
   const parsedRows: PreparedRow[] = useMemo(() => {
     if (!mapping.name) return [];
-    const allowed = selectableUnits ? new Set(selectableUnits) : null;
-
     return rows.map((row, index) => {
       const get = (key: FieldKey) => (mapping[key] ? (row[mapping[key]!] ?? "").trim() : "");
       const problems: string[] = [];
@@ -184,7 +178,6 @@ export default function ImportClient({
         else unitId = match.id;
       }
       if (!unitId) problems.push("No unit. Select a default unit above");
-      else if (allowed && !allowed.has(unitId)) problems.push("Unit is outside your access");
 
       const conditionRaw = get("condition");
       const matchedCondition = CONDITIONS.find((c) => c.toLowerCase() === conditionRaw.toLowerCase());
@@ -223,7 +216,7 @@ export default function ImportClient({
         problems,
       };
     });
-  }, [rows, mapping, defaultUnit, unitByName, categoryByName, selectableUnits, dateOrder]);
+  }, [rows, mapping, defaultUnit, unitByName, categoryByName, dateOrder]);
 
   // Scope the answer to file bytes, original row positions and resolved units.
   // Changing a unit or loading a different file must invalidate a reuse decision.
@@ -521,7 +514,6 @@ export default function ImportClient({
             units={units}
             value={defaultUnit}
             onChange={setDefaultUnit}
-            restrictTo={selectableUnits}
             placeholder="Select a unit"
           />
         </div>

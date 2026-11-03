@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import LabelsClient from "./labels-client";
 import { descendantIds } from "@/lib/tree";
-import { EMPTY_UNIT_ID, filterId } from "@/lib/asset-query";
+import { filterId } from "@/lib/asset-query";
 import { ASSET_WITH_REFS, type AssetWithRefs } from "@/lib/types";
 
 export const metadata = { title: "Print labels" };
@@ -27,7 +27,8 @@ export default async function LabelsPage({
     .order("created_at", { ascending: false }).order("id")
     .limit(MAX_ROWS);
 
-  if (!isAdmin) query = query.in("org_unit_id", scopedUnitIds.length ? scopedUnitIds : [EMPTY_UNIT_ID]);
+  // Row level security limits a non-administrator to their units and the
+  // assets they recorded themselves, which is exactly what they may label.
   if (unit) query = query.in("org_unit_id", descendantIds([unit], units));
 
   const { data: assets, count, error } = await query;

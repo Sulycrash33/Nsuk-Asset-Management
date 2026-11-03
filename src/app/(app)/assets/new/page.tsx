@@ -29,21 +29,14 @@ export default async function NewAssetPage() {
         </Link>
       </header>
 
-      {!isAdmin && scopedUnitIds.length === 0 ? (
-        <p className="card text-sm text-nsuk-muted">
-          You have not been assigned to a unit yet. Ask an administrator to assign you before
-          recording assets.
-        </p>
-      ) : (
-        <AssetForm
-          units={units}
-          categories={(categories ?? []) as AssetCategory[]}
-          scopedUnitIds={scopedUnitIds}
-          isAdmin={isAdmin}
-          campusId={profile.campus_id}
+      <AssetForm
+        units={units}
+        categories={(categories ?? []) as AssetCategory[]}
+        scopedUnitIds={scopedUnitIds}
+        isAdmin={isAdmin}
+        campusId={profile.campus_id}
         campuses={campuses}
-        />
-      )}
+      />
     </div>
   );
 }
