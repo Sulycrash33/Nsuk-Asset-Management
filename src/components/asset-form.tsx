@@ -20,6 +20,7 @@ import LabelPaperSelect from "@/components/label-paper-select";
 import { QrImage } from "@/components/barcode-image";
 import { useToast } from "@/components/ui/toast";
 import { generateSingleLabel, savePdf } from "@/lib/pdf";
+import { unitPath } from "@/lib/tree";
 import { parseAssetDate, parseAssetValue } from "@/lib/asset-validation";
 import {
   DUPLICATE_SERIAL_MESSAGE,
@@ -351,7 +352,19 @@ export default function AssetForm({
   async function printLabel(target: Asset) {
     setPrinting(true);
     try {
-      const doc = await generateSingleLabel({ barcode: target.barcode });
+      const doc = await generateSingleLabel({
+        barcode: target.barcode,
+        name: target.name,
+        unitName: unitPath(target.org_unit_id, units),
+        campusName:
+          campuses.find(
+            (c) =>
+              c.id ===
+              units.find((u) => u.id === target.org_unit_id)?.campus_id,
+          )?.name ?? null,
+        categoryName:
+          categories.find((c) => c.id === target.category_id)?.name ?? null,
+      });
       savePdf(doc, `${target.barcode}.pdf`);
       toast.success(
         "Label ready",

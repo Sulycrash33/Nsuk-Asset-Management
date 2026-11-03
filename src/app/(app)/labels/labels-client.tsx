@@ -7,16 +7,19 @@ import UnitSelect from "@/components/unit-select";
 import LabelPaperSelect from "@/components/label-paper-select";
 import { useToast } from "@/components/ui/toast";
 import { generateLabelSheet, savePdf, type LabelInput } from "@/lib/pdf";
-import type { AssetWithRefs, OrgUnit } from "@/lib/types";
+import { unitPath } from "@/lib/tree";
+import type { AssetWithRefs, Campus, OrgUnit } from "@/lib/types";
 
 export default function LabelsClient({
   assets,
   units,
+  campuses,
   restrictTo,
   truncated,
 }: {
   assets: AssetWithRefs[];
   units: OrgUnit[];
+  campuses: Campus[];
   restrictTo?: string[];
   truncated: boolean;
 }) {
@@ -63,7 +66,15 @@ export default function LabelsClient({
     try {
       const labels: LabelInput[] = assets
         .filter((a) => selected.has(a.id))
-        .map((a) => ({ barcode: a.barcode }));
+        .map((a) => ({
+          barcode: a.barcode,
+          name: a.name,
+          unitName: unitPath(a.org_unit_id, units) || a.org_units?.name || "",
+          campusName:
+            campuses.find((c) => c.id === units.find((u) => u.id === a.org_unit_id)?.campus_id)
+              ?.name ?? null,
+          categoryName: a.asset_categories?.name ?? null,
+        }));
       const doc = await generateLabelSheet(labels);
       savePdf(doc, `nsuk-labels-${new Date().toISOString().slice(0, 10)}.pdf`);
       toast.success(

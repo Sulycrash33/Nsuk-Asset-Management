@@ -392,7 +392,12 @@ export default function ImportClient({
   async function printBatch(assets: Asset[]) {
     setBusy(true);
     try {
-      const labels: LabelInput[] = assets.map((a) => ({ barcode: a.barcode }));
+      const labels: LabelInput[] = assets.map((a) => ({
+        barcode: a.barcode,
+        name: a.name,
+        unitName: unitPath(a.org_unit_id, units),
+        categoryName: categories.find((c) => c.id === a.category_id)?.name ?? null,
+      }));
       const doc = await generateLabelSheet(labels);
       savePdf(doc, `nsuk-labels-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch {

@@ -294,16 +294,18 @@ applied live and committed):
   photos — the add form works in the app. The importer and `/labels` as such an
   account have not been seen working.
 
-**3 November — label redesign**, at the University's request: a label now
-carries only the NSUK crest, "NASARAWA STATE / UNIVERSITY, KEFFI", the QR and the
-asset code. Item name, unit, category and campus are off it (scanning shows
-them), and `LabelInput` is just `{ barcode }`. The QR stays 22 mm on the left,
-the crest and name beside it, and the code in full along the bottom. If the
-crest cannot load, the label still prints without it. Verified by rendering
-with `pypdfium2` and decoding every QR exactly with `zxing-cpp` at the printer's
-203 dpi. `scripts/verify-labels.mjs` asserts that the item details are absent.
-The crest is in colour; on the monochrome XP-365B it prints as greys — worth
-looking at on a real sticker.
+**3 November — label redesign**, at the University's request. Top to bottom:
+the NSUK crest followed by "NSUK ASSET MANAGEMENT SYSTEM" (it replaced the
+University's name, which an intermediate version printed), then the QR, then
+the asset code. The item name, unit, category and campus fill the room left
+beside the QR, in that order, and give way with an ellipsis or are dropped when
+it runs out — never the QR (still 22 mm) or the code. Only `barcode` is
+required in `LabelInput`. If the crest cannot load, the label still prints
+without it. Verified by rendering with `pypdfium2` and decoding every QR exactly
+with `zxing-cpp` at the printer's 203 dpi, including a label whose long name
+pushes the campus off. `scripts/verify-labels.mjs` asserts the system name and
+the details. The crest is in colour; on the monochrome XP-365B it prints as
+greys — worth looking at on a real sticker.
 
 **1–2 November — merged in #66–#71**, migrations applied live and committed:
 
