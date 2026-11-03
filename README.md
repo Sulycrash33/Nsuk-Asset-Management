@@ -16,7 +16,7 @@ each one a unique barcode and QR code, prints the label, and turns verification 
 | Area | Detail |
 |---|---|
 | **Entry** | One-by-one from a phone (with camera photo capture) **or** bulk spreadsheet/CSV import — both always available |
-| **Barcodes** | Auto-generated matric-style `NSU/...` codes, printed as QR labels with one asset per PDF page; default 60 × 40 mm for the Xprinter XP-365B |
+| **Barcodes** | Auto-generated matric-style `NSU/...` codes, printed as QR labels with one asset per PDF page, laid out to any sticker size; default 60 × 40 mm for the Xprinter XP-365B |
 | **Scanning** | Phone camera (ZXing) or any handheld scanner — the latter works as keyboard input with no integration |
 | **Scope** | Staff see only their assigned units (and everything nested beneath them); admins see the whole University |
 | **Transfers** | Moving an asset between units records from, to, reason, who and when |
@@ -84,14 +84,16 @@ backup coverage and the phone pilot checklist.
 1. An asset record is saved (single entry or CSV import).
 2. A Postgres trigger issues a matric-style code such as `NSU/ADM/ACC/CP/001` — unique, sequential per unit — and mirrors it
    into the QR payload.
-3. Labels are generated client-side as PDFs with **one asset per page**, including a QR code,
-   readable asset code, name, unit and available category/campus details. The default paper is
-   **60 × 40 mm**, matching the institution's Xprinter XP-365B label roll. All label
-   downloads use these exact dimensions and ignore old browser size preferences. The item
-   name and code use full-width bold 14 pt text (very long codes fit the available width),
-   with bold 10 pt details beside a 22 mm QR code. Long descriptions are shortened.
-   In the printer driver set paper width 60 mm and height 40 mm; in the PDF print window
-   choose **Actual size / 100%**, one page per sheet, and disable Fit to page.
+3. Labels are generated client-side as PDFs with **one asset per page**: the NSUK crest,
+   "NSUK ASSET MANAGEMENT SYSTEM", the QR code and the readable asset code, centred top to
+   bottom. Nothing about the item is printed; scanning the QR shows it. The label lays itself
+   out to the sticker size chosen in **Label size** wherever labels are printed — common sizes
+   from 40 × 30 to 100 × 150 mm, or any custom size from 20 to 300 mm a side — and the device
+   remembers the choice. The default is **60 × 40 mm**, the institution's Xprinter XP-365B roll.
+   The QR takes the room left and stays at least 22 mm where the sticker allows; on small
+   stickers the title, then the crest, are left off first, and the screen warns if even that
+   leaves the QR under 22 mm. In the printer driver set the paper to the chosen size; in the
+   PDF print window choose **Actual size / 100%**, one page per sheet, and disable Fit to page.
    QR codes include a four-module quiet zone. A physical feed/alignment trial is required.
 
 4. Staff print and stick the label on the physical item.

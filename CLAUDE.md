@@ -145,7 +145,9 @@ small work if handheld laser scanners are ever bought.
 
 Print size matters more than error correction level: measured against a fixed
 speck of wear, a 17mm QR failed every attempt where 22mm mostly survived. The
-label prints at 22mm for that reason. Do not shrink it to gain layout room.
+label keeps the QR at 22 mm or more for that reason, on any sticker size that
+allows it (`labelLayout`, `DURABLE_QR_MM`): on a small sticker the title and
+then the crest give way first. Do not shrink it to gain layout room.
 
 **An upload is not necessarily a CSV.** `/assets/import` takes CSV, Excel
 (`.xlsx .xlsm .xls .ods`), Word (`.docx`) and PDF. Everything is reduced to one
@@ -310,6 +312,22 @@ decoding every QR exactly with `zxing-cpp` at the printer's 203 dpi.
 absent. The crest is in colour; on the monochrome XP-365B it prints as greys —
 not yet seen on a real sticker.
 
+**3 November — any sticker size** (asked for after #75: "adjust to any surface,
+60 × 40 or smaller or larger"). `labelLayout(size)` in `src/lib/pdf.ts` scales
+the approved 60 × 40 layout to any width × height, keeps the same top-to-bottom
+order, and gives the QR whatever room is left (45 mm on 100 × 75, 93 mm on
+100 × 150). If a 22 mm QR does not fit with everything, the title goes, then the
+crest; below that the QR shrinks and the size picker warns. On a tall sticker
+the crest grows into spare height. The size is chosen in **Label size**
+(`label-paper-select.tsx`) wherever labels are printed: presets from 40 × 30 to
+100 × 150, or custom 20–300 mm a side, stored per browser under
+`nsuk-label-size` — a new key, so the pre-#65 `nsuk-label-paper` value cannot
+return. 60 × 40 stays the default and its layout is unchanged. Verified by
+rendering seven sizes with `pypdfium2` and decoding each QR exactly at 203 and
+600 dpi; `scripts/verify-labels.mjs` checks every preset and several odd sizes
+for bounds, order and the QR-first rule. The picker itself has not been clicked
+through in the running app.
+
 **1–2 November — merged in #66–#71**, migrations applied live and committed:
 
 - **Accounts**: assigning units at creation is optional (form and
@@ -368,7 +386,8 @@ Tests added: `supabase/tests/land_classification.sql`,
 **Not yet confirmed on a real phone or printer**: the typed delete confirmation,
 saving an asset with blank fields, and — as a staff account with no units —
 importing a file and printing labels. The new label has not been printed on a
-real 60 × 40 mm sticker. The records in the register show that photo upload
+real sticker of any size, and the Label size picker has not been used in the
+app. The records in the register show that photo upload
 with thumbnail and the year-only date have saved in the app, but nobody has
 said whether that was on a phone. Worth doing on the preview before the
 pilot.

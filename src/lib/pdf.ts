@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
 import type { AssetWithRefs } from "./types";
-import { LABEL_PAPER } from "./label-paper";
+import { readLabelSize, type LabelSize } from "./label-paper";
 
 const BLUE: [number, number, number] = [26, 60, 110];
 const GOLD: [number, number, number] = [242, 183, 5];
@@ -46,74 +46,155 @@ function crestDataUrl(): Promise<string | null> {
 }
 
 
+/** QR print size that survived wear in measurement; 17 mm failed every time. */
+export const DURABLE_QR_MM = 22;
+
+export type LabelLayout = {
+  width: number;
+  height: number;
+  crest: { x: number; y: number; width: number; height: number } | null;
+  title: { size: number; baseline: number } | null;
+  qr: { x: number; y: number; size: number };
+  code: { size: number; baseline: number; maxWidth: number };
+  /** The QR is at least DURABLE_QR_MM. */
+  durable: boolean;
+};
+
+/** Helvetica Bold cap height is 718/1000 of the em; 1 pt = 0.3528 mm. */
+const capHeight = (pt: number) => pt * 0.3528 * 0.718;
+
+let titleWidthPerPt: number | null = null;
+function titleWidth(pt: number): number {
+  if (titleWidthPerPt === null) {
+    const measure = new jsPDF({ unit: "mm" });
+    measure.setFont("helvetica", "bold");
+    measure.setFontSize(10);
+    titleWidthPerPt = measure.getTextWidth(TITLE) / 10;
+  }
+  return titleWidthPerPt * pt;
+}
+
 /**
- * Roll-printer PDF, one label per page, centred top to bottom as the
- * University asked (3 Nov 2026): the crest, "NSUK ASSET MANAGEMENT SYSTEM"
- * under it, the QR, and the asset code under the QR. The QR stays 22 mm —
- * measured, smaller failed under wear — so the crest and title are sized
- * around it, never the other way.
+ * Where everything goes on a sticker of any size, centred top to bottom in the
+ * order the University asked for: crest, system name, QR, asset code. Sizes
+ * scale from the approved 60 x 40 mm layout, and the QR takes whatever room is
+ * left. The QR comes first: when a small sticker cannot hold a 22 mm QR with
+ * everything else, the name is left off, then the crest, and only then does
+ * the QR go below 22 mm (`durable: false`).
+ */
+export function labelLayout(size: LabelSize, withCrest = true): LabelLayout {
+  const { width, height } = size;
+  const s = Math.min(3, Math.max(0.4, Math.min(width / 60, height / 40)));
+  const padX = Math.max(1.2, 2 * s);
+  const top = Math.max(0.8, s);
+  const bottom = Math.max(0.8, 1.5 * s);
+  const gap = 0.6 * s;
+  const crestHeight = 7 * s;
+  const titleSize = Math.min(8 * s, (width - 2 * padX) / titleWidth(1));
+  const titleHeight = capHeight(titleSize);
+  const codeSize = 11 * s;
+  const codeHeight = capHeight(codeSize);
+  const codeGap = 2.4 * s;
+  const fixed = top + codeGap + codeHeight + bottom;
+
+  const options = [
+    { crest: withCrest, title: true },
+    { crest: withCrest, title: false },
+    { crest: false, title: true },
+    { crest: false, title: false },
+  ];
+  const sized = options.map((option) => {
+    const used = fixed
+      + (option.crest ? crestHeight + gap : 0)
+      + (option.title ? titleHeight + gap : 0);
+    return { ...option, used, qr: Math.min(width - 2 * padX, height - used) };
+  });
+  // Tolerate float noise so 60 x 40 mm keeps its exact 22 mm QR.
+  const chosen = sized.find((option) => option.qr >= DURABLE_QR_MM - 0.05) ?? sized[sized.length - 1];
+
+  // When the QR is limited by the width, not the height (a tall sticker), let
+  // the crest use some of the spare height, then centre the stack.
+  let spare = Math.max(0, height - chosen.used - chosen.qr);
+  const grownCrest = chosen.crest ? crestHeight + Math.min(spare * 0.5, crestHeight * 2) : 0;
+  spare -= grownCrest - (chosen.crest ? crestHeight : 0);
+  let y = top + spare / 2;
+  let crest: LabelLayout["crest"] = null;
+  if (chosen.crest) {
+    const grownWidth = (grownCrest * 219) / 230;
+    crest = { x: (width - grownWidth) / 2, y, width: grownWidth, height: grownCrest };
+    y += grownCrest + gap;
+  }
+  let title: LabelLayout["title"] = null;
+  if (chosen.title) {
+    title = { size: titleSize, baseline: y + titleHeight };
+    y += titleHeight + gap;
+  }
+  const qr = { x: (width - chosen.qr) / 2, y, size: chosen.qr };
+  y += chosen.qr + codeGap;
+  return {
+    width,
+    height,
+    crest,
+    title,
+    qr,
+    code: { size: codeSize, baseline: y + codeHeight, maxWidth: width - 2 * padX },
+    durable: chosen.qr >= DURABLE_QR_MM - 0.05,
+  };
+}
+
+/**
+ * Label PDF, one label per page, at the sticker size chosen on this device
+ * (60 x 40 mm unless changed), laid out by `labelLayout`.
  */
 export async function generateLabelSheet(
   labels: LabelInput[],
+  size: LabelSize = readLabelSize(),
 ): Promise<jsPDF> {
   if (!labels.length) throw new Error("Select at least one asset to label.");
-  const { width, height } = LABEL_PAPER;
+  const { width, height } = size;
   const orientation = width >= height ? "landscape" : "portrait";
   const doc = new jsPDF({ unit: "mm", format: [width, height], orientation });
   doc.setProperties({ title: "NSUK asset labels", subject: `${width} x ${height} mm, one asset per page` });
-  const pad = 2;
-  const centre = width / 2;
   const crest = await crestDataUrl();
-  // The crest file is 219 x 230 px; keep its proportions.
-  const crestTop = 1;
-  const crestHeight = 7;
-  const crestWidth = (crestHeight * 219) / 230;
-  const titleBaseline = crestTop + crestHeight + 2.6;
-  const qrSize = 22;
-  const qrY = titleBaseline + 0.6;
-  const codeBaseline = height - 1.5;
-
-  // The title is the same on every label, so size it once.
-  doc.setFont("helvetica", "bold");
-  let titleSize = 8;
-  doc.setFontSize(titleSize);
-  const titleWidth = doc.getTextWidth(TITLE);
-  if (titleWidth > width - 2 * pad) titleSize = (titleSize * (width - 2 * pad)) / titleWidth;
+  const layout = labelLayout(size, crest !== null);
 
   for (let i = 0; i < labels.length; i++) {
     if (i > 0) doc.addPage([width, height], orientation);
     const label = labels[i];
     doc.setTextColor(...INK);
 
-    // 1. Crest. A failed fetch leaves it out rather than block printing; the
-    // alias embeds the image once however many labels there are.
-    if (crest) doc.addImage(crest, "PNG", centre - crestWidth / 2, crestTop, crestWidth, crestHeight, "nsuk-crest");
+    // A failed crest fetch leaves it out rather than block printing; the alias
+    // embeds the image once however many labels there are.
+    if (crest && layout.crest) {
+      const c = layout.crest;
+      doc.addImage(crest, "PNG", c.x, c.y, c.width, c.height, "nsuk-crest");
+    }
+    if (layout.title) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(layout.title.size);
+      doc.text(TITLE, width / 2, layout.title.baseline, { align: "center" });
+    }
 
-    // 2. The system's name.
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(titleSize);
-    doc.text(TITLE, centre, titleBaseline, { align: "center" });
-
-    // 3. QR, with a four-module white quiet zone so nothing can crowd it.
+    // QR with a four-module white quiet zone so nothing can crowd it.
     const qr = await QRCode.toDataURL(label.barcode, {
       margin: 4, width: 480, errorCorrectionLevel: "Q",
       color: { dark: "#000000", light: "#FFFFFF" },
     });
-    doc.addImage(qr, "PNG", centre - qrSize / 2, qrY, qrSize, qrSize);
+    doc.addImage(qr, "PNG", layout.qr.x, layout.qr.y, layout.qr.size, layout.qr.size);
 
-    // 4. Asset code under the QR. Never truncated: it must agree with the QR.
+    // Asset code under the QR. Never truncated: it must agree with the QR.
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
+    doc.setFontSize(layout.code.size);
     const codeWidth = doc.getTextWidth(label.barcode);
-    if (codeWidth > width - 2 * pad) doc.setFontSize((11 * (width - 2 * pad)) / codeWidth);
-    doc.text(label.barcode, centre, codeBaseline, { align: "center" });
+    if (codeWidth > layout.code.maxWidth) doc.setFontSize((layout.code.size * layout.code.maxWidth) / codeWidth);
+    doc.text(label.barcode, width / 2, layout.code.baseline, { align: "center" });
   }
   return doc;
 }
 
-/** Single and batch downloads share the exact 60 x 40 mm roll size. */
-export async function generateSingleLabel(label: LabelInput): Promise<jsPDF> {
-  return generateLabelSheet([label]);
+/** Single and batch downloads share the chosen sticker size. */
+export async function generateSingleLabel(label: LabelInput, size?: LabelSize): Promise<jsPDF> {
+  return generateLabelSheet([label], size);
 }
 
 /** Printable asset register for audits / Bursary sign-off. */
