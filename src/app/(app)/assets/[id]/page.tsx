@@ -138,7 +138,6 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
             asset={record}
             units={units}
             isAdmin={isAdmin}
-            categoryName={record.asset_categories?.name ?? null}
           />
         </div>
       )}

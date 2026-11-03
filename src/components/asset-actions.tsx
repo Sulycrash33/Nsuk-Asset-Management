@@ -19,12 +19,10 @@ export default function AssetActions({
   asset,
   units,
   isAdmin,
-  categoryName,
 }: {
   asset: AssetWithRefs;
   units: OrgUnit[];
   isAdmin: boolean;
-  categoryName: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -40,12 +38,7 @@ export default function AssetActions({
   async function printLabel() {
     setPrinting(true);
     try {
-      const doc = await generateSingleLabel({
-        barcode: asset.barcode,
-        name: asset.name,
-        unitName: unitPath(asset.org_unit_id, units),
-        categoryName,
-      });
+      const doc = await generateSingleLabel({ barcode: asset.barcode });
       savePdf(doc, `${asset.barcode}.pdf`);
       toast.success("Label ready", `${asset.barcode}.pdf has been downloaded.`);
     } catch {

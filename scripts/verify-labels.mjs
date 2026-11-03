@@ -35,6 +35,12 @@ function verifyPages(doc, paper, count) {
     for (const other of samples.filter((_, index) => index !== page - 1)) {
       assert.ok(!commands.includes(other.barcode), "No other asset code on this page");
     }
+    // The label names the University, not the item (3 Nov 2026). Extra
+    // fields from an older caller must not reach the sticker.
+    assert.ok(commands.includes("NASARAWA STATE") && commands.includes("UNIVERSITY, KEFFI"), "University name printed");
+    for (const detail of ["Office chair", "Fixed Assets Unit", "Furniture", "Keffi", "ASSET MANAGEMENT"]) {
+      assert.ok(!commands.includes(detail), `"${detail}" is not printed`);
+    }
   }
 }
 

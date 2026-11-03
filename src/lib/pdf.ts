@@ -10,13 +10,16 @@ const BLUE: [number, number, number] = [26, 60, 110];
 const GOLD: [number, number, number] = [242, 183, 5];
 const INK: [number, number, number] = [17, 17, 17];
 
+/**
+ * A label carries the University's crest and name, the QR and the asset code —
+ * nothing about the item itself. The item name and its unit were taken off at
+ * the University's request (3 Nov 2026); scanning the QR shows them.
+ */
 export type LabelInput = {
   barcode: string;
-  name: string;
-  unitName: string;
-  categoryName?: string | null;
-  campusName?: string | null;
 };
+
+const UNIVERSITY_LINES = ["NASARAWA STATE", "UNIVERSITY, KEFFI"];
 
 /**
  * The University crest as a data URL, fetched once and reused. jsPDF cannot
@@ -43,17 +46,11 @@ function crestDataUrl(): Promise<string | null> {
 }
 
 
-/** Shrink a line until it fits the width it has been given. */
-function fitText(doc: jsPDF, text: string, maxWidth: number): string {
-  if (doc.getTextWidth(text) <= maxWidth) return text;
-  let cut = text;
-  while (cut.length > 4 && doc.getTextWidth(cut + "\u2026") > maxWidth) {
-    cut = cut.slice(0, -1);
-  }
-  return cut + "\u2026";
-}
-
-/** Roll-printer PDF: one QR code and asset details per physical label. */
+/**
+ * Roll-printer PDF, one label per page: the QR on the left at 22 mm (measured:
+ * smaller failed under wear), the crest and the University's name beside it,
+ * and the asset code in full across the bottom.
+ */
 export async function generateLabelSheet(
   labels: LabelInput[],
 ): Promise<jsPDF> {
@@ -64,46 +61,45 @@ export async function generateLabelSheet(
   doc.setProperties({ title: "NSUK asset labels", subject: `${width} x ${height} mm, one asset per page` });
   const pad = 2;
   const qrSize = 22;
-  const textX = pad + qrSize + 2;
-  const textWidth = width - textX - pad;
+  const qrY = 5;
+  const columnX = pad + qrSize + 1;
+  const columnWidth = width - columnX - pad;
+  const columnCentre = columnX + columnWidth / 2;
+  // The crest file is 219 x 230 px; keep its proportions.
+  const crestHeight = 12;
+  const crestWidth = (crestHeight * 219) / 230;
+  const crest = await crestDataUrl();
 
   for (let i = 0; i < labels.length; i++) {
     if (i > 0) doc.addPage([width, height], orientation);
     const label = labels[i];
     doc.setTextColor(...INK);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("NSUK ASSET MANAGEMENT", width / 2, 4.5, { align: "center" });
-    // Give the item name the full sticker width at a readable fixed size.
-    doc.setFontSize(14);
-    doc.text(fitText(doc, label.name, width - 2 * pad), width / 2, 10.5, { align: "center" });
 
-    // Include a four-module white quiet zone so text cannot crowd the QR.
+    // Include a four-module white quiet zone so nothing can crowd the QR.
     const qr = await QRCode.toDataURL(label.barcode, {
       margin: 4, width: 480, errorCorrectionLevel: "Q",
       color: { dark: "#000000", light: "#FFFFFF" },
     });
-    doc.addImage(qr, "PNG", pad, 12, qrSize, qrSize);
+    doc.addImage(qr, "PNG", pad, qrY, qrSize, qrSize);
 
-    let y = 16;
-    function detail(text: string, maxLines: number) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      const lines = doc.splitTextToSize(text, textWidth) as string[];
-      const shown = lines.slice(0, maxLines);
-      if (lines.length > maxLines) {
-        shown[maxLines - 1] = fitText(doc, shown[maxLines - 1] + "...", textWidth);
-      }
-      for (const line of shown) {
-        doc.text(line, textX, y);
-        y += 3.7;
-      }
-      y += 0.3;
+    // A failed crest fetch leaves the name alone rather than block printing.
+    // The alias embeds the image once however many labels are printed.
+    let nameY = qrY + 7;
+    if (crest) {
+      doc.addImage(crest, "PNG", columnCentre - crestWidth / 2, qrY + 0.5, crestWidth, crestHeight, "nsuk-crest");
+      nameY = qrY + 0.5 + crestHeight + 3.6;
     }
-    const unit = label.unitName.split("\u203a").pop()?.trim() || label.unitName;
-    detail(unit || "-", 2);
-    if (label.categoryName) detail(label.categoryName, 2);
-    if (label.campusName) detail(label.campusName, 1);
+    doc.setFont("helvetica", "bold");
+    let nameSize = 9;
+    doc.setFontSize(nameSize);
+    const widest = Math.max(...UNIVERSITY_LINES.map((line) => doc.getTextWidth(line)));
+    if (widest > columnWidth) {
+      nameSize = (nameSize * columnWidth) / widest;
+      doc.setFontSize(nameSize);
+    }
+    UNIVERSITY_LINES.forEach((line, n) => {
+      doc.text(line, columnCentre, nameY + n * 3.6, { align: "center" });
+    });
 
     // Never truncate the identifier: it must agree with the QR payload.
     doc.setFont("helvetica", "bold");
