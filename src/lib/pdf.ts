@@ -10,13 +10,16 @@ const BLUE: [number, number, number] = [26, 60, 110];
 const GOLD: [number, number, number] = [242, 183, 5];
 const INK: [number, number, number] = [17, 17, 17];
 
+/**
+ * A label carries the crest, the system's name, the QR and the asset code —
+ * nothing about the item itself (the University's instruction, 3 Nov 2026).
+ * Scanning the QR shows the full record.
+ */
 export type LabelInput = {
   barcode: string;
-  name: string;
-  unitName: string;
-  categoryName?: string | null;
-  campusName?: string | null;
 };
+
+const TITLE = "NSUK ASSET MANAGEMENT SYSTEM";
 
 /**
  * The University crest as a data URL, fetched once and reused. jsPDF cannot
@@ -43,17 +46,13 @@ function crestDataUrl(): Promise<string | null> {
 }
 
 
-/** Shrink a line until it fits the width it has been given. */
-function fitText(doc: jsPDF, text: string, maxWidth: number): string {
-  if (doc.getTextWidth(text) <= maxWidth) return text;
-  let cut = text;
-  while (cut.length > 4 && doc.getTextWidth(cut + "\u2026") > maxWidth) {
-    cut = cut.slice(0, -1);
-  }
-  return cut + "\u2026";
-}
-
-/** Roll-printer PDF: one QR code and asset details per physical label. */
+/**
+ * Roll-printer PDF, one label per page, centred top to bottom as the
+ * University asked (3 Nov 2026): the crest, "NSUK ASSET MANAGEMENT SYSTEM"
+ * under it, the QR, and the asset code under the QR. The QR stays 22 mm —
+ * measured, smaller failed under wear — so the crest and title are sized
+ * around it, never the other way.
+ */
 export async function generateLabelSheet(
   labels: LabelInput[],
 ): Promise<jsPDF> {
@@ -63,54 +62,51 @@ export async function generateLabelSheet(
   const doc = new jsPDF({ unit: "mm", format: [width, height], orientation });
   doc.setProperties({ title: "NSUK asset labels", subject: `${width} x ${height} mm, one asset per page` });
   const pad = 2;
+  const centre = width / 2;
+  const crest = await crestDataUrl();
+  // The crest file is 219 x 230 px; keep its proportions.
+  const crestTop = 1;
+  const crestHeight = 7;
+  const crestWidth = (crestHeight * 219) / 230;
+  const titleBaseline = crestTop + crestHeight + 2.6;
   const qrSize = 22;
-  const textX = pad + qrSize + 2;
-  const textWidth = width - textX - pad;
+  const qrY = titleBaseline + 0.6;
+  const codeBaseline = height - 1.5;
+
+  // The title is the same on every label, so size it once.
+  doc.setFont("helvetica", "bold");
+  let titleSize = 8;
+  doc.setFontSize(titleSize);
+  const titleWidth = doc.getTextWidth(TITLE);
+  if (titleWidth > width - 2 * pad) titleSize = (titleSize * (width - 2 * pad)) / titleWidth;
 
   for (let i = 0; i < labels.length; i++) {
     if (i > 0) doc.addPage([width, height], orientation);
     const label = labels[i];
     doc.setTextColor(...INK);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("NSUK ASSET MANAGEMENT", width / 2, 4.5, { align: "center" });
-    // Give the item name the full sticker width at a readable fixed size.
-    doc.setFontSize(14);
-    doc.text(fitText(doc, label.name, width - 2 * pad), width / 2, 10.5, { align: "center" });
 
-    // Include a four-module white quiet zone so text cannot crowd the QR.
+    // 1. Crest. A failed fetch leaves it out rather than block printing; the
+    // alias embeds the image once however many labels there are.
+    if (crest) doc.addImage(crest, "PNG", centre - crestWidth / 2, crestTop, crestWidth, crestHeight, "nsuk-crest");
+
+    // 2. The system's name.
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(titleSize);
+    doc.text(TITLE, centre, titleBaseline, { align: "center" });
+
+    // 3. QR, with a four-module white quiet zone so nothing can crowd it.
     const qr = await QRCode.toDataURL(label.barcode, {
       margin: 4, width: 480, errorCorrectionLevel: "Q",
       color: { dark: "#000000", light: "#FFFFFF" },
     });
-    doc.addImage(qr, "PNG", pad, 12, qrSize, qrSize);
+    doc.addImage(qr, "PNG", centre - qrSize / 2, qrY, qrSize, qrSize);
 
-    let y = 16;
-    function detail(text: string, maxLines: number) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      const lines = doc.splitTextToSize(text, textWidth) as string[];
-      const shown = lines.slice(0, maxLines);
-      if (lines.length > maxLines) {
-        shown[maxLines - 1] = fitText(doc, shown[maxLines - 1] + "...", textWidth);
-      }
-      for (const line of shown) {
-        doc.text(line, textX, y);
-        y += 3.7;
-      }
-      y += 0.3;
-    }
-    const unit = label.unitName.split("\u203a").pop()?.trim() || label.unitName;
-    detail(unit || "-", 2);
-    if (label.categoryName) detail(label.categoryName, 2);
-    if (label.campusName) detail(label.campusName, 1);
-
-    // Never truncate the identifier: it must agree with the QR payload.
+    // 4. Asset code under the QR. Never truncated: it must agree with the QR.
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
+    doc.setFontSize(11);
     const codeWidth = doc.getTextWidth(label.barcode);
-    if (codeWidth > width - 2 * pad) doc.setFontSize(14 * (width - 2 * pad) / codeWidth);
-    doc.text(label.barcode, width / 2, height - 2.5, { align: "center" });
+    if (codeWidth > width - 2 * pad) doc.setFontSize((11 * (width - 2 * pad)) / codeWidth);
+    doc.text(label.barcode, centre, codeBaseline, { align: "center" });
   }
   return doc;
 }

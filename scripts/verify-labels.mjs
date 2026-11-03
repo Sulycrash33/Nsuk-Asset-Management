@@ -35,6 +35,13 @@ function verifyPages(doc, paper, count) {
     for (const other of samples.filter((_, index) => index !== page - 1)) {
       assert.ok(!commands.includes(other.barcode), "No other asset code on this page");
     }
+    // Layout settled on 3 Nov 2026: crest, system name, QR, asset code —
+    // nothing about the item. Extra fields from an older caller must not
+    // reach the sticker.
+    assert.ok(commands.includes("NSUK ASSET MANAGEMENT SYSTEM"), "System name printed");
+    for (const detail of [samples[page - 1].name, "Fixed Assets Unit", "Furniture", "Keffi", "NASARAWA STATE"]) {
+      assert.ok(!commands.includes(detail), `"${detail}" is not printed`);
+    }
   }
 }
 

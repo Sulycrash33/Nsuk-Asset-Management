@@ -294,6 +294,18 @@ applied live and committed):
   photos — the add form works in the app. The importer and `/labels` as such an
   account have not been seen working.
 
+**3 November — label redesign**, at the University's request, after two
+intermediate versions (University name beside the QR; then item details in the
+spare room). Settled layout, centred top to bottom: the NSUK crest, "NSUK ASSET
+MANAGEMENT SYSTEM", the QR (still 22 mm), and the asset code under it. Nothing
+about the item is printed — no name, unit, category or campus; scanning the QR
+shows them — so `LabelInput` is just `{ barcode }`. If the crest cannot load,
+the label still prints without it. Verified by rendering with `pypdfium2` and
+decoding every QR exactly with `zxing-cpp` at the printer's 203 dpi.
+`scripts/verify-labels.mjs` asserts the system name and that item details are
+absent. The crest is in colour; on the monochrome XP-365B it prints as greys —
+worth looking at on a real sticker.
+
 **1–2 November — merged in #66–#71**, migrations applied live and committed:
 
 - **Accounts**: assigning units at creation is optional (form and
