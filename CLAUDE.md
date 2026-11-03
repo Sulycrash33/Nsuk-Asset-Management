@@ -6,10 +6,13 @@ a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
 Not yet in production use. The pilot has not loaded real data. **That makes now
 the cheap moment for anything that would later require relabelling physical
-items.** As of 3 Nov 2026 (checked 10:58 UTC) the register holds four records, all with
-photos: one recorded by an administrator on 2 Nov and three recorded by staff on
-3 Nov, after staff could record into any unit. Whether they are trials to delete
-before the pilot is the user's call — ask, do not assume.
+items.** The register is **empty** again (3 Nov 2026, 11:11 UTC): the four trial
+records were deleted in the app by an administrator at 11:05–11:09, which also
+removed their photos, and at the user's choice the two automatic accounting
+entries they left were deleted too. Kept, also at the user's choice: four trial
+stock counts (`verification_sessions`), and the used running numbers — the next
+asset in Bursar's Office is `…/004`, Fixed Assets Unit `…/007`, and VC's Office,
+Conference Room and Economics `…/002`. Codes are never reused, by design.
 
 The unit tree is the University's own as of migration 22 — 191 units across all
 four campuses. Six accounts exist (3 Nov 2026): two administrators and four
@@ -371,10 +374,10 @@ Tests added: `supabase/tests/land_classification.sql`,
 
 **Waiting on the user**
 
-- Delete the six leftover photos in Supabase → Storage → `asset-photos`. Still
-  there on 3 Nov: the bucket holds 14 files, of which 8 (four photos and their
-  thumbnails) belong to the four assets and must stay. The other 6 are
-  unreferenced, dated 9 Aug–1 Nov: two `.jpg` from 9 Aug, two `.png` from
+- Delete the six leftover photos in Supabase → Storage → `asset-photos`. With
+  the register empty (3 Nov, 11:11 UTC) these six are the **only** files in the
+  bucket and none is referenced, so the bucket can simply be emptied. They are
+  dated 9 Aug–1 Nov: two `.jpg` from 9 Aug, two `.png` from
   13 Oct, and one `.png` and one `.jpg` from 1 Nov. Check each against `assets.photo_url` before
   deleting. Direct SQL deletion is blocked by `storage.protect_delete` and would
   leave the files, so it must be the dashboard or the Storage API.
@@ -384,8 +387,14 @@ Tests added: `supabase/tests/land_classification.sql`,
   comes first: on 40 × 30 and 50 × 30 the crest is left off, and below about
   50 × 25 the header goes and the picker warns. Swapping the order is a small
   change to the option list in `labelLayout`.
-- Decide whether the four records in the register are trials to delete before
-  the pilot.
+- Backups (checked against Supabase's docs, 3 Nov): Pro takes a **daily**
+  database backup automatically and keeps 7 days, under Database → Backups.
+  Confirm the list shows recent days. Two gaps: a restore can lose up to a day
+  of recording (Point-in-Time Recovery closes that, ~US$100/month extra), and
+  **backups do not include Storage — the asset photos**, which need their own
+  periodic download. Rehearse a restore only with **Restore to a New Project**
+  (a separate, billed copy; delete it after checking); an in-place restore takes
+  the live app down and rewinds it.
 - Before using email invitations or "forgot password": set up custom SMTP.
   Supabase's built-in email only reaches organisation team members, a few per
   hour. Until then, create officer accounts with a password.
