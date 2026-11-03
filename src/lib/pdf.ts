@@ -11,19 +11,15 @@ const GOLD: [number, number, number] = [242, 183, 5];
 const INK: [number, number, number] = [17, 17, 17];
 
 /**
- * Only the asset code is required. The item details print in whatever room is
- * left beside the QR, in order, and are cut off with an ellipsis when it runs
- * out; scanning the QR always shows the full record.
+ * A label carries the crest, the system's name, the QR and the asset code —
+ * nothing about the item itself (the University's instruction, 3 Nov 2026).
+ * Scanning the QR shows the full record.
  */
 export type LabelInput = {
   barcode: string;
-  name?: string | null;
-  unitName?: string | null;
-  categoryName?: string | null;
-  campusName?: string | null;
 };
 
-const TITLE_LINES = ["NSUK ASSET", "MANAGEMENT SYSTEM"];
+const TITLE = "NSUK ASSET MANAGEMENT SYSTEM";
 
 /**
  * The University crest as a data URL, fetched once and reused. jsPDF cannot
@@ -50,22 +46,12 @@ function crestDataUrl(): Promise<string | null> {
 }
 
 
-/** Shrink a line until it fits the width it has been given. */
-function fitText(doc: jsPDF, text: string, maxWidth: number): string {
-  if (doc.getTextWidth(text) <= maxWidth) return text;
-  let cut = text;
-  while (cut.length > 1 && doc.getTextWidth(cut + "\u2026") > maxWidth) {
-    cut = cut.slice(0, -1);
-  }
-  return cut + "\u2026";
-}
-
 /**
- * Roll-printer PDF, one label per page, laid out as the University asked
- * (3 Nov 2026): the crest at the top followed by "NSUK ASSET MANAGEMENT
- * SYSTEM", then the QR, then the asset code; the item's name and details fill
- * whatever room is left beside the QR. The QR stays 22 mm — measured, smaller
- * failed under wear — so the details give way, never the QR or the code.
+ * Roll-printer PDF, one label per page, centred top to bottom as the
+ * University asked (3 Nov 2026): the crest, "NSUK ASSET MANAGEMENT SYSTEM"
+ * under it, the QR, and the asset code under the QR. The QR stays 22 mm —
+ * measured, smaller failed under wear — so the crest and title are sized
+ * around it, never the other way.
  */
 export async function generateLabelSheet(
   labels: LabelInput[],
@@ -76,82 +62,51 @@ export async function generateLabelSheet(
   const doc = new jsPDF({ unit: "mm", format: [width, height], orientation });
   doc.setProperties({ title: "NSUK asset labels", subject: `${width} x ${height} mm, one asset per page` });
   const pad = 2;
+  const centre = width / 2;
   const crest = await crestDataUrl();
   // The crest file is 219 x 230 px; keep its proportions.
-  const headerTop = 1.5;
-  const crestHeight = 8;
-  const crestWidth = crest ? (crestHeight * 219) / 230 : 0;
-  const crestGap = crest ? 1.5 : 0;
+  const crestTop = 1;
+  const crestHeight = 7;
+  const crestWidth = (crestHeight * 219) / 230;
+  const titleBaseline = crestTop + crestHeight + 2.6;
   const qrSize = 22;
-  const qrY = headerTop + crestHeight + 0.5;
-  const columnX = pad + qrSize + 1;
-  const columnWidth = width - columnX - pad;
-  const columnBottom = qrY + qrSize - 0.5;
+  const qrY = titleBaseline + 0.6;
+  const codeBaseline = height - 1.5;
 
-  // The header is the same on every label, so measure it once.
+  // The title is the same on every label, so size it once.
   doc.setFont("helvetica", "bold");
-  let titleSize = 9;
+  let titleSize = 8;
   doc.setFontSize(titleSize);
-  const titleWidth = Math.max(...TITLE_LINES.map((line) => doc.getTextWidth(line)));
-  const headerRoom = width - 2 * pad - crestWidth - crestGap;
-  if (titleWidth > headerRoom) titleSize = (titleSize * headerRoom) / titleWidth;
-  const headerWidth = crestWidth + crestGap + Math.min(titleWidth, headerRoom);
-  const headerX = (width - headerWidth) / 2;
+  const titleWidth = doc.getTextWidth(TITLE);
+  if (titleWidth > width - 2 * pad) titleSize = (titleSize * (width - 2 * pad)) / titleWidth;
 
   for (let i = 0; i < labels.length; i++) {
     if (i > 0) doc.addPage([width, height], orientation);
     const label = labels[i];
     doc.setTextColor(...INK);
 
-    // 1. Crest, followed by the system's name. A failed crest fetch leaves the
-    // name alone rather than block printing; the alias embeds the image once
-    // however many labels there are.
-    if (crest) doc.addImage(crest, "PNG", headerX, headerTop, crestWidth, crestHeight, "nsuk-crest");
+    // 1. Crest. A failed fetch leaves it out rather than block printing; the
+    // alias embeds the image once however many labels there are.
+    if (crest) doc.addImage(crest, "PNG", centre - crestWidth / 2, crestTop, crestWidth, crestHeight, "nsuk-crest");
+
+    // 2. The system's name.
     doc.setFont("helvetica", "bold");
     doc.setFontSize(titleSize);
-    const titleX = headerX + crestWidth + crestGap;
-    const firstBaseline = headerTop + crestHeight / 2 - 0.5;
-    TITLE_LINES.forEach((line, n) => doc.text(line, titleX, firstBaseline + n * 3.6));
+    doc.text(TITLE, centre, titleBaseline, { align: "center" });
 
-    // 2. QR, with a four-module white quiet zone so nothing can crowd it.
+    // 3. QR, with a four-module white quiet zone so nothing can crowd it.
     const qr = await QRCode.toDataURL(label.barcode, {
       margin: 4, width: 480, errorCorrectionLevel: "Q",
       color: { dark: "#000000", light: "#FFFFFF" },
     });
-    doc.addImage(qr, "PNG", pad, qrY, qrSize, qrSize);
+    doc.addImage(qr, "PNG", centre - qrSize / 2, qrY, qrSize, qrSize);
 
-    // 3. Asset code. Never truncated: it must agree with the QR payload.
+    // 4. Asset code under the QR. Never truncated: it must agree with the QR.
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
+    doc.setFontSize(11);
     const codeWidth = doc.getTextWidth(label.barcode);
-    if (codeWidth > width - 2 * pad) doc.setFontSize((13 * (width - 2 * pad)) / codeWidth);
-    doc.text(label.barcode, width / 2, height - 1.8, { align: "center" });
-
-    // 4. Item details, in order, for as long as there is room beside the QR.
-    let y = qrY + 3;
-    const detail = (text: string | null | undefined, size: number, maxLines: number) => {
-      if (!text) return;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(size);
-      const lead = size * 0.3528 * 1.18;
-      const room = Math.floor((columnBottom - y) / lead) + 1;
-      const lines = doc.splitTextToSize(text, columnWidth) as string[];
-      const shown = lines.slice(0, Math.max(0, Math.min(maxLines, room)));
-      if (!shown.length) return;
-      if (shown.length < lines.length) {
-        shown[shown.length - 1] = fitText(doc, shown[shown.length - 1] + "\u2026", columnWidth);
-      }
-      for (const line of shown) {
-        doc.text(line, columnX, y);
-        y += lead;
-      }
-      y += 0.6;
-    };
-    detail(label.name, 9, 2);
-    const unit = label.unitName?.split("\u203a").pop()?.trim() || label.unitName;
-    detail(unit, 7.5, 2);
-    detail(label.categoryName, 7.5, 1);
-    detail(label.campusName, 7.5, 1);
+    if (codeWidth > width - 2 * pad) doc.setFontSize((11 * (width - 2 * pad)) / codeWidth);
+    doc.text(label.barcode, centre, codeBaseline, { align: "center" });
   }
   return doc;
 }

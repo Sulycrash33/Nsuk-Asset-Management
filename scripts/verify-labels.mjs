@@ -35,12 +35,12 @@ function verifyPages(doc, paper, count) {
     for (const other of samples.filter((_, index) => index !== page - 1)) {
       assert.ok(!commands.includes(other.barcode), "No other asset code on this page");
     }
-    // Layout asked for on 3 Nov 2026: the system's name heads the label in
-    // place of the University's, and the item's details fill the room left.
-    assert.ok(commands.includes("NSUK ASSET") && commands.includes("MANAGEMENT SYSTEM"), "System name printed");
-    assert.ok(!commands.includes("NASARAWA STATE"), "University name replaced by the system name");
-    for (const detail of [samples[page - 1].name, "Fixed Assets Unit", "Furniture & Fittings"]) {
-      assert.ok(commands.includes(detail), `"${detail}" is printed when there is room`);
+    // Layout settled on 3 Nov 2026: crest, system name, QR, asset code —
+    // nothing about the item. Extra fields from an older caller must not
+    // reach the sticker.
+    assert.ok(commands.includes("NSUK ASSET MANAGEMENT SYSTEM"), "System name printed");
+    for (const detail of [samples[page - 1].name, "Fixed Assets Unit", "Furniture", "Keffi", "NASARAWA STATE"]) {
+      assert.ok(!commands.includes(detail), `"${detail}" is not printed`);
     }
   }
 }
