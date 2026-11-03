@@ -6,7 +6,8 @@ a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
 Not yet in production use. The pilot has not loaded real data. **That makes now
 the cheap moment for anything that would later require relabelling physical
-items.** The register is **empty** again (3 Nov 2026, 11:11 UTC): the four trial
+items.** The register is **empty** again (3 Nov 2026, 11:11 UTC; re-checked
+11:14, unchanged): the four trial
 records were deleted in the app by the user (an administrator account) at
 11:05–11:09, as a deliberate clean-up, which also
 removed their photos, and at the user's choice the two automatic accounting
@@ -266,7 +267,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–3 November 2026 (#66–#77)
+## Handoff: changes on 1–3 November 2026 (#66–#79)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -332,7 +333,7 @@ rendering seven sizes with `pypdfium2` and decoding each QR exactly at 203 and
 for bounds, order and the QR-first rule. The picker itself has not been clicked
 through in the running app.
 
-**3 November — small label PDFs.** The QR is drawn as filled squares
+**3 November — small label PDFs, in #79.** The QR is drawn as filled squares
 (`drawQr` in `src/lib/pdf.ts`) instead of an embedded picture, page streams are
 compressed, and the crest is embedded once with compression. A 100-label batch
 went from 88 MB and 4.3 s to 208 KB and 0.15 s. The module grid and its
@@ -372,6 +373,28 @@ out as a recognisable grey crest.
 Tests added: `supabase/tests/land_classification.sql`,
 `supabase/tests/photo_thumbnails.sql`, and cases in
 `scripts/verify-asset-photos.mjs` and `verify-account-provisioning.mjs`.
+
+**Before the pilot** — the user asked (3 Nov) whether the system is solid and
+what could go wrong. The answer: the foundation is sound (rules enforced in the
+database and tested in CI, codes and serials unique by constraint, documents
+verified by reading them back); the risks are operational. In order of cost:
+
+1. Nobody has used it end to end. Hold one rehearsal on the preview with two or
+   three officers, their phones and the XP-365B: add, import, print, scan,
+   verify, delete.
+2. Double recording. Officers record into any unit but see only their own
+   records, so two can tag the same item. Give each officer a written list of
+   rooms or units, and have an administrator review new records weekly.
+3. Wrong unit. The unit is part of the asset code, so a wrong pick means a
+   relabel. Confirm the unit codes, and the missing sections 6 and 11, with the
+   Fixed Assets Unit before tagging starts.
+4. Label wear. Print and stick a test label somewhere hot; use thermal-transfer
+   or laminated stock outdoors.
+5. Lock-outs and weak logins: SMTP, leaked password protection, one account per
+   person, leavers removed the same day (all listed below).
+
+Items 7–9 of that answer (label size, backups, trial data) were dealt with on
+3 Nov: see the sections above and the backup note below.
 
 **Waiting on the user**
 
