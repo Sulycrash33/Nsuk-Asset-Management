@@ -39,3 +39,16 @@ export async function fileFingerprint(bytes: ArrayBuffer): Promise<string> {
 export async function importRowKey(fileHash: string, index: number, unitId: string): Promise<string> {
   return fileFingerprint(new TextEncoder().encode(JSON.stringify([fileHash, index, unitId])).buffer);
 }
+
+/**
+ * The date stored when only the year an asset became available for use is
+ * known: 1 January of that year, or the acquisition date when the item was
+ * acquired later in that same year (it cannot be in use before it is owned).
+ * Depreciation starts from this day.
+ */
+export function yearOnlyAvailableDate(year: string, acquisitionDate: string | null | undefined): string {
+  const january = `${year}-01-01`;
+  return acquisitionDate && acquisitionDate.slice(0, 4) === year && acquisitionDate > january
+    ? acquisitionDate
+    : january;
+}

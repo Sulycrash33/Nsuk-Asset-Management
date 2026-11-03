@@ -74,6 +74,9 @@ export type Asset = {
   acquisition_year_only?: boolean;
   cost_known?: boolean;
   available_for_use_date?: string | null;
+  /** Only the year is known; the date holds 1 January of it, or the
+   *  acquisition date when that is later in the same year. */
+  available_for_use_year_only?: boolean;
   photo_url: string | null;
   notes: string | null;
   created_by: string | null;
