@@ -24,7 +24,8 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
   if (accountingError) throw new Error("Unable to load accounting status. Please try again.");
   if (!asset) notFound();
   if (isAuditor) redirect(`/assets/${id}`);
-  if (!isAdmin && !scopedUnitIds.includes(asset.org_unit_id)) redirect(`/assets/${id}`);
+  const ownRecord = asset.created_by === profile.id;
+  if (!isAdmin && !ownRecord && !scopedUnitIds.includes(asset.org_unit_id)) redirect(`/assets/${id}`);
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
