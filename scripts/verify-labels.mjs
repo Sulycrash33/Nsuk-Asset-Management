@@ -123,10 +123,42 @@ test("every size lays out inside the sticker, top to bottom in order", () => {
   }
 });
 
-test("60 x 40 mm keeps the approved layout and a 22 mm QR", () => {
+test("60 x 40 mm keeps the approved layout and a QR of at least 22 mm", () => {
   const l = labelLayout(DEFAULT_LABEL_SIZE);
   assert.ok(l.crest && l.title && l.durable);
-  assert.ok(Math.abs(l.qr.size - 22) < 0.2, `QR ${l.qr.size} mm`);
+  assert.ok(l.qr.size >= 22 && l.qr.size < 24, `QR ${l.qr.size} mm`);
+});
+
+test("the asset code sits just under the QR's quiet zone", () => {
+  // Asked for on 3 Nov 2026: the code was 2.4 mm further down than it needed
+  // to be. The QR's own white border is the only real separation now.
+  for (const size of [...LABEL_SIZE_PRESETS, ...oddSizes]) {
+    const l = labelLayout(size);
+    const capTop = l.code.baseline - l.code.size * 0.3528 * 0.718;
+    const gap = capTop - (l.qr.y + l.qr.size);
+    const scale = Math.min(3, Math.max(0.4, Math.min(size.width / 60, size.height / 40)));
+    assert.ok(gap > 0 && gap <= 0.6 * scale + 0.01, `${size.width}x${size.height}: ${gap.toFixed(2)} mm past the QR`);
+  }
+});
+
+test("the asset code prints pure black, outlined, and within the margins", async () => {
+  const long = { barcode: "NSU/ENGR/MECH/ICT/1234" };
+  for (const size of [DEFAULT_LABEL_SIZE, { width: 40, height: 30 }, { width: 100, height: 75 }]) {
+    const doc = await generateSingleLabel(long, size);
+    const page = doc.internal.pages[1].join("\n");
+    const at = page.indexOf(`(${long.barcode})`);
+    assert.ok(at > 0, "code printed whole");
+    const block = page.slice(page.lastIndexOf("BT", at), at);
+    assert.match(block, /\n2 Tr\n/, "fill then stroke, to thicken the strokes");
+    assert.match(block, /\n0\.? g\n/, "pure black, not a grey a thermal printer would dither");
+    assert.match(block, /\n[\d.]+ Tc\n/, "letter spacing");
+    const l = labelLayout(size);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(l.code.size);
+    const full = doc.getTextWidth(long.barcode) + l.code.charSpace * (long.barcode.length - 1) + l.code.stroke;
+    const fit = Math.min(1, l.code.maxWidth / full);
+    assert.ok(full * fit <= l.code.maxWidth + 0.01, `${size.width}x${size.height}: code fits`);
+  }
 });
 
 test("larger stickers get a larger QR", () => {
