@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signedAssetPhoto } from "@/lib/asset-photo";
+import { removeUnusedAssetPhoto, signedAssetPhoto } from "@/lib/asset-photo";
 import { preparePhoto, thumbnailKey } from "@/lib/photo-compress";
 import { useRef, useState } from "react";
 import {
@@ -126,6 +126,14 @@ export default function AssetForm({
   /** The serial the in-flight lookup was asked about, so a late reply can be
    *  told apart from the current one. */
   const serialAskedFor = useRef("");
+  /**
+   * Photos a newer upload has replaced. They are removed from storage once the
+   * form saves without them, so a replaced photo does not stay behind. A photo
+   * that is only cleared, with nothing put in its place, is kept.
+   */
+  const replacedPhotos = useRef(new Set<string>());
+  /** The photo last cleared with the ✕ button, until something replaces it. */
+  const clearedPhoto = useRef<string | null>(null);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -188,6 +196,9 @@ export default function AssetForm({
         throw new Error(
           "Upload completed but its private preview could not be confirmed. Try again.",
         );
+      const displaced = form.photo_url || clearedPhoto.current;
+      if (displaced && displaced !== path) replacedPhotos.current.add(displaced);
+      clearedPhoto.current = null;
       set("photo_url", path);
       setPhotoSource(source);
     } catch (error) {
@@ -198,6 +209,24 @@ export default function AssetForm({
     } finally {
       setUploading(false);
     }
+  }
+
+  /**
+   * After a save, remove the photos replaced on this form that the asset no
+   * longer shows. The database decides who may remove which file and refuses
+   * any photo still in use; a file that cannot be removed only stays in
+   * storage, so the save is reported as done either way.
+   */
+  async function removeReplacedPhotos(saved: string | null) {
+    const supabase = createClient();
+    const stale = [...replacedPhotos.current].filter((key) => key !== saved);
+    replacedPhotos.current.clear();
+    clearedPhoto.current = null;
+    await Promise.all(
+      stale.map((key) =>
+        removeUnusedAssetPhoto(supabase, key, process.env.NEXT_PUBLIC_SUPABASE_URL!),
+      ),
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -316,6 +345,7 @@ export default function AssetForm({
         setError(clash ? DUPLICATE_SERIAL_MESSAGE : updateError.message);
         return;
       }
+      await removeReplacedPhotos(payload.photo_url);
       toast.success("Changes saved", asset.barcode);
       router.push(`/assets/${asset.id}`);
       router.refresh();
@@ -340,6 +370,7 @@ export default function AssetForm({
       return;
     }
 
+    await removeReplacedPhotos(payload.photo_url);
     setCreated(data as Asset);
     toast.success(
       "Asset recorded",
@@ -689,6 +720,7 @@ export default function AssetForm({
               <button
                 type="button"
                 onClick={() => {
+                  clearedPhoto.current = form.photo_url;
                   set("photo_url", "");
                   setPhotoSource(null);
                 }}
