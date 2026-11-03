@@ -4,14 +4,18 @@ A digital register and barcode tracking system for the physical assets of
 Nasarawa State University, Keffi. Every non-human asset is recorded once, given
 a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
-Not yet in production use. The register is deliberately empty: the pilot has not
-loaded real data. **That makes now the cheap moment for anything that would
-later require relabelling physical items.**
+Not yet in production use. The pilot has not loaded real data. **That makes now
+the cheap moment for anything that would later require relabelling physical
+items.** As of 3 Nov 2026 the register holds three records, all with photos: one
+recorded by an administrator on 2 Nov and two recorded by staff on 3 Nov, after
+staff could record into any unit. Whether they are trials to delete before the
+pilot is the user's call — ask, do not assume.
 
 The unit tree is the University's own as of migration 22 — 191 units across all
-four campuses. Six accounts exist (2 Nov 2026): two administrators and four
-staff. The next step is the people: ten officers who will record assets across
-the institution. Supabase is on the **Pro plan** since 2 Nov 2026.
+four campuses. Six accounts exist (3 Nov 2026): two administrators and four
+staff, and none of the four staff has a unit assigned. That no longer stops them
+recording (see below). The next step is the people: ten officers who will record
+assets across the institution. Supabase is on the **Pro plan** since 2 Nov 2026.
 
 ## Stack
 
@@ -256,14 +260,41 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–2 November 2026
+## Handoff: changes on 1–3 November 2026
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
-improvement — is described first and waits for approval. Open a draft PR; merge
-only when the user says "merge" (usually "merge when it passes": wait for both
-`check` and `Isolated database integration`, then squash-merge).
+improvement — is described first and waits for approval. Where a request leaves
+a real choice open (for example who may see what), ask one short question with
+a recommended option, then build exactly that. Open a draft PR; merge only when
+the user says "merge" (usually "merge when it passes": wait for both `check` and
+`Isolated database integration`, then mark ready and squash-merge).
 
-Merged in #66–#71, migrations applied live and committed:
+**3 November — merged in #73** (`20261103083911_staff_record_into_any_unit`,
+applied live and committed):
+
+- **Staff record into any unit.** The user asked that an account be able to add
+  assets whether or not it has units assigned, since the unit is chosen while
+  tagging. `assets_insert` now checks only `can_write_assets()`. The unit
+  picker on the asset form and the importer list every unit, and the "not
+  assigned to a unit yet" block on `/assets/new` is gone.
+- **Afterwards: own records only** — the option the user chose. An officer can
+  open, label, see the history and photo of, and correct the assets they
+  recorded, wherever those are. Other people's assets stay hidden unless they
+  are in the officer's units. Auditors stay strictly unit-scoped, and only
+  administrators delete. Rejected alternatives: view-only own records, and the
+  whole register visible to all staff.
+- **`created_by` now grants access**, so the insert trigger sets it from the
+  caller (a client-supplied value is ignored) and the update trigger keeps it
+  fixed. The register list (`register-scope.ts`) and `/labels` no longer filter
+  by assigned units; row level security decides.
+- Verified: `supabase/tests/staff_record_any_unit.sql` passed against the live
+  database in a rolled-back transaction, and failed without the migration (the
+  control). It also passed in CI. The security advisor showed nothing new.
+  After the merge, staff accounts with no units saved two real records with
+  photos — the add form works in the app. The importer and `/labels` as such an
+  account have not been seen working.
+
+**1–2 November — merged in #66–#71**, migrations applied live and committed:
 
 - **Accounts**: assigning units at creation is optional (form and
   `parseAccountInput`). An account with no units sees only what it records itself.
@@ -296,10 +327,13 @@ Tests added: `supabase/tests/land_classification.sql`,
 
 **Waiting on the user**
 
-- Delete the six leftover photos in Supabase → Storage → `asset-photos` (all six
-  are unreferenced; the register has 0 assets). Direct SQL deletion is blocked
-  by `storage.protect_delete` and would leave the files, so it must be the
-  dashboard or Storage API. Then confirm the bucket is empty.
+- Delete the six leftover photos in Supabase → Storage → `asset-photos`. Still
+  there on 3 Nov: the bucket holds 12 files, of which 6 (three photos and their
+  thumbnails) belong to the three assets and must stay. The other 6 are
+  unreferenced, dated 9 Aug–1 Nov: two `.jpg` from 9 Aug, two `.png` from
+  13 Oct, and one `.png` and one `.jpg` from 1 Nov. Check each against `assets.photo_url` before
+  deleting. Direct SQL deletion is blocked by `storage.protect_delete` and would
+  leave the files, so it must be the dashboard or the Storage API.
 - Turn on leaked password protection.
 - Before using email invitations or "forgot password": set up custom SMTP.
   Supabase's built-in email only reaches organisation team members, a few per
@@ -311,6 +345,9 @@ Tests added: `supabase/tests/land_classification.sql`,
   form; today it stays in storage.
 - Year-only option for "Date available for use".
 
-**Not yet tried on a real phone**: photo upload and thumbnail, the typed delete
-confirmation, the year-only date, and saving an asset with blank fields. Worth
+**Not yet confirmed on a real phone**: the typed delete confirmation, saving an
+asset with blank fields, and — as a staff account with no units — importing a
+file and printing labels. The three records in the register show that photo
+upload with thumbnail and the year-only date have saved in the app (two of the
+three are year-only), but nobody has said whether that was on a phone. Worth
 doing on the preview before the pilot.
