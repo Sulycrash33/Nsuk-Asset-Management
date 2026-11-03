@@ -6,10 +6,10 @@ a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
 Not yet in production use. The pilot has not loaded real data. **That makes now
 the cheap moment for anything that would later require relabelling physical
-items.** As of 3 Nov 2026 the register holds three records, all with photos: one
-recorded by an administrator on 2 Nov and two recorded by staff on 3 Nov, after
-staff could record into any unit. Whether they are trials to delete before the
-pilot is the user's call — ask, do not assume.
+items.** As of 3 Nov 2026 (10:35 UTC) the register holds four records, all with
+photos: one recorded by an administrator on 2 Nov and three recorded by staff on
+3 Nov, after staff could record into any unit. Whether they are trials to delete
+before the pilot is the user's call — ask, do not assume.
 
 The unit tree is the University's own as of migration 22 — 191 units across all
 four campuses. Six accounts exist (3 Nov 2026): two administrators and four
@@ -267,7 +267,11 @@ improvement — is described first and waits for approval. Where a request leave
 a real choice open (for example who may see what), ask one short question with
 a recommended option, then build exactly that. Open a draft PR; merge only when
 the user says "merge" (usually "merge when it passes": wait for both `check` and
-`Isolated database integration`, then mark ready and squash-merge).
+`Isolated database integration`, then mark ready and squash-merge). A "merge"
+covers the PR it was said about, not the next one. The user often relays the
+University's wishes ("they said…") and refines them over several messages:
+build the latest instruction exactly, drop what it supersedes, and send a
+rendered picture of anything visual so they can judge it before merging.
 
 **3 November — merged in #73** (`20261103083911_staff_record_into_any_unit`,
 applied live and committed):
@@ -290,11 +294,11 @@ applied live and committed):
 - Verified: `supabase/tests/staff_record_any_unit.sql` passed against the live
   database in a rolled-back transaction, and failed without the migration (the
   control). It also passed in CI. The security advisor showed nothing new.
-  After the merge, staff accounts with no units saved two real records with
-  photos — the add form works in the app. The importer and `/labels` as such an
+  After the merge, staff accounts with no units saved three records with photos
+  (by 10:35 UTC) — the add form works in the app. The importer and `/labels` as such an
   account have not been seen working.
 
-**3 November — label redesign**, at the University's request, after two
+**3 November — label redesign, merged in #75**, at the University's request, after two
 intermediate versions (University name beside the QR; then item details in the
 spare room). Settled layout, centred top to bottom: the NSUK crest, "NSUK ASSET
 MANAGEMENT SYSTEM", the QR (still 22 mm), and the asset code under it. Nothing
@@ -304,7 +308,7 @@ the label still prints without it. Verified by rendering with `pypdfium2` and
 decoding every QR exactly with `zxing-cpp` at the printer's 203 dpi.
 `scripts/verify-labels.mjs` asserts the system name and that item details are
 absent. The crest is in colour; on the monochrome XP-365B it prints as greys —
-worth looking at on a real sticker.
+not yet seen on a real sticker.
 
 **1–2 November — merged in #66–#71**, migrations applied live and committed:
 
@@ -340,8 +344,8 @@ Tests added: `supabase/tests/land_classification.sql`,
 **Waiting on the user**
 
 - Delete the six leftover photos in Supabase → Storage → `asset-photos`. Still
-  there on 3 Nov: the bucket holds 12 files, of which 6 (three photos and their
-  thumbnails) belong to the three assets and must stay. The other 6 are
+  there on 3 Nov: the bucket holds 14 files, of which 8 (four photos and their
+  thumbnails) belong to the four assets and must stay. The other 6 are
   unreferenced, dated 9 Aug–1 Nov: two `.jpg` from 9 Aug, two `.png` from
   13 Oct, and one `.png` and one `.jpg` from 1 Nov. Check each against `assets.photo_url` before
   deleting. Direct SQL deletion is blocked by `storage.protect_delete` and would
@@ -356,10 +360,15 @@ Tests added: `supabase/tests/land_classification.sql`,
 - Removing the old photo (and thumbnail) when a photo is replaced on the edit
   form; today it stays in storage.
 - Year-only option for "Date available for use".
+- Smaller label PDFs. Each label's QR is embedded as an uncompressed image, so a
+  label costs about 1 MB (three came to 2.9 MB). This predates #75 — the old
+  layout was the same size — and the crest adds only ~200 KB once per file.
+  Harmless for a few labels, slow for a batch of hundreds on a phone.
 
-**Not yet confirmed on a real phone**: the typed delete confirmation, saving an
-asset with blank fields, and — as a staff account with no units — importing a
-file and printing labels. The three records in the register show that photo
-upload with thumbnail and the year-only date have saved in the app (two of the
-three are year-only), but nobody has said whether that was on a phone. Worth
-doing on the preview before the pilot.
+**Not yet confirmed on a real phone or printer**: the typed delete confirmation,
+saving an asset with blank fields, and — as a staff account with no units —
+importing a file and printing labels. The new label has not been printed on a
+real 60 × 40 mm sticker. The records in the register show that photo upload
+with thumbnail and the year-only date have saved in the app, but nobody has
+said whether that was on a phone. Worth doing on the preview before the
+pilot.
