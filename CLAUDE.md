@@ -6,7 +6,7 @@ a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
 Not yet in production use. The pilot has not loaded real data. **That makes now
 the cheap moment for anything that would later require relabelling physical
-items.** As of 3 Nov 2026 (10:35 UTC) the register holds four records, all with
+items.** As of 3 Nov 2026 (checked 10:58 UTC) the register holds four records, all with
 photos: one recorded by an administrator on 2 Nov and three recorded by staff on
 3 Nov, after staff could record into any unit. Whether they are trials to delete
 before the pilot is the user's call — ask, do not assume.
@@ -262,7 +262,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–3 November 2026
+## Handoff: changes on 1–3 November 2026 (#66–#77)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -312,7 +312,7 @@ decoding every QR exactly with `zxing-cpp` at the printer's 203 dpi.
 absent. The crest is in colour; on the monochrome XP-365B it prints as greys —
 not yet seen on a real sticker.
 
-**3 November — any sticker size** (asked for after #75: "adjust to any surface,
+**3 November — any sticker size, merged in #77** (asked for after #75: "adjust to any surface,
 60 × 40 or smaller or larger"). `labelLayout(size)` in `src/lib/pdf.ts` scales
 the approved 60 × 40 layout to any width × height, keeps the same top-to-bottom
 order, and gives the QR whatever room is left (45 mm on 100 × 75, 93 mm on
@@ -369,6 +369,13 @@ Tests added: `supabase/tests/land_classification.sql`,
   deleting. Direct SQL deletion is blocked by `storage.protect_delete` and would
   leave the files, so it must be the dashboard or the Storage API.
 - Turn on leaked password protection.
+- Decide, with the University, whether small stickers keep the logo at the cost
+  of a QR under 22 mm. Asked on 3 Nov after #77, not yet answered. Today the QR
+  comes first: on 40 × 30 and 50 × 30 the crest is left off, and below about
+  50 × 25 the header goes and the picker warns. Swapping the order is a small
+  change to the option list in `labelLayout`.
+- Decide whether the four records in the register are trials to delete before
+  the pilot.
 - Before using email invitations or "forgot password": set up custom SMTP.
   Supabase's built-in email only reaches organisation team members, a few per
   hour. Until then, create officer accounts with a password.
