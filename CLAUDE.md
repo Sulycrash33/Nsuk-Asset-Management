@@ -5,7 +5,7 @@ Nasarawa State University, Keffi. Every non-human asset is recorded once, given
 a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
 Not yet in production use, but **real recording has begun**: after the morning
-wipe below, officers recorded 62 assets on 4 Nov 2026 (10:56–13:36 UTC), all
+wipe below, officers recorded 63 assets on 4 Nov 2026 (from 10:56 UTC), all
 by hand on `/assets/new`, none imported. Treat the register as live data from
 here on. Unit codes are still unconfirmed, so a wrong unit now means a relabel.
 The register was wiped completely on 4 Nov 2026 (~09:15 UTC), at the user's
@@ -293,7 +293,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–4 November 2026 (#66–#85)
+## Handoff: changes on 1–4 November 2026 (#66–#87)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -360,6 +360,52 @@ before the merge because officers were still recording, and committed):
   committed). CI installs the real package. Running `next dev` also appends a
   block to `CLAUDE.md` and edits `next-env.d.ts`; revert both, and delete
   `.next` before the next typecheck.
+- **Checked again after #86 merged** (the user asked whether everything was
+  merged and depreciation working): `main` holds #85 and #86, and Vercel
+  production is READY on #86's commit. Live: 63 assets, 52 valued; both assets
+  saved after the migration were valued on save; no asset with a category, a
+  known cost and a start date lacks depreciation; no typed cost left unknown;
+  every acquisition event's cost and start date match its asset;
+  `asset_depreciation` refused to `anon`. 2026 depreciation to date
+  ₦430,567.11, book value ₦129,682.89. Still not seen in the running app: the
+  panel as an administrator.
+- **CI flake seen on #86:** `check` failed once in the build because
+  `next/font/google` could not fetch JetBrains Mono ("next/font/google queries
+  have exactly one entry"), on a `CLAUDE.md`-only change whose code had just
+  passed on `main`. One re-run passed. Treat a repeat as real.
+
+**4 November — the Fixed Assets Unit checklist** (asked for after a second
+pilot-readiness question; not in the repository): a Claude Docs document,
+[Pilot checklist for the Fixed Assets Unit](https://claude.ai/artifact/Cr7kR9jHqDttpbHh7ChrSh),
+private to the user until they share it. Six sections: decide before more
+tagging (codes of the five units in use — PRO, PPD, AAD, ACP under VCS/REG,
+FXA under BUR — then the rest; sections 6 and 11; crest versus 22 mm QR);
+accounts and units; six rules for officers; labels and a rehearsal day; a
+weekly administrator review; what the first day's records show. Edit it
+through the Claude Docs connector, never by publishing files into it.
+
+What the first day's records show, found while writing it and new since the
+readiness answer:
+
+- **10 records each stand for several items** ("8 Office cabinet"
+  NSU/VCS/PRO/OE/004, "5 office Window blinds" FF/030, four "2 Vistor Chair"
+  records, "2 seater and 2 single sofa" PPD/OE/005, …). One label then covers
+  several items. Nothing in the system stops it; the checklist asks officers
+  for one record per item. Not raised as a code change.
+- **The same kind of item is classified differently**: ceiling fans are
+  Furniture & Fittings in Procurement Unit but Office Equipment in ACP and PPD;
+  the PPD sofa is Office Equipment. The class sets the rate (20% vs 25%) and the
+  item-type segment of the code (FF, OE), and is locked once depreciation
+  exists.
+- **A missing category is permanent in the code**: `next_barcode` writes `XX`
+  and the code is fixed at insert (NSU/VCS/PRO/XX/023). Confirmed by reading
+  `next_barcode` and `assets_before_insert`.
+- No asset has a room (`location` is empty on all 63); no serial numbers.
+
+The second readiness answer (4 Nov, ~13:45): **not yet for a proper pilot**, and
+recording has started anyway, so confirming unit codes is now the most urgent
+item; then units for staff, a rehearsal on real phones and the XP-365B, the six
+missing officer accounts, and destroying trial stickers.
 
 **4 November — merged in #82** (migrations
 `20261104090954_every_account_reads_whole_register` and
@@ -565,8 +611,8 @@ pilot, in order:
 5. Trial stickers destroyed.
 
 Not blocking: backups exclude photos; the logo-versus-22 mm decision on small
-stickers is still open. A one-page checklist for the Fixed Assets Unit was
-offered and not yet asked for.
+stickers is still open. The one-page checklist for the Fixed Assets Unit that
+was offered here was asked for and written the same afternoon (see above).
 
 **Before the pilot** — the user asked (3 Nov) whether the system is solid and
 what could go wrong. The answer: the foundation is sound (rules enforced in the
@@ -622,7 +668,8 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
   in #80. Offered and not asked for: removing a photo that is only cleared with
   ✕, with nothing put in its place (kept today).
 
-**Not yet confirmed on a real phone or printer**: from #85, the asset page's
+**Not yet confirmed on a real phone or printer**: whether any of the 63 real
+assets' labels have been printed and stuck. From #85, the asset page's
 Depreciation panel as an administrator, and the greyed "cost is known" box on
 the form. Earlier: the typed delete confirmation,
 saving an asset with blank fields, and — as a staff account with no units —
