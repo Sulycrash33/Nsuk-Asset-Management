@@ -4,10 +4,12 @@ A digital register and barcode tracking system for the physical assets of
 Nasarawa State University, Keffi. Every non-human asset is recorded once, given
 a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
-Not yet in production use. The pilot has not loaded real data. **That makes now
-the cheap moment for anything that would later require relabelling physical
-items.** The register was wiped completely on 4 Nov 2026 (~09:15 UTC), at the
-user's request ("delete every asset and clear every remnant"): the three trial
+Not yet in production use, but **real recording has begun**: after the morning
+wipe below, officers recorded 62 assets on 4 Nov 2026 (10:56–13:36 UTC), all
+by hand on `/assets/new`, none imported. Treat the register as live data from
+here on. Unit codes are still unconfirmed, so a wrong unit now means a relabel.
+The register was wiped completely on 4 Nov 2026 (~09:15 UTC), at the user's
+request ("delete every asset and clear every remnant"): the three trial
 assets recorded that morning, all asset history, all accounting entries, and
 the four trial stock counts with their scans. At the user's choice the running
 numbers were **reset too** (`org_units.asset_seq` = 0 everywhere), so every
@@ -291,7 +293,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–4 November 2026 (#66–#83)
+## Handoff: changes on 1–4 November 2026 (#66–#85)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -303,6 +305,61 @@ covers the PR it was said about, not the next one. The user often relays the
 University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
+
+**4 November — merged in #85** (migration
+`20261104133049_automatic_depreciation_from_acquisition_date`, applied live
+before the merge because officers were still recording, and committed):
+
+- **Depreciation is calculated automatically.** The user reported it was not.
+  The cause was the recognition rule in `accounting_capture()`: it needed
+  "Date available for use" *and* the "Purchase cost is known" box. Of the first
+  59 real assets, 50 had no depreciation: 35 gave only an acquisition date, and
+  5 typed a cost but left the box unticked. Asked, the user chose all four
+  recommended options:
+  1. **Start date falls back to the acquisition date** (so 1 January for a
+     year-only acquisition, the same day #80 chose). A date available for use
+     still wins when it is given. Rejected: keeping that date required.
+  2. **A cost above ₦0 is a known cost.** `assets_cost_known_from_value()`, a
+     `SECURITY DEFINER` before trigger with execute revoked, sets `cost_known`
+     — but only while the asset has no accounting record, because after that
+     the facts are locked and changing `cost_known` would trip the lock. The
+     box now only confirms ₦0; the form ticks and greys it once a cost is
+     typed, and sends `cost_known || value > 0`.
+  3. **Existing assets were caught up** in the migration: 40 recognised. Those
+     5 had `cost_known` set by an update (field history does not track it, so
+     no history rows were written; `updated_at` did change); the rest were
+     inserted with `recorded_by` null, the same reason and evidence as the
+     trigger.
+  4. **Administrators see depreciation on the asset page**
+     (`src/components/depreciation-panel.tsx`): cost, annual charge, start
+     date, this year so far, accumulated, book value today. It comes from the
+     new `asset_depreciation(asset, date)`, admin-only, same arithmetic as
+     `accounting_report`. Staff and auditors do not see it. Without an
+     accounting record, the panel names what is missing (`depreciationGaps`).
+     Rejected: showing it to everyone, or keeping it on `/accounting` only.
+- **Consequence to know:** an asset recognised from its acquisition date is
+  locked as before, so a date available for use found later is an
+  administrator correction, not an officer edit.
+- **Live after the migration:** 61 assets, 50 valued, 11 flagged "Needs
+  accounting details" (7 with no date at all, 3 with no cost, 1 with no
+  category). Totals on 4 Nov: cost ₦15.70M, accumulated ₦15.57M, book
+  ₦0.13M. That is correct, not a bug: 38 are Office Equipment at 25% acquired
+  2020–2022, so fully written off. Spot check by hand: NSU/VCS/ACP/FF/001,
+  ₦350,000 at 20% from 1 Jan 2022, is ₦339,068.49 accumulated on 4 Nov 2026
+  (4 × 70,000 + 70,000 × 308/365).
+- Verified: `supabase/tests/automatic_depreciation.sql` failed against the
+  live database before the migration (control) and passed with it, rolled
+  back; CI green on both jobs. In the app: the first asset an officer saved
+  after the migration (13:36 UTC) was valued on save — 62 assets, 51 valued.
+  The panel was rendered from the component with real figures and sent to the
+  user; nobody has opened it signed in as an administrator in the running app.
+- **Sandbox note:** `cdn.sheetjs.com` is denied by this cloud environment's
+  network policy, so `npm ci` fails here on `xlsx`. To run `npm run check`
+  locally, install with `xlsx` removed from `package.json`, restore the
+  manifests, and put a typed stand-in in `node_modules/xlsx` (never
+  committed). CI installs the real package. Running `next dev` also appends a
+  block to `CLAUDE.md` and edits `next-env.d.ts`; revert both, and delete
+  `.next` before the next typecheck.
 
 **4 November — merged in #82** (migrations
 `20261104090954_every_account_reads_whole_register` and
@@ -490,7 +547,8 @@ Tests added: `supabase/tests/land_classification.sql`,
 `supabase/tests/photo_thumbnails.sql`, and cases in
 `scripts/verify-asset-photos.mjs` and `verify-account-provisioning.mjs`.
 
-**Pilot readiness, asked again on 4 Nov after #82–#83** ("is the system ready
+**Pilot readiness, asked again on 4 Nov after #82–#83** (before real
+recording began that afternoon; see the top of this file) ("is the system ready
 for the pilot now?"). The answer: **ready for a rehearsal, not yet for real
 tagging.** Checked live that day: 0 assets, every unit's running number at 0,
 191 units, 10 active categories, 2 administrators and 4 staff, no account with
@@ -564,7 +622,9 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
   in #80. Offered and not asked for: removing a photo that is only cleared with
   ✕, with nothing put in its place (kept today).
 
-**Not yet confirmed on a real phone or printer**: the typed delete confirmation,
+**Not yet confirmed on a real phone or printer**: from #85, the asset page's
+Depreciation panel as an administrator, and the greyed "cost is known" box on
+the form. Earlier: the typed delete confirmation,
 saving an asset with blank fields, and — as a staff account with no units —
 importing a file and printing labels. The new label has not been printed on a
 real sticker of any size, and the Label size picker has not been used in the
