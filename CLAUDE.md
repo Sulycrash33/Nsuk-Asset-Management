@@ -100,7 +100,12 @@ units (`user_units`; a faculty's unit covers the departments under it via
 `my_unit_ids()`) plus the assets they recorded themselves (`created_by =
 auth.uid()`). `created_by` therefore grants edit access, so the insert trigger
 always sets it from the caller and the update trigger never lets it change — do
-not loosen either. Auditors edit nothing; only administrators delete. Because
+not loosen either. Auditors edit nothing; only administrators delete. An edit must
+also leave the asset inside the editor's scope, so staff cannot transfer an
+asset to a unit they do not hold: `assets_update`'s `with check` states that
+scope (migration `keep_asset_edits_in_scope`). Before the read widened this held
+only by accident, because Postgres also checks an updated row against the read
+policy; CI's `bulk_assets.sql` caught the gap. Because
 reading is wider than editing, the screens must not offer an edit to someone
 who only reads: the asset page shows Edit and Transfer only when `canEdit`, and
 Print label always; the register shows a bulk-change checkbox only on rows the

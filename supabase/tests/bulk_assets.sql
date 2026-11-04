@@ -24,6 +24,11 @@ begin
   raise exception 'Out-of-scope transfer accepted';
  exception when insufficient_privilege then null; end;
  if (select count(*) from public.assets where id in(a,b) and org_unit_id=u)<>2 then raise exception 'Transfer partially applied'; end if;
+ -- The single-asset path is held to the same scope (keep_asset_edits_in_scope).
+ begin
+  perform public.move_asset(a,other_u,'Unauthorized move');
+  raise exception 'Out-of-scope move accepted';
+ exception when insufficient_privilege then null; end;
  begin
   perform public.bulk_update_assets(array[a],'Invalid',null,null);
   raise exception 'Invalid condition accepted';
