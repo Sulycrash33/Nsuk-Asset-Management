@@ -58,3 +58,38 @@ export function accountingExportRows(report: AccountingReport) {
 }
 
 
+
+/** One asset's figures from `asset_depreciation`; null when nothing is recognised yet. */
+export type AssetDepreciation =
+  | { as_of: string; status: "Not yet in use"; starts: string }
+  | {
+      as_of: string;
+      status: "Valued";
+      starts: string;
+      classification: string | null;
+      model: "cost" | "current_value";
+      original_cost: number;
+      gross_amount: number;
+      annual_charge: number;
+      impairment: number;
+      residual_value: number;
+      accumulated_depreciation: number;
+      carrying_amount: number;
+      year_depreciation: number;
+    };
+
+/** Why an asset has no depreciation yet, from the facts the register holds. */
+export function depreciationGaps(asset: {
+  category_id: string | null;
+  cost_known?: boolean;
+  value: number | null;
+  acquisition_date: string | null;
+  available_for_use_date?: string | null;
+}): string[] {
+  const gaps: string[] = [];
+  if (!asset.category_id) gaps.push("a category");
+  if (!asset.cost_known && !(Number(asset.value) > 0)) gaps.push("the purchase cost");
+  if (!asset.acquisition_date && !asset.available_for_use_date)
+    gaps.push("an acquisition date or date available for use");
+  return gaps;
+}

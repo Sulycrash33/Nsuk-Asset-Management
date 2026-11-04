@@ -143,6 +143,8 @@ export default function AssetForm({
   /** The photo last cleared with the ✕ button, until something replaces it. */
   const clearedPhoto = useRef<string | null>(null);
 
+  // Any cost above zero is known; the checkbox is only for a confirmed ₦0.
+  const costTyped = (parseAssetValue(form.value) ?? 0) > 0;
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
@@ -329,7 +331,8 @@ export default function AssetForm({
       serial_number: form.serial_number.trim() || null,
       acquisition_date: acquisitionDate || null,
       acquisition_year_only: yearOnly,
-      cost_known: form.cost_known,
+      // A typed cost is a known cost; the box only confirms a zero.
+      cost_known: form.cost_known || (value ?? 0) > 0,
       available_for_use_date: availableDate || null,
       available_for_use_year_only: availableYearOnly,
       notes: form.notes.trim() || null,
@@ -689,8 +692,8 @@ export default function AssetForm({
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={form.cost_known}
-            disabled={accountingLocked}
+            checked={form.cost_known || costTyped}
+            disabled={accountingLocked || costTyped}
             onChange={(e) => set("cost_known", e.target.checked)}
           />
           Purchase cost is known (including a confirmed zero cost)
@@ -750,7 +753,7 @@ export default function AssetForm({
           <p className="mt-1 text-xs text-nsuk-muted">
             {form.available_year_only
               ? "Depreciation is counted from 1 January of that year, or from the acquisition date if the item was acquired later that year."
-              : "Use the date the item was ready to operate. Leave unknown details blank for administrator review."}
+              : "Use the date the item was ready to operate. If left blank, depreciation counts from the acquisition date."}
           </p>
         </div>
         {accountingLocked && (
