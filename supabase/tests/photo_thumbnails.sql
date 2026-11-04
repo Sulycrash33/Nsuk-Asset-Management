@@ -33,12 +33,14 @@ begin
  insert into storage.objects(bucket_id,name,owner_id) values('asset-photos',thumb,owner_id::text);
  insert into public.assets(name,org_unit_id,barcode,qr_payload,photo_url) values('Thumb fixture',u,'fixture-'||gen_random_uuid(),'',photo);
 
- -- A colleague in the unit reads both; an outsider reads neither.
+ -- A colleague in the unit reads both, and so does an outsider: every account
+ -- reads the whole register, photos included.
  perform set_config('request.jwt.claim.sub',colleague_id::text,true);
  if not public.can_read_asset_photo(photo) or not public.can_read_asset_photo(thumb) then raise exception 'Colleague cannot read photo or thumbnail'; end if;
  if (select count(*) from storage.objects where name in(photo,thumb))<>2 then raise exception 'Colleague storage read failed'; end if;
  perform set_config('request.jwt.claim.sub',outsider_id::text,true);
- if public.can_read_asset_photo(thumb) or exists(select 1 from storage.objects where name=thumb) then raise exception 'Outsider read thumbnail'; end if;
+ if not public.can_read_asset_photo(photo) or not public.can_read_asset_photo(thumb) then raise exception 'Outsider cannot read photo or thumbnail'; end if;
+ if (select count(*) from storage.objects where name in(photo,thumb))<>2 then raise exception 'Outsider storage read failed'; end if;
 
  -- Nobody may attach a thumbnail to a photo they did not upload.
  perform set_config('request.jwt.claim.sub',admin_id::text,true);

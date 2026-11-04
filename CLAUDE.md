@@ -6,15 +6,16 @@ a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
 Not yet in production use. The pilot has not loaded real data. **That makes now
 the cheap moment for anything that would later require relabelling physical
-items.** The register is **empty** again (3 Nov 2026, 11:11 UTC; re-checked
-11:14 and 20:55, unchanged): the four trial
-records were deleted in the app by the user (an administrator account) at
-11:05–11:09, as a deliberate clean-up, which also
-removed their photos, and at the user's choice the two automatic accounting
-entries they left were deleted too. Kept, also at the user's choice: four trial
-stock counts (`verification_sessions`), and the used running numbers — the next
-asset in Bursar's Office is `…/004`, Fixed Assets Unit `…/007`, and VC's Office,
-Conference Room and Economics `…/002`. Codes are never reused, by design.
+items.** The register was wiped completely on 4 Nov 2026 (~09:15 UTC), at the
+user's request ("delete every asset and clear every remnant"): the three trial
+assets recorded that morning, all asset history, all accounting entries, and
+the four trial stock counts with their scans. At the user's choice the running
+numbers were **reset too** (`org_units.asset_seq` = 0 everywhere), so every
+unit starts again at `…/001` — checked by issuing `NSU/BUR/BUS/IT/001` in a
+rolled-back transaction. Any trial sticker already printed must be destroyed,
+since its code will be issued again. Outside that one deliberate reset, codes
+are never reused, by design. The 12 photo files in Storage could not be removed
+from here (no service key); see "Waiting on the user".
 
 The unit tree is the University's own as of migration 22 — 191 units across all
 four campuses. Six accounts exist (3 Nov 2026): two administrators and four
@@ -82,20 +83,30 @@ Failed password-account setup compensates by deleting only the newly created Aut
 failed invitation setup retains the recipient and reports the incomplete account for repair.
 Role/unit changes use `assign_account_scope` as one transaction.
 
-**A staff account records into any unit, and reads its units plus its own
-records** (since 3 Nov 2026, migration `staff_record_into_any_unit`). The
-officer picks the unit while tagging, assigned or not: `assets_insert` checks
-only `can_write_assets()`. What they may then read and correct is assets in
-their assigned units (`user_units`; a faculty's unit covers the departments
-under it via `my_unit_ids()`) **plus** the assets they recorded themselves
-(`created_by = auth.uid()`, extended to history, photo and the accounting lock).
-`created_by` therefore grants access, so the insert trigger always sets it from
-the caller and the update trigger never lets it change — do not loosen either.
-Auditors are excluded from the own-record branch and stay strictly unit-scoped.
-The register list and the labels page leave scope to row level security rather
-than filtering by assigned units, or an officer's own records elsewhere would
-vanish from them. An account with no units can record, but sees only what it
-recorded. Test: `supabase/tests/staff_record_any_unit.sql`.
+**Every account reads the whole register; editing is narrower** (since 4 Nov
+2026, migration `every_account_reads_whole_register`, asked for so that anyone
+near one of the few printers can print any label). `assets_select`,
+`asset_logs_select` and the photo check `can_read_asset_photo` allow any
+signed-in caller with a profile — staff and auditors alike, assigned units or
+not. A photo file no asset shows still belongs only to its uploader. Not
+widened: accounting events (admin only), verification counts and the
+dashboard's `unit_asset_stats` (still unit-scoped). The user chose "view &
+print only" over letting everyone edit.
+
+A staff account records into any unit (since 3 Nov, migration
+`staff_record_into_any_unit`): `assets_insert` checks only
+`can_write_assets()`. What they may **correct** is assets in their assigned
+units (`user_units`; a faculty's unit covers the departments under it via
+`my_unit_ids()`) plus the assets they recorded themselves (`created_by =
+auth.uid()`). `created_by` therefore grants edit access, so the insert trigger
+always sets it from the caller and the update trigger never lets it change — do
+not loosen either. Auditors edit nothing; only administrators delete. Because
+reading is wider than editing, the screens must not offer an edit to someone
+who only reads: the asset page shows Edit and Transfer only when `canEdit`, and
+Print label always; the register shows a bulk-change checkbox only on rows the
+person can change. Tests: `supabase/tests/every_account_reads_register.sql`
+(including the control: an identity with no profile, and `anon`, read
+nothing) and `staff_record_any_unit.sql`.
 
 **The last administrator cannot be removed.** Enforced by trigger *and* checked
 in the delete endpoint, because deleting an auth user cascades past the trigger.
@@ -254,9 +265,9 @@ turned out to be false. Prefer measuring to asserting.
   the asset form, all pass typecheck, lint and build and were read back against
   the original — but no one has clicked through `/verify`, `/assets/import` or
   `/assets/new`. Worth doing on the preview before the pilot.
-- Staff record into any unit (3 Nov 2026). They see other people's assets only
-  in units assigned to them, so an officer checking a whole department's count
-  still needs that unit assigned.
+- Every account reads the whole register (4 Nov 2026), but a stock count
+  (`/verify`) is still started only for an assigned unit, and the dashboard
+  totals still cover assigned units only. Neither was asked to change.
 
 ## Things that are not this project
 
@@ -453,13 +464,12 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
 
 **Waiting on the user**
 
-- Delete the six leftover photos in Supabase → Storage → `asset-photos`. With
-  the register empty (3 Nov, 11:11 UTC) these six are the **only** files in the
-  bucket and none is referenced, so the bucket can simply be emptied. They are
-  dated 9 Aug–1 Nov: two `.jpg` from 9 Aug, two `.png` from
-  13 Oct, and one `.png` and one `.jpg` from 1 Nov. Check each against `assets.photo_url` before
-  deleting. Direct SQL deletion is blocked by `storage.protect_delete` and would
-  leave the files, so it must be the dashboard or the Storage API.
+- Empty Supabase → Storage → `asset-photos`. Since the 4 Nov wipe the register
+  has no assets, so all 12 files there (the six old leftovers and the six
+  photos and thumbnails of the three wiped assets) are unreferenced and the
+  bucket can simply be emptied. Direct SQL deletion is blocked by
+  `storage.protect_delete` and would leave the files, so it must be the
+  dashboard or the Storage API.
 - Turn on leaked password protection.
 - Decide, with the University, whether small stickers keep the logo at the cost
   of a QR under 22 mm. Asked on 3 Nov after #77, not yet answered. Today the QR

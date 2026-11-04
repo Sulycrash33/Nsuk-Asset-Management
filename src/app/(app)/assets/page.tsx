@@ -69,18 +69,12 @@ export default async function AssetsPage({
 
   const campusName = campus ? (campuses.find((c) => c.id === campus)?.name ?? null) : null;
 
-  const scopeName = unit
-    ? unitPath(unit, units)
-    : campusName
-      ? campusName
-      : isAdmin
-      ? "All units"
-        : units
-            .filter(
-              (u) => scopedUnitIds.includes(u.id) && !scopedUnitIds.includes(u.parent_id ?? ""),
-            )
-            .map((u) => u.name)
-            .join(", ") || "My units";
+  // Every account reads the whole register, so with no filter it is all units.
+  const scopeName = unit ? unitPath(unit, units) : campusName ? campusName : "All units";
+  // Reading is wider than editing: staff change only what they recorded or
+  // what sits in their units, so only those rows offer a bulk-change checkbox.
+  const canChange = (asset: AssetWithRefs) =>
+    !isAuditor && (isAdmin || asset.created_by === profile.id || scopedUnitIds.includes(asset.org_unit_id));
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -103,12 +97,7 @@ export default async function AssetsPage({
             assetCount={total}
             exportQuery={exportParams.toString()}
             unitName={scopeName}
-            campusName={
-              campusName ??
-              (isAdmin
-                ? "All campuses"
-                : (campuses.find((c) => c.id === profile.campus_id)?.name ?? null))
-            }
+            campusName={campusName ?? "All campuses"}
             generatedBy={profile.name || profile.email}
             units={units}
             campuses={campuses}
@@ -123,7 +112,6 @@ export default async function AssetsPage({
         units={units}
         categories={(categories ?? []) as AssetCategory[]}
         campuses={campuses}
-        restrictTo={isAdmin ? undefined : scopedUnitIds}
       />
 
       {error && (
@@ -141,7 +129,7 @@ export default async function AssetsPage({
           <EmptyState
             icon={SearchX}
             title="No assets match these filters"
-            body="Try a different campus, unit, category, condition or date range, or clear the filters to see everything within your scope."
+            body="Try a different campus, unit, category, condition or date range, or clear the filters to see the whole register."
             action={
               <Link href="/assets" className="btn-ghost">
                 Clear all filters
@@ -152,7 +140,7 @@ export default async function AssetsPage({
           <EmptyState
             icon={Boxes}
             title="No assets recorded yet"
-            body={isAuditor ? "No assets are visible in your assigned scope." : "Record the first item and the system will issue its asset code straight away."}
+            body={isAuditor ? "No assets have been recorded yet." : "Record the first item and the system will issue its asset code straight away."}
             action={isAuditor ? undefined :
               <Link href="/assets/new" className="btn-green">
                 <Plus className="h-4 w-4" /> Record an asset
@@ -165,7 +153,9 @@ export default async function AssetsPage({
         <ul className="stagger space-y-2">
           {rows.map((asset) => (
             <li key={asset.id} className="flex items-center gap-3">
-              {!isAuditor && <label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" name="asset" value={asset.id} aria-label={`Select ${asset.name}`} className="h-5 w-5 accent-[#1A3C6E]" /></label>}
+              {!isAuditor && (canChange(asset)
+                ? <label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" name="asset" value={asset.id} aria-label={`Select ${asset.name}`} className="h-5 w-5 accent-[#1A3C6E]" /></label>
+                : <span className="h-11 w-11 shrink-0" aria-hidden="true" />)}
               <Link
                 href={`/assets/${asset.id}`}
                 className="card card-interactive flex min-w-0 flex-1 items-center gap-3"

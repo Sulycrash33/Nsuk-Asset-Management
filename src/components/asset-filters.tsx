@@ -13,12 +13,10 @@ export default function AssetFilters({
   units,
   categories,
   campuses,
-  restrictTo,
 }: {
   units: OrgUnit[];
   categories: AssetCategory[];
   campuses: Campus[];
-  restrictTo?: string[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -113,7 +111,6 @@ export default function AssetFilters({
               units={units}
               value={params.get("unit")}
               onChange={(id) => apply({ unit: id })}
-              restrictTo={restrictTo}
               placeholder="Any unit"
             />
             <p className="mt-1 text-xs text-nsuk-faint">

@@ -1,5 +1,7 @@
--- A staff officer records into any unit and keeps the records they made, and
--- nothing else outside their units. Rolls back.
+-- A staff officer records into any unit and corrects the records they made,
+-- and nothing else outside their units. Since every account reads the whole
+-- register (every_account_reads_whole_register), reading reaches further than
+-- editing. Rolls back.
 begin;
 select set_config('request.jwt.claim.sub',(select id::text from public.profiles where role='admin' limit 1),true);
 set local role authenticated;
@@ -23,9 +25,9 @@ begin
   values('Unassigned officer record',other_u,'','',admin_id) returning id,created_by into own,who;
  if who<>staff_id then raise exception 'Recorder was taken from the client'; end if;
  if not exists(select 1 from public.assets where id=own) then raise exception 'Own record unreadable'; end if;
- if exists(select 1 from public.assets where id=foreign_a) then raise exception 'Foreign asset readable'; end if;
+ if not exists(select 1 from public.assets where id=foreign_a) then raise exception 'Foreign asset unreadable'; end if;
  if not exists(select 1 from public.asset_logs where asset_id=own and action='created') then raise exception 'Own history unreadable'; end if;
- if exists(select 1 from public.asset_logs where asset_id=foreign_a) then raise exception 'Foreign history readable'; end if;
+ if not exists(select 1 from public.asset_logs where asset_id=foreign_a) then raise exception 'Foreign history unreadable'; end if;
 
  update public.assets set name='Corrected', created_by=admin_id where id=own; get diagnostics affected=row_count;
  if affected<>1 then raise exception 'Own record not editable'; end if;
@@ -50,14 +52,17 @@ begin
  perform public.assign_account_scope(staff_id,'staff',array[u]);
  perform set_config('request.jwt.claim.sub',staff_id::text,true);
  if not exists(select 1 from public.assets where id=own) then raise exception 'Own record lost on assignment'; end if;
- if exists(select 1 from public.assets where id=foreign_a) then raise exception 'Assignment widened reach'; end if;
+ update public.assets set name='Forbidden' where id=foreign_a; get diagnostics affected=row_count;
+ if affected<>0 then raise exception 'Assignment widened edit reach'; end if;
 
- -- An auditor stays strictly unit-scoped, even over records it once made.
+ -- An auditor reads everything and edits nothing, even records it once made.
  perform set_config('request.jwt.claim.sub',admin_id::text,true);
  perform public.assign_account_scope(staff_id,'auditor',array[u]);
  perform set_config('request.jwt.claim.sub',staff_id::text,true);
- if exists(select 1 from public.assets where id=own) then raise exception 'Auditor reads beyond its units'; end if;
- if public.can_read_asset_photo(photo_key) then raise exception 'Auditor reads photo beyond its units'; end if;
+ if not exists(select 1 from public.assets where id=own) then raise exception 'Auditor cannot read the register'; end if;
+ if not public.can_read_asset_photo(photo_key) then raise exception 'Auditor cannot read a register photo'; end if;
+ update public.assets set name='Forbidden' where id=own; get diagnostics affected=row_count;
+ if affected<>0 then raise exception 'Auditor edited its old record'; end if;
  begin
   insert into public.assets(name,org_unit_id,barcode,qr_payload) values('Forbidden',other_u,'','');
   raise exception 'Auditor recorded an asset';

@@ -129,18 +129,19 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
         </div>
       </section>
 
-      {canEdit && (
-        <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {canEdit && (
           <Link href={`/assets/${record.id}/edit`} className="btn-primary">
             <Pencil className="h-4 w-4" /> Edit asset
           </Link>
-          <AssetActions
-            asset={record}
-            units={units}
-            isAdmin={isAdmin}
-          />
-        </div>
-      )}
+        )}
+        <AssetActions
+          asset={record}
+          units={units}
+          isAdmin={isAdmin}
+          canEdit={canEdit}
+        />
+      </div>
 
       <section className="card">
         <h2 className="section-title flex items-center gap-2">
