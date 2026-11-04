@@ -5,10 +5,14 @@ current-value revaluation, straight-line depreciation, opening balances, reviewe
 impairment, financial history, Excel/PDF exports and immutable annual report snapshots.
 
 Staff keep the asset-entry/import/photo/label workflow. They record purchase cost when known
-and the date available for use. Blank cost is unknown; confirmed zero cost is distinct.
-Cost recognition is automatic when the class, known cost and service date are complete and
-the service date is outside finalized periods. Otherwise the administrator report flags the
-asset for review. Existing legacy values are never silently interpreted as recognized cost.
+and the date available for use. Blank cost is unknown; any cost above zero is known, and the
+"cost is known" box confirms a zero cost. Cost recognition, and with it depreciation, is
+automatic as soon as the asset has an active cost-model class, a known cost and a start date
+outside finalized periods. The start date is the date available for use, or the acquisition
+date when that is blank (1 January for a year-only acquisition). Otherwise the administrator
+report flags the asset for review. Once recognized, these facts are locked and only an
+administrator adjusts them. Administrators also see each asset's cost, annual and year-to-date
+depreciation, accumulated depreciation and book value on its own page (`asset_depreciation`).
 
 ## Institutional classifications
 
@@ -59,7 +63,9 @@ than assigned an equipment rate.
 
 ## Verification
 
-`supabase/tests/accounting.sql` runs rollback-only assertions for full/leap years, rate
+`supabase/tests/automatic_depreciation.sql` checks the start-date fallback, typed and unknown
+costs, a confirmed zero, recognition on a later edit, and that the asset page figures match the
+report and are refused to staff. `supabase/tests/accounting.sql` runs rollback-only assertions for full/leap years, rate
 changes, the exact 33% rate, residual limits, full-class coverage, revaluation history,
 annual charges spanning events, corrections, impairment, finalized snapshots, deletion
 that keeps accounting events, grants and role refusals. Use an unused Office Equipment class for the fixture.
