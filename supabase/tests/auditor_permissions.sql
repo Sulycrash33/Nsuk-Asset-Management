@@ -17,7 +17,10 @@ begin
  perform public.assign_account_scope(auditor_id,'auditor',array[u]);
  perform set_config('request.jwt.claim.sub',auditor_id::text,true);
  if public.can_write_assets() or public.is_admin() then raise exception 'Auditor can write'; end if;
- if not exists(select 1 from public.assets where id=a) or exists(select 1 from public.assets where id=foreign_a) then raise exception 'Incorrect auditor read scope'; end if;
+ -- Every account reads the whole register; the auditor still changes nothing.
+ if not exists(select 1 from public.assets where id=a) or not exists(select 1 from public.assets where id=foreign_a) then raise exception 'Auditor cannot read the whole register'; end if;
+ update public.assets set name='Forbidden' where id=foreign_a;get diagnostics affected=row_count;
+ if affected<>0 then raise exception 'Auditor edited a foreign asset'; end if;
  if not public.can_read_asset_photo(photo_key) then raise exception 'Scoped photo read denied'; end if;
  report:=public.verification_result(closed_s);
  if (report->>'seen_total')::int<>1 then raise exception 'Completed result unreadable'; end if;

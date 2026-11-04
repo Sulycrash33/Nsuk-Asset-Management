@@ -14,15 +14,21 @@ import { generateSingleLabel, savePdf } from "@/lib/pdf";
 import { unitPath } from "@/lib/tree";
 import type { AssetWithRefs, OrgUnit } from "@/lib/types";
 
-/** Print label, transfer to another unit, and (admins) delete. */
+/**
+ * Print label (anyone who can see the asset, since every account reads the
+ * whole register), transfer to another unit (those who may edit it), and
+ * delete (administrators).
+ */
 export default function AssetActions({
   asset,
   units,
   isAdmin,
+  canEdit,
 }: {
   asset: AssetWithRefs;
   units: OrgUnit[];
   isAdmin: boolean;
+  canEdit: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -118,11 +124,13 @@ export default function AssetActions({
         </button>
       </div>
 
-      <button onClick={() => setMoveOpen(true)} className="btn-ghost">
-        <ArrowRightLeft className="h-4 w-4" /> Transfer to another unit
-      </button>
+      {canEdit && (
+        <button onClick={() => setMoveOpen(true)} className="btn-ghost">
+          <ArrowRightLeft className="h-4 w-4" /> Transfer to another unit
+        </button>
+      )}
 
-      {isAdmin && (
+      {canEdit && isAdmin && (
         <button onClick={remove} disabled={busy} className="btn-danger">
           <Trash2 className="h-4 w-4" /> Delete asset
         </button>

@@ -18,7 +18,7 @@ export default async function LabelsPage({
   const params = await searchParams;
   const unit = filterId(typeof params.unit === "string" ? params.unit : undefined);
 
-  const { isAdmin, scopedUnitIds, units } = await requireSession();
+  const { units } = await requireSession();
   const supabase = await createClient();
 
   let query = supabase
@@ -27,8 +27,8 @@ export default async function LabelsPage({
     .order("created_at", { ascending: false }).order("id")
     .limit(MAX_ROWS);
 
-  // Row level security limits a non-administrator to their units and the
-  // assets they recorded themselves, which is exactly what they may label.
+  // Every account reads the whole register, so anyone at a printer can label
+  // any asset; row level security still decides, not this page.
   if (unit) query = query.in("org_unit_id", descendantIds([unit], units));
 
   const { data: assets, count, error } = await query;
@@ -47,7 +47,6 @@ export default async function LabelsPage({
       <LabelsClient
         assets={(assets ?? []) as AssetWithRefs[]}
         units={units}
-        restrictTo={isAdmin ? undefined : scopedUnitIds}
         key={unit ?? "all"}
         truncated={(count ?? 0) > MAX_ROWS}
       />

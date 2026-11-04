@@ -12,12 +12,10 @@ import type { AssetWithRefs, OrgUnit } from "@/lib/types";
 export default function LabelsClient({
   assets,
   units,
-  restrictTo,
   truncated,
 }: {
   assets: AssetWithRefs[];
   units: OrgUnit[];
-  restrictTo?: string[];
   truncated: boolean;
 }) {
   const router = useRouter();
@@ -89,7 +87,6 @@ export default function LabelsClient({
             units={units}
             value={params.get("unit")}
             onChange={(id) => router.push(`/labels?unit=${id}`)}
-            restrictTo={restrictTo}
             placeholder="Any unit"
           />
         </div>

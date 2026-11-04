@@ -22,7 +22,10 @@ begin
  perform set_config('request.jwt.claim.sub',admin_id::text,true);
  update public.assets set org_unit_id=other_u where id=a;
  perform set_config('request.jwt.claim.sub',staff_id::text,true);
- if public.can_read_asset_photo(own_key) or exists(select 1 from storage.objects where name=own_key) then raise exception 'Original uploader retained linked out-of-scope access'; end if;
+ -- A photo an asset shows follows the asset, which every account may read.
+ if not public.can_read_asset_photo(own_key) or not exists(select 1 from storage.objects where name=own_key) then raise exception 'Photo of a readable asset unreadable'; end if;
+ -- A file no asset shows stays with its uploader.
+ if public.can_read_asset_photo(foreign_key) or exists(select 1 from storage.objects where name=foreign_key) then raise exception 'Unlinked photo of another account readable'; end if;
  perform set_config('request.jwt.claim.sub',admin_id::text,true);
  if not public.can_read_asset_photo(foreign_key) then raise exception 'Administrator lost object access'; end if;
  if (select public from storage.buckets where id='asset-photos') then raise exception 'Bucket is still public'; end if;
