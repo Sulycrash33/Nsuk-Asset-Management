@@ -236,9 +236,10 @@ turned out to be false. Prefer measuring to asserting.
   when it was typed.
 - Whether to print both a QR and a barcode. On the measurements that is the most
   robust option.
-- In Supabase: the project is now on Pro, so leaked password protection can be
-  turned on (Authentication → password settings). Not confirmed on as of
-  2 Nov 2026 — check the setting itself. Public signup **is** off — `/auth/v1/settings` reports `disable_signup: true`,
+- In Supabase: leaked password protection (Authentication → password
+  settings). On 4 Nov the security advisor no longer listed it as disabled,
+  which suggests the user turned it on, but nobody has looked at the setting
+  itself — confirm it. Public signup **is** off — `/auth/v1/settings` reports `disable_signup: true`,
   email provider only, no external OAuth. Confirmed 3 Sep 2026.
 - The security advisor is clean apart from that, and a row per `SECURITY
   DEFINER` function saying signed-in users can call it. Those are the point of
@@ -273,7 +274,10 @@ turned out to be false. Prefer measuring to asserting.
   `/assets/new`. Worth doing on the preview before the pilot.
 - Every account reads the whole register (4 Nov 2026), but a stock count
   (`/verify`) is still started only for an assigned unit, and the dashboard
-  totals still cover assigned units only. Neither was asked to change.
+  totals still cover assigned units only. Neither was asked to change. With no
+  staff account holding a unit (checked 4 Nov), only administrators can start
+  a stock count today: assign units, or ask whether counts should follow the
+  wider read.
 
 ## Things that are not this project
 
@@ -287,7 +291,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–4 November 2026 (#66–#82)
+## Handoff: changes on 1–4 November 2026 (#66–#83)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -486,6 +490,26 @@ Tests added: `supabase/tests/land_classification.sql`,
 `supabase/tests/photo_thumbnails.sql`, and cases in
 `scripts/verify-asset-photos.mjs` and `verify-account-provisioning.mjs`.
 
+**Pilot readiness, asked again on 4 Nov after #82–#83** ("is the system ready
+for the pilot now?"). The answer: **ready for a rehearsal, not yet for real
+tagging.** Checked live that day: 0 assets, every unit's running number at 0,
+191 units, 10 active categories, 2 administrators and 4 staff, no account with
+a unit, advisor showing only the known list. What stood between it and the
+pilot, in order:
+
+1. One end-to-end rehearsal on the preview with real phones and the XP-365B —
+   record, import, print, stick, scan, stock count, delete. None of it has been
+   done on a real phone or sticker.
+2. Unit codes, and sections 6 and 11, confirmed with the Fixed Assets Unit.
+3. Units assigned to staff, or only administrators can run a stock count.
+4. The rest of the ten officer accounts, one per person, with passwords (no
+   SMTP yet).
+5. Trial stickers destroyed.
+
+Not blocking: backups exclude photos; the logo-versus-22 mm decision on small
+stickers is still open. A one-page checklist for the Fixed Assets Unit was
+offered and not yet asked for.
+
 **Before the pilot** — the user asked (3 Nov) whether the system is solid and
 what could go wrong. The answer: the foundation is sound (rules enforced in the
 database and tested in CI, codes and serials unique by constraint, documents
@@ -513,7 +537,10 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
 
 - Destroy any trial stickers printed before the 4 Nov wipe. The running
   numbers were reset, so their codes will be issued again to real assets.
-- Turn on leaked password protection.
+- Confirm leaked password protection is on (the advisor stopped flagging it
+  on 4 Nov; the setting itself has not been looked at).
+- Assign units to the staff accounts (none has one, 4 Nov), and create the
+  remaining officer accounts — ten officers are planned, four staff exist.
 - Decide, with the University, whether small stickers keep the logo at the cost
   of a QR under 22 mm. Asked on 3 Nov after #77, not yet answered. Today the QR
   comes first: on 40 × 30 and 50 × 30 the crest is left off, and below about
