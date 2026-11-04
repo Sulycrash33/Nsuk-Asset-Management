@@ -14,8 +14,9 @@ numbers were **reset too** (`org_units.asset_seq` = 0 everywhere), so every
 unit starts again at `…/001` — checked by issuing `NSU/BUR/BUS/IT/001` in a
 rolled-back transaction. Any trial sticker already printed must be destroyed,
 since its code will be issued again. Outside that one deliberate reset, codes
-are never reused, by design. The 12 photo files in Storage could not be removed
-from here (no service key); see "Waiting on the user".
+are never reused, by design. The user then emptied the `asset-photos` bucket
+in the dashboard (~09:28 UTC); all that is left is a 0-byte
+`.emptyFolderPlaceholder` the dashboard writes itself, which no asset uses.
 
 The unit tree is the University's own as of migration 22 — 191 units across all
 four campuses. Six accounts exist (3 Nov 2026): two administrators and four
@@ -286,7 +287,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–3 November 2026 (#66–#80)
+## Handoff: changes on 1–4 November 2026 (#66–#82)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -298,6 +299,46 @@ covers the PR it was said about, not the next one. The user often relays the
 University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
+
+**4 November — merged in #82** (migrations
+`20261104090954_every_account_reads_whole_register` and
+`20261104092328_keep_asset_edits_in_scope`, applied live and committed):
+
+- **Every account sees the whole register**, asked for "so that other users can
+  also help print because of limited printer". Asked which way, the user chose
+  **view & print only**: staff and auditors, with or without units, read every
+  asset, its history and its photo, but edit exactly as before. Rejected:
+  staff-only reading, and letting everyone edit. See the rule under "The
+  things that are easy to get wrong".
+- **The screens follow.** Print label on the asset page is no longer inside
+  the edit-only block (it was, so a non-editor could not print from there); Edit
+  and Transfer still need `canEdit`. The register and `/labels` unit filters
+  list every unit; the register shows bulk-change checkboxes only on rows the
+  person can change, and its export is titled "All units / All campuses".
+  Dashboard totals and `/verify` were not asked about and stay unit-scoped.
+- **A gap CI caught.** Widening the read let staff transfer an asset from their
+  unit to any unit, because the old read policy had been the only thing
+  stopping it (Postgres checks an updated row against the read policy too).
+  `bulk_assets.sql` failed in CI, the failure was reproduced live, and
+  `keep_asset_edits_in_scope` puts the scope into `assets_update`'s
+  `with check`. The gap was live for about 15 minutes, with an empty register.
+  Lesson: when widening a read policy, check what it was silently guarding on
+  writes.
+- Verified: `supabase/tests/every_account_reads_register.sql` failed against
+  the live database before the migration (control) and passed after; the
+  changed `staff_record_any_unit`, `private_photos`, `photo_thumbnails` and
+  `bulk_assets` tests passed live, all rolled back; CI green on both jobs. The
+  security advisor showed nothing new. Not yet used in the running app.
+
+**4 November — register wiped** (asked for while #82 was in progress: "delete
+every asset and clear every remnant so it will be clean and fresh"). Done
+directly in the live database, not through a PR. Asked what to keep, the user
+chose **everything goes, running numbers reset**. Deleted: 3 assets, 45 history
+entries, 3 accounting entries, 4 verification sessions and their 5 scans
+(deleting the sessions first lets `guard_verification_scan` accept the scan
+deletion as a cascade). `org_units.asset_seq` set to 0. Kept: the 191 units,
+the categories, the accounting classes and all 6 accounts. The photo files
+needed the dashboard, and the user emptied the bucket.
 
 **3 November — merged in #73** (`20261103083911_staff_record_into_any_unit`,
 applied live and committed):
@@ -453,9 +494,10 @@ verified by reading them back); the risks are operational. In order of cost:
 1. Nobody has used it end to end. Hold one rehearsal on the preview with two or
    three officers, their phones and the XP-365B: add, import, print, scan,
    verify, delete.
-2. Double recording. Officers record into any unit but see only their own
-   records, so two can tag the same item. Give each officer a written list of
-   rooms or units, and have an administrator review new records weekly.
+2. Double recording. Officers record into any unit, so two can tag the same
+   item. Since #82 everyone can see the whole register, so an officer can search
+   before tagging; still give each officer a written list of rooms or units,
+   and have an administrator review new records weekly.
 3. Wrong unit. The unit is part of the asset code, so a wrong pick means a
    relabel. Confirm the unit codes, and the missing sections 6 and 11, with the
    Fixed Assets Unit before tagging starts.
@@ -469,12 +511,8 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
 
 **Waiting on the user**
 
-- Empty Supabase → Storage → `asset-photos`. Since the 4 Nov wipe the register
-  has no assets, so all 12 files there (the six old leftovers and the six
-  photos and thumbnails of the three wiped assets) are unreferenced and the
-  bucket can simply be emptied. Direct SQL deletion is blocked by
-  `storage.protect_delete` and would leave the files, so it must be the
-  dashboard or the Storage API.
+- Destroy any trial stickers printed before the 4 Nov wipe. The running
+  numbers were reset, so their codes will be issued again to real assets.
 - Turn on leaked password protection.
 - Decide, with the University, whether small stickers keep the logo at the cost
   of a QR under 22 mm. Asked on 3 Nov after #77, not yet answered. Today the QR
@@ -507,5 +545,7 @@ app. From #80, nobody has yet replaced a photo in the app (check afterwards
 that the old file has gone from Storage), saved a year-only date available for
 use, or printed the larger asset code. The records in the register showed that photo upload
 with thumbnail and the year-only date have saved in the app, but nobody has
-said whether that was on a phone. Worth doing on the preview before the
-pilot.
+said whether that was on a phone. From #82: nobody has yet signed in as
+staff, opened an asset someone else recorded, and printed its label, or
+checked that the same account gets no Edit, Transfer or bulk checkbox on it.
+Worth doing on the preview before the pilot.
