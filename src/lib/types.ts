@@ -85,7 +85,7 @@ export type Asset = {
 };
 
 export type AssetWithRefs = Asset & {
-  asset_categories?: { name: string } | null;
+  asset_categories?: { name: string; code?: string | null } | null;
   org_units?: { name: string; code: string | null } | null;
 };
 
@@ -94,7 +94,7 @@ export type AssetWithRefs = Asset & {
  * produces: the two have to agree, and when they drifted apart the mismatch
  * only showed up as a missing category name on one screen out of five.
  */
-export const ASSET_WITH_REFS = "*, asset_categories(name), org_units(name,code)";
+export const ASSET_WITH_REFS = "*, asset_categories(name,code), org_units(name,code)";
 
 /** As above, plus the campus the unit sits under, for roll-up filtering. */
 export const ASSET_WITH_REFS_AND_CAMPUS =

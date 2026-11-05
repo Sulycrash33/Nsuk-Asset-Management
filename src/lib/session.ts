@@ -25,13 +25,23 @@ export async function requireSession(): Promise<SessionContext> {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileResult, unitResult, campusResult, assignmentResult] =
-    await Promise.all([
+  const load = () =>
+    Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("org_units").select("*").order("name"),
       supabase.from("campuses").select("*").order("name"),
       supabase.from("user_units").select("org_unit_id").eq("user_id", user.id),
     ]);
+  let results = await load();
+  // A page that loads just as the sign-in is renewed can have one request
+  // refused as signed out: on 4 Nov 2026 each "Unable to load unit
+  // assignments" page fell in the same second as that person's renewal. The
+  // renewed sign-in is in place by then, so ask once more before giving up.
+  if (results.some((r) => r.error)) results = await load();
+  // Still refused as signed out: the sign-in really has lapsed. Sign in again
+  // rather than show an error page that a retry cannot fix.
+  if (results.some((r) => r.status === 401)) redirect("/login");
+  const [profileResult, unitResult, campusResult, assignmentResult] = results;
 
   // A failed reference/scope query is not an empty scope. Let the page's error
   // boundary offer a retry instead of rendering unknown units or missing data.
