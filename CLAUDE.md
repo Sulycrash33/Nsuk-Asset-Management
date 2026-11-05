@@ -5,8 +5,9 @@ Nasarawa State University, Keffi. Every non-human asset is recorded once, given
 a printed label, and thereafter tracked by scanning it with an ordinary phone.
 
 Not yet in production use, but **real recording has begun**: after the morning
-wipe below, officers recorded 63 assets on 4 Nov 2026 (from 10:56 UTC), all
-by hand on `/assets/new`, none imported. Treat the register as live data from
+wipe below, officers recorded 69 assets on 4 Nov 2026 (10:56–14:30 UTC), all
+by hand on `/assets/new`, none imported; on 5 Nov they corrected units, and 25
+assets were re-coded (#88). Treat the register as live data from
 here on. Unit codes are still unconfirmed, so a wrong unit now means a relabel.
 The register was wiped completely on 4 Nov 2026 (~09:15 UTC), at the user's
 request ("delete every asset and clear every remnant"): the three trial
@@ -162,6 +163,20 @@ The old placeholder `T` segment was removed on 16 Oct 2026
 (`remove_unused_asset_tag_segment`); `asset_code_segment()` no longer exists.
 The running number counts per unit and is never reused after a deletion.
 
+**A code is fixed at first save, but an administrator can re-issue it** (since
+#88). Moving an asset or changing its category leaves its code alone, so a
+printed sticker never goes wrong by itself. `reissue_asset_code(asset)`
+(admin only) issues a code from the current unit and category, refuses when
+the prefix already matches (the raise undoes the running number), and keeps
+the old code in `asset_code_history`. An old code names one asset for good, so
+it keeps resolving: `asset_for_code(code)` (invoker, under RLS) for the
+scanner and `record_verification_scan` for stock counts. Any new screen that
+looks an asset up by its code must go through one of those, or an old
+sticker reads as unknown. The asset page lists previous codes and offers
+**Issue new code** to administrators only when `codeIsOutOfDate`
+(`src/lib/asset-code.ts`, which mirrors `next_barcode` and is not the
+authority). Test: `supabase/tests/reissue_asset_code.sql`.
+
 **Labels are QR, not barcodes.** Phones are the only scanners this University
 will own. The Code 128 encoder (`src/lib/code128.ts`) and `BarcodeImage` are
 kept but unused — the payload is unchanged, so restoring a printed barcode is
@@ -293,7 +308,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–4 November 2026 (#66–#87)
+## Handoff: changes on 1–5 November 2026 (#66–#88)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -305,6 +320,61 @@ covers the PR it was said about, not the next one. The user often relays the
 University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
+
+**5 November — merged in #88** (migration
+`20261105083152_reissue_asset_codes`, applied live before the merge and
+committed). The user relayed two pilot issues and asked whether each was the
+officers' hardware or the system; both were the system's, and the user chose
+the recommended fixes:
+
+- **"I changed the department but it did not change."** 25 assets were moved
+  to Directorate of Academic Planning (14 from Physical Planning &
+  Development on 4 Nov 14:43–14:55 by chikasteph1859, 10 from Academic Affairs
+  Division on 5 Nov 05:43–06:07 by saboson1986, 1 from the Vice-Chancellor's
+  Office). The move saved; the code, fixed at first save, still named the old
+  unit. Likely cause: "Physical Planning", "Academic Planning" and "Academic
+  Affairs" sit close in the unit picker. Chosen: **A** — re-code the 25 and
+  add the administrator button, keeping old codes scannable. Rejected: leave
+  the codes. The migration re-coded them as "System", oldest code first:
+  AAD/OE/001–010 → ACP/OE/009–018, GEN/FF/002 → ACP/FF/019, PPD/OE/001–014 →
+  ACP/OE/020–033. Not asked yet: whether stickers had been printed for them;
+  old ones still scan, but new labels should go on.
+- **"It logs out if the picture is greater than 300 KB."** There is no limit:
+  every photo is reduced on the phone (72 stored, largest 298 KB). The logs
+  showed each "Unable to load unit assignments" page in the same second as
+  that person's token renewal (401 on `user_units` at 10:48:31 and 16:32:25 on
+  4 Nov), on Samsung Internet / Android 10, which reloads the tab after the
+  camera; saboson1986 then pressed Sign out five times. Fixed three ways:
+  `requireSession` asks once more when a request fails and sends a 401 that
+  persists to `/login`; a camera JPEG over 1600 px is decoded straight to
+  1600 px (`decodeReduced`, size and EXIF orientation read by `jpegInfo` from
+  the first 256 KB), falling back to the whole decode if the browser returns
+  other dimensions; and the form no longer says "300 KB". The 300 KB target
+  is unchanged.
+- Verified: the old-code lookup did not exist before (control, read-only);
+  `reissue_asset_code.sql` passed in CI's isolated database (a rolled-back
+  live run stalled twice on an unanswered confirmation, so the user chose the
+  CI route); after applying, all 25 mapped as previewed, `asset_seq` for ACP
+  went 8 → 33, no duplicate or reused codes, 25 history rows as "System", no
+  new accounting events, and as a staff identity an old code
+  (NSU/VCS/PPD/OE/001) resolved to its asset flagged old while 25 history rows
+  were readable. The photo decode was measured in Chromium (Samsung Internet
+  30's engine): 4000×3000 → 1600×1200 via the reduced path, an EXIF
+  orientation-6 photo → 1200×1600 upright, a PNG on the old path.
+  `scripts/verify-asset-code.mjs` covers the 5 Nov cases. The security
+  advisor added only `reissue_asset_code`, an expected SECURITY DEFINER row.
+- **Not verified:** the token-renewal race was not reproduced; the retry is a
+  mitigation fitted to the log timings. Nobody has used Issue new code or
+  scanned an old sticker in the running app.
+- **Found, not raised as work:** signed photo URLs last 15 minutes, so the
+  asset list's thumbnails break if a page stays open longer (a burst of 400s
+  at 12:34–12:35 on 4 Nov). Also, `authenticated` holds column UPDATE on
+  `assets.barcode`, so an editor could set a code directly through the API;
+  nothing in the app does. Worth a decision.
+- The Supabase MCP `execute_sql` asks the user to confirm DDL or bulk changes
+  even inside a rolled-back transaction, and the confirmation did not reach
+  them. Read-only queries run without it; `apply_migration` ran once the user
+  said "apply and merge".
 
 **4 November — merged in #85** (migration
 `20261104133049_automatic_depreciation_from_acquisition_date`, applied live
@@ -668,8 +738,11 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
   in #80. Offered and not asked for: removing a photo that is only cleared with
   ✕, with nothing put in its place (kept today).
 
-**Not yet confirmed on a real phone or printer**: whether any of the 63 real
-assets' labels have been printed and stuck. From #85, the asset page's
+**Not yet confirmed on a real phone or printer**: whether any of the real
+assets' labels have been printed and stuck, and in particular whether the 25
+re-coded in #88 had stickers (old ones still scan; new labels are needed).
+From #88: Issue new code, an old sticker in `/scan` and in a stock count, and
+a large camera photo on a low-memory phone. From #85, the asset page's
 Depreciation panel as an administrator, and the greyed "cost is known" box on
 the form. Earlier: the typed delete confirmation,
 saving an asset with blank fields, and — as a staff account with no units —
