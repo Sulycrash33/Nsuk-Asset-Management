@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowRightLeft, Loader2, Printer, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Loader2, Printer, RefreshCw, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { removeUnusedAssetPhoto } from "@/lib/asset-photo";
 import UnitSelect from "@/components/unit-select";
@@ -24,11 +24,14 @@ export default function AssetActions({
   units,
   isAdmin,
   canEdit,
+  codeOutOfDate = false,
 }: {
   asset: AssetWithRefs;
   units: OrgUnit[];
   isAdmin: boolean;
   canEdit: boolean;
+  /** The code names a unit or item type the asset no longer has. */
+  codeOutOfDate?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -81,6 +84,26 @@ export default function AssetActions({
     router.refresh();
   }
 
+  /** Administrators only, and the database checks it: a new code from the
+   * asset's current unit and category. The old code still scans. */
+  async function reissueCode() {
+    const ok = await confirm({
+      title: "Issue a new asset code?",
+      body: `${asset.barcode} names a unit or item type this asset no longer has. It will get a new code from its current unit and category. A sticker with the old code still scans to this asset, but print and stick a new label.`,
+      confirmLabel: "Issue new code",
+    });
+    if (!ok) return;
+    setBusy(true);
+    const { data, error } = await createClient().rpc("reissue_asset_code", { p_asset: asset.id });
+    setBusy(false);
+    if (error) {
+      toast.error("Could not issue a new code", error.message);
+      return;
+    }
+    toast.success("New code issued", `${data as string}. Print the new label.`);
+    router.refresh();
+  }
+
   async function remove() {
     const ok = await confirm({
       title: "Are you sure you want to delete this asset?",
@@ -127,6 +150,12 @@ export default function AssetActions({
       {canEdit && (
         <button onClick={() => setMoveOpen(true)} className="btn-ghost">
           <ArrowRightLeft className="h-4 w-4" /> Transfer to another unit
+        </button>
+      )}
+
+      {isAdmin && codeOutOfDate && (
+        <button onClick={reissueCode} disabled={busy} className="btn-ghost">
+          <RefreshCw className="h-4 w-4" /> Issue new code
         </button>
       )}
 

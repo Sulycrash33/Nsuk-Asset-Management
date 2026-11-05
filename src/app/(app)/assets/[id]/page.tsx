@@ -10,6 +10,7 @@ import AssetActions from "@/components/asset-actions";
 import { unitPath } from "@/lib/tree";
 import type { AssetDepreciation } from "@/lib/accounting";
 import DepreciationPanel from "@/components/depreciation-panel";
+import { codeIsOutOfDate } from "@/lib/asset-code";
 import { ASSET_WITH_REFS, CONDITION_STYLES, formatAcquisitionDate, formatNaira, type AssetLog, type AssetWithRefs, type Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,20 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     depreciation = data as AssetDepreciation | null;
   }
 
+  // Codes this asset carried before a correction. An old sticker still scans.
+  const { data: oldCodes, error: oldCodesError } = await supabase
+    .from("asset_code_history")
+    .select("code,replaced_at")
+    .eq("asset_id", id)
+    .order("replaced_at");
+  if (oldCodesError) throw new Error("Unable to load previous asset codes. Please try again.");
+  const codeOutOfDate = codeIsOutOfDate(
+    record.barcode,
+    record.org_unit_id,
+    units,
+    record.category_id ? (record.asset_categories?.code ?? null) : null,
+  );
+
   const actorIds = [...new Set((logs ?? []).map((l) => l.performed_by).filter(Boolean))] as string[];
   const { data: actors } = actorIds.length
     ? await supabase.from("profiles").select("id,name,email").in("id", actorIds)
@@ -71,6 +86,9 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     ["Unit", unitPath(record.org_unit_id, units) || record.org_units?.name || "—"],
     ["Room / location", record.location ?? "—"],
     ["Value", formatNaira(record.value)],
+    ...((oldCodes ?? []).length
+      ? ([["Previous codes", (oldCodes ?? []).map((c) => c.code).join(", ")]] as [string, string][])
+      : []),
     ["Serial number", record.serial_number ?? "—"],
     ["Acquired", formatAcquisitionDate(record.acquisition_date, record.acquisition_year_only)],
     ["Recorded", new Date(record.created_at).toLocaleString("en-NG")],
@@ -103,6 +121,12 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
                 {record.name}
               </h1>
               <p className="mt-1 font-mono text-sm text-nsuk-muted">{record.barcode}</p>
+              {codeOutOfDate && (
+                <p className="mt-1 text-xs text-nsuk-muted">
+                  This code was issued under the unit or category the asset first had.
+                  {isAdmin ? " You can issue a new one below." : " An administrator can issue a new one."}
+                </p>
+              )}
             </div>
             <span className={`chip ${CONDITION_STYLES[record.condition]}`}>{record.condition}</span>
           </div>
@@ -152,6 +176,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           units={units}
           isAdmin={isAdmin}
           canEdit={canEdit}
+          codeOutOfDate={codeOutOfDate}
         />
       </div>
 

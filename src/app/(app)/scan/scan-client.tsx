@@ -35,17 +35,24 @@ export default function ScanClient() {
 
       let found = false;
       try {
-        // QR payload mirrors the asset code in the database. Use an exact filter,
-        // keeping scanner text out of PostgREST's OR-expression syntax.
-        const { data, error } = await createClient().from("assets").select("id,name")
-          .eq("barcode", code).limit(1).maybeSingle();
+        // QR payload mirrors the asset code in the database. A code replaced
+        // after a unit correction still finds its asset, so an old sticker works.
+        const { data, error } = await createClient()
+          .rpc("asset_for_code", { p_code: code }).maybeSingle<{
+            id: string; name: string; barcode: string; scanned_old_code: boolean;
+          }>();
         if (requestVersion !== lookupVersion.current) return;
         if (error) throw new Error(error.message);
         if (!data) {
           navigator.vibrate?.(120);
           throw new Error(`No asset found for “${code}”. It may be outside your access or unregistered.`);
         }
-        navigator.vibrate?.(40); toast.success("Asset found", data.name as string);
+        navigator.vibrate?.(40);
+        if (data.scanned_old_code) {
+          toast.success("Old label", `${data.name} is now ${data.barcode}. Print and stick a new label.`);
+        } else {
+          toast.success("Asset found", data.name);
+        }
         cameraRef.current.stop(); router.push(`/assets/${data.id}`); found = true;
       } catch (error) {
         if (requestVersion !== lookupVersion.current) return;

@@ -804,8 +804,8 @@ export default function AssetForm({
                 {uploading ? "Reducing and uploading…" : "Take or choose a photo"}
               </span>
               <span className="text-xs text-nsuk-faint">
-                Opens the camera on a phone. Photos are reduced to about
-                300 KB before upload.
+                Opens the camera on a phone. Any size of photo is fine: it
+                is made smaller on the phone before it is sent.
               </span>
               <input
                 type="file"
