@@ -14,7 +14,7 @@ import {
   type AssetWithRefs,
   type AssetCategory,
 } from "@/lib/types";
-import { registerQuery, registerPage, summaryArgs } from "@/lib/asset-query";
+import { registerQuery, registerPage, registerSummary } from "@/lib/asset-query";
 import { registerScope } from "@/lib/register-scope";
 import { unitPath } from "@/lib/tree";
 
@@ -53,7 +53,7 @@ export default async function AssetsPage({
   const page = registerPage(one("page"));
   const [{ data: assets, count, error }, summary] = await Promise.all([
     registerQuery(supabase, ASSET_WITH_REFS_AND_CAMPUS, filters).range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
-    supabase.rpc("register_summary", summaryArgs(filters)),
+    registerSummary(supabase, filters),
   ]);
   const rows = (assets ?? []) as unknown as AssetWithRefs[];
   const photoSources = await signedAssetThumbnails(supabase, rows, process.env.NEXT_PUBLIC_SUPABASE_URL!);

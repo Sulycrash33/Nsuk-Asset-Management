@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import UnitSelect from "@/components/unit-select";
 import { CONDITIONS, type AssetCategory, type Campus, type OrgUnit } from "@/lib/types";
+import { NEEDS_ATTENTION } from "@/lib/asset-query";
 
 const FILTER_KEYS = ["unit", "campus", "category", "condition", "from", "to", "sort"];
 
@@ -151,6 +152,7 @@ export default function AssetFilters({
                   {c}
                 </option>
               ))}
+              <option value={NEEDS_ATTENTION}>Needs attention (faulty, under repair or missing)</option>
             </select>
           </div>
 
