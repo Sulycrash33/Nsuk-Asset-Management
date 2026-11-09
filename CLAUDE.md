@@ -22,8 +22,9 @@ in the dashboard (~09:28 UTC); all that is left is a 0-byte
 `.emptyFolderPlaceholder` the dashboard writes itself, which no asset uses.
 
 The unit tree is the University's own as of migration 22 — 191 units across all
-four campuses, 193 since 9 Nov 2026 (#90 added two offices under the
-Vice-Chancellor's Office at the University's request). Six accounts exist (3 Nov 2026): two administrators and four
+four campuses, 194 since 9 Nov 2026 (#90 and then the Head Operation and
+Investment Division PR added three offices under the Vice-Chancellor's Office
+at the University's request). Six accounts exist (3 Nov 2026): two administrators and four
 staff, and none of the four staff has a unit assigned. That no longer stops them
 recording (see below). The next step is the people: ten officers who will record
 assets across the institution. Supabase is on the **Pro plan** since 2 Nov 2026.
@@ -128,8 +129,9 @@ Agriculture sits at Lafia, Faculty of Engineering at Gudi, and Pyanku holds a
 library and its buildings, so no campus is empty any more. Section 20 of the
 document is not in the tree on purpose: generators, a water pump and a tank are
 assets, not places to put assets. Units the University asks for later are
-added by migration, outside the document: so far TetFund Desk Office (TED) and
-Mail Office (MAI) under the Vice-Chancellor's Office (#90).
+added by migration, outside the document: so far TetFund Desk Office (TED),
+Mail Office (MAI) (#90) and Head Operation and Investment Division (HOI), all
+under the Vice-Chancellor's Office.
 
 **Two units under one faculty must not abbreviate alike.** The asset code is
 built from the faculty's code and the unit's, and `asset_seq` counts per unit,
@@ -323,6 +325,15 @@ covers the PR it was said about, not the next one. The user often relays the
 University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
+
+**9 November — Head Operation and Investment Division** (migration
+`20261109100229_head_operation_and_investment_division`, applied live and
+committed). Asked for after #90 ("add this under the vc office as well"), as
+"Head operation and investment division"; stored title-cased to match the
+other names. An Office on Keffi (Main), code **HOI** (the `derive_short_code`
+result, stated in the migration), no sibling clash. Verified live: 194 units;
+`NSU/VCS/HOI/OE/001` and `…/002` issued in a rolled-back transaction, neither
+already a barcode, running number back at 0. Not yet seen in the unit picker.
 
 **9 November — merged in #90** (migration
 `20261109120000_tetfund_desk_and_mail_offices`, applied live before the merge
