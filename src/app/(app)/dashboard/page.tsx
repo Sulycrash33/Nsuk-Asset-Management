@@ -17,6 +17,7 @@ import ConditionDonut from "@/components/condition-donut";
 import EmptyState from "@/components/ui/empty-state";
 import { CONDITIONS, formatNaira, type Condition } from "@/lib/types";
 import { unitPath } from "@/lib/tree";
+import { NEEDS_ATTENTION } from "@/lib/asset-query";
 
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -142,6 +143,7 @@ export default async function DashboardPage() {
           icon={<TriangleAlert className="h-5 w-5" />}
           tone="gold"
           caption="Faulty, under repair or missing"
+          href={`/assets?condition=${NEEDS_ATTENTION}`}
         />
       </div>
 

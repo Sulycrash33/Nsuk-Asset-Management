@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { formatNaira } from "@/lib/types";
 
@@ -74,6 +76,7 @@ export default function StatCard({
   icon,
   tone = "blue",
   caption,
+  href,
 }: {
   label: string;
   value: number;
@@ -82,6 +85,8 @@ export default function StatCard({
   icon?: React.ReactNode;
   tone?: "blue" | "green" | "gold";
   caption?: string;
+  /** Makes the whole card a link to the assets it counts. */
+  href?: string;
 }) {
   const animated = useCountUp(value);
 
@@ -97,8 +102,8 @@ export default function StatCard({
     gold: "bg-nsuk-gold-50 text-nsuk-gold-deep",
   }[tone];
 
-  return (
-    <div className="card relative overflow-hidden">
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold tracking-wide text-nsuk-muted uppercase">{label}</p>
@@ -115,6 +120,22 @@ export default function StatCard({
           </span>
         )}
       </div>
-    </div>
+      {href && (
+        <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-nsuk-blue group-hover:underline">
+          View these assets <ArrowUpRight className="h-3 w-3" />
+        </p>
+      )}
+    </>
+  );
+
+  return href ? (
+    <Link
+      href={href}
+      className="card group relative block overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-e2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nsuk-blue"
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className="card relative overflow-hidden">{body}</div>
   );
 }

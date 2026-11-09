@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { collectRegister } from "../src/lib/register-export.ts";
-import { registerQuery, registerPage, filterDate, registerTerm, EMPTY_UNIT_ID } from "../src/lib/asset-query.ts";
+import { registerQuery, registerPage, registerSummary, filterDate, registerTerm, EMPTY_UNIT_ID, NEEDS_ATTENTION } from "../src/lib/asset-query.ts";
 test("full export spans multiple batches beyond the screen and server limits", async () => {
  const source=Array.from({length:1205},(_,i)=>({id:String(i)})), offsets=[];
  const rows=await collectRegister(async offset=>{offsets.push(offset);return {assets:source.slice(offset,offset+500),total:source.length};});
@@ -27,4 +27,19 @@ test("malformed pages and dates are normalized; search cannot inject filter synt
  for(const value of ["0","-3","1.5","NaN","Infinity"] )assert.equal(registerPage(value),1);
  assert.equal(registerPage("2"),2);assert.equal(filterDate("2026-02-29"),null);assert.equal(filterDate("2024-02-29"),"2024-02-29");
  assert.equal(/[%,().\\"']/.test(registerTerm(`a%,(b)."c'`)),false);
+});
+test("needs attention lists exactly what the dashboard card counts",async()=>{
+ const scope={unitIds:null,category:null,condition:NEEDS_ATTENTION,from:null,to:null,term:"",sort:""};
+ const calls=[],query=new Proxy({}, {get:(_,method)=>(...args)=>{calls.push([method,...args]);return query;}});
+ registerQuery({from:()=>query},"*",{...scope,unitIds:null});
+ assert.deepEqual(calls.find(c=>c[0]==="in"),["in","condition",["Faulty","Under Repair","Missing"]]);
+ assert.equal(calls.some(c=>c[0]==="eq"&&c[1]==="condition"),false);
+ const asked=[],figures={Faulty:[3,300],"Under Repair":[1,50],Missing:[2,25]};
+ const client={rpc:async(_,args)=>{asked.push(args.p_condition);const [total,total_value]=figures[args.p_condition];return {data:{total,total_value},error:null};}};
+ assert.deepEqual((await registerSummary(client,{...scope,unitIds:null})).data,{total:6,total_value:375});
+ assert.deepEqual(asked.sort(),["Faulty","Missing","Under Repair"]);
+ const failing={rpc:async(_,args)=>args.p_condition==="Missing"?{data:null,error:{message:"down"}}:{data:{total:1,total_value:1},error:null}};
+ assert.equal((await registerSummary(failing,{...scope,unitIds:null})).data,null);
+ const single=[];await registerSummary({rpc:async(_,args)=>{single.push(args.p_condition);return {data:{total:1,total_value:9},error:null};}},{...scope,condition:"Faulty",unitIds:null});
+ assert.deepEqual(single,["Faulty"]);
 });
