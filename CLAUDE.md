@@ -312,7 +312,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–9 November 2026 (#66–#92)
+## Handoff: changes on 1–9 November 2026 (#66–#94)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -350,12 +350,27 @@ can differ. Live on 9 Nov: 5 Faulty of 442. Tested in `verify-register.mjs`;
 the card was rendered in Chromium, but the filtered list has not been opened
 signed in.
 
-**Migration file names follow the live version (9 Nov).** #90's file was
-committed as `20261109120000_…` while the live database recorded the migration
-as `20261109085834`; it was renamed to match, which also puts it before HOI's
-`20261109100229`, the order it was applied live. When applying with
-`apply_migration`, read the version back from `list_migrations` and name the
-file after it.
+**Migration file names follow the live version — merged in #94 (9 Nov).**
+#90's file was committed as `20261109120000_…` while the live database recorded
+the migration as `20261109085834`; at the user's request it was renamed to
+match, which also puts it before HOI's `20261109100229`, the order it was
+applied live. Contents unchanged, nothing applied live. The user said "merge
+when it pass"; squash-merged at 10:38 UTC once both checks passed, and Vercel
+production was READY on `12416a4`. Every file in `supabase/migrations/` now
+matches a live version. When applying with `apply_migration`, read the version
+back from `list_migrations` and name the file after it.
+
+**Health check, 9 Nov 10:33 UTC** (the user asked whether everything was good
+on Vercel and Supabase). Vercel: production READY on #92's code, no runtime
+errors in 24 hours. #93's merge (`3c72910`, `CLAUDE.md` only) got no
+deployment at all, most likely a webhook lost in the GitHub outage; harmless,
+since it changed no code, and #94's merge deployed normally. Supabase: 194
+units; 454 assets, 109 recorded in the past 24 hours; no duplicate codes; no
+unit's running number behind the codes it has issued; `unit_asset_stats`
+agrees with the register (454 total, 5 needing attention); every applied
+migration has its file; the security advisor shows only the known list (the
+`authenticated` SECURITY DEFINER rows, `needs_bootstrap()` for `anon`), and
+leaked password protection is not flagged.
 
 **CI during a GitHub outage (9 Nov).** GitHub had an incident with Actions and
 Webhooks from 10:00 UTC. #92's first push at 10:02 created no workflow run at
