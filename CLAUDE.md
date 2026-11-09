@@ -22,7 +22,8 @@ in the dashboard (~09:28 UTC); all that is left is a 0-byte
 `.emptyFolderPlaceholder` the dashboard writes itself, which no asset uses.
 
 The unit tree is the University's own as of migration 22 — 191 units across all
-four campuses. Six accounts exist (3 Nov 2026): two administrators and four
+four campuses, 193 since 9 Nov 2026 (#90 added two offices under the
+Vice-Chancellor's Office at the University's request). Six accounts exist (3 Nov 2026): two administrators and four
 staff, and none of the four staff has a unit assigned. That no longer stops them
 recording (see below). The next step is the people: ten officers who will record
 assets across the institution. Supabase is on the **Pro plan** since 2 Nov 2026.
@@ -126,7 +127,9 @@ Register*, and that document is the authority on what exists. Faculty of
 Agriculture sits at Lafia, Faculty of Engineering at Gudi, and Pyanku holds a
 library and its buildings, so no campus is empty any more. Section 20 of the
 document is not in the tree on purpose: generators, a water pump and a tank are
-assets, not places to put assets.
+assets, not places to put assets. Units the University asks for later are
+added by migration, outside the document: so far TetFund Desk Office (TED) and
+Mail Office (MAI) under the Vice-Chancellor's Office (#90).
 
 **Two units under one faculty must not abbreviate alike.** The asset code is
 built from the faculty's code and the unit's, and `asset_seq` counts per unit,
@@ -308,7 +311,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–5 November 2026 (#66–#88)
+## Handoff: changes on 1–9 November 2026 (#66–#90)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -320,6 +323,20 @@ covers the PR it was said about, not the next one. The user often relays the
 University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
+
+**9 November — #90** (migration
+`20261109120000_tetfund_desk_and_mail_offices`, applied live before the merge
+and committed; the user said "merge it when it pass"). The user asked for two
+departments under the V.C Office: **TetFund Desk Office** and **Mail Office**,
+both Offices on Keffi (Main), names spelt as the user gave them. Codes are the
+`derive_short_code` result, stated outright in the migration: **TED** and
+**MAI**. TFD was offered as more readable for TetFund; the user chose to keep
+TED and MAI. Additive only: no existing unit, code or running number changed.
+The migration refuses if two units under the VC's Office then share a short
+code. Verified live: 193 units, sibling codes distinct, and codes issued in a
+rolled-back transaction were `NSU/VCS/TED/OE/001`, `NSU/VCS/MAI/OE/001` and
+`…/002`, none already a barcode, with both running numbers back at 0 after.
+Not yet seen: either office in the unit picker in the running app.
 
 **5 November — merged in #88** (migration
 `20261105083152_reissue_asset_codes`, applied live before the merge and
