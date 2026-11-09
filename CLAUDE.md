@@ -335,6 +335,19 @@ result, stated in the migration), no sibling clash. Verified live: 194 units;
 `NSU/VCS/HOI/OE/001` and `…/002` issued in a rolled-back transaction, neither
 already a barcode, running number back at 0. Not yet seen in the unit picker.
 
+**9 November — "Needs attention" card is a link** (same PR, at the user's
+choice). The user could not click the dashboard card. It now opens
+`/assets?condition=attention`: `NEEDS_ATTENTION` in `src/lib/asset-query.ts`
+filters to Faulty, Under Repair and Missing (`ATTENTION_CONDITIONS`), and the
+register's Condition filter offers the same choice. `register_summary` takes
+one condition, so `registerSummary` adds up one call per condition; no
+database change. `StatCard` takes an optional `href`. The card counts what
+`dashboard_stats` sees (every asset for an administrator, assigned units only
+for staff), while the list reads the whole register, so for staff the two
+can differ. Live on 9 Nov: 5 Faulty of 442. Tested in `verify-register.mjs`;
+the card was rendered in Chromium, but the filtered list has not been opened
+signed in.
+
 **9 November — merged in #90** (migration
 `20261109120000_tetfund_desk_and_mail_offices`, applied live before the merge
 and committed; the user said "merge it when it pass", and it was squash-merged
