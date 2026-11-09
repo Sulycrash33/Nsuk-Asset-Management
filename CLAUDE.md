@@ -22,9 +22,8 @@ in the dashboard (~09:28 UTC); all that is left is a 0-byte
 `.emptyFolderPlaceholder` the dashboard writes itself, which no asset uses.
 
 The unit tree is the University's own as of migration 22 — 191 units across all
-four campuses, 194 since 9 Nov 2026 (#90 and then the Head Operation and
-Investment Division PR added three offices under the Vice-Chancellor's Office
-at the University's request). Six accounts exist (3 Nov 2026): two administrators and four
+four campuses, 194 since 9 Nov 2026 (#90 and #92 added three offices under
+the Vice-Chancellor's Office at the University's request). Six accounts exist (3 Nov 2026): two administrators and four
 staff, and none of the four staff has a unit assigned. That no longer stops them
 recording (see below). The next step is the people: ten officers who will record
 assets across the institution. Supabase is on the **Pro plan** since 2 Nov 2026.
@@ -130,8 +129,8 @@ library and its buildings, so no campus is empty any more. Section 20 of the
 document is not in the tree on purpose: generators, a water pump and a tank are
 assets, not places to put assets. Units the University asks for later are
 added by migration, outside the document: so far TetFund Desk Office (TED),
-Mail Office (MAI) (#90) and Head Operation and Investment Division (HOI), all
-under the Vice-Chancellor's Office.
+Mail Office (MAI) (#90) and Head Operation and Investment Division (HOI, #92),
+all under the Vice-Chancellor's Office.
 
 **Two units under one faculty must not abbreviate alike.** The asset code is
 built from the faculty's code and the unit's, and `asset_seq` counts per unit,
@@ -313,7 +312,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–9 November 2026 (#66–#90)
+## Handoff: changes on 1–9 November 2026 (#66–#92)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -326,17 +325,20 @@ University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
 
-**9 November — Head Operation and Investment Division** (migration
-`20261109100229_head_operation_and_investment_division`, applied live and
-committed). Asked for after #90 ("add this under the vc office as well"), as
+**9 November — merged in #92: Head Operation and Investment Division**
+(migration `20261109100229_head_operation_and_investment_division`, applied
+live before the merge and committed). The user said "merge it when it pass";
+it was squash-merged at 10:23 UTC once `check` and `Isolated database
+integration` passed on the final commit, and Vercel production was READY on
+the merge commit (`e406b8a`) shortly after. Asked for after #90 ("add this under the vc office as well"), as
 "Head operation and investment division"; stored title-cased to match the
 other names. An Office on Keffi (Main), code **HOI** (the `derive_short_code`
 result, stated in the migration), no sibling clash. Verified live: 194 units;
 `NSU/VCS/HOI/OE/001` and `…/002` issued in a rolled-back transaction, neither
 already a barcode, running number back at 0. Not yet seen in the unit picker.
 
-**9 November — "Needs attention" card is a link** (same PR, at the user's
-choice). The user could not click the dashboard card. It now opens
+**9 November — "Needs attention" card is a link** (also #92, at the user's
+choice: asked while #92 was waiting, and added to it rather than a new PR). The user could not click the dashboard card. It now opens
 `/assets?condition=attention`: `NEEDS_ATTENTION` in `src/lib/asset-query.ts`
 filters to Faulty, Under Repair and Missing (`ATTENTION_CONDITIONS`), and the
 register's Condition filter offers the same choice. `register_summary` takes
@@ -347,6 +349,22 @@ for staff), while the list reads the whole register, so for staff the two
 can differ. Live on 9 Nov: 5 Faulty of 442. Tested in `verify-register.mjs`;
 the card was rendered in Chromium, but the filtered list has not been opened
 signed in.
+
+**CI during a GitHub outage (9 Nov).** GitHub had an incident with Actions and
+Webhooks from 10:00 UTC. #92's first push at 10:02 created no workflow run at
+all, and none appeared later; the run started only with the next push (10:19).
+A dropped `pull_request` event is not replayed, so if a PR shows only the
+Vercel and Supabase checks, look at githubstatus.com before suspecting the
+workflow, and expect the next real push to start it. Do not push an empty
+commit to kick it.
+
+**Sandbox note (9 Nov):** the `xlsx` stand-in needs real types, not `any`, or
+`import-file.ts` fails typecheck (implicit any, type arguments on an untyped
+call). A `.d.ts` declaring `read`, `writeFile` and `utils.{sheet_to_json<T>,
+json_to_sheet, aoa_to_sheet, book_new, book_append_sheet}` is enough. Test
+scripts run under `node --experimental-strip-types`, which cannot resolve the
+`@/` alias, so a `src/lib` module that imports with `@/` cannot be imported
+from `scripts/`; test the functions it calls instead.
 
 **9 November — merged in #90** (migration
 `20261109120000_tetfund_desk_and_mail_offices`, applied live before the merge
