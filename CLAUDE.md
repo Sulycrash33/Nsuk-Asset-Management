@@ -324,9 +324,11 @@ University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
 
-**9 November — #90** (migration
+**9 November — merged in #90** (migration
 `20261109120000_tetfund_desk_and_mail_offices`, applied live before the merge
-and committed; the user said "merge it when it pass"). The user asked for two
+and committed; the user said "merge it when it pass", and it was squash-merged
+at 09:04 UTC once `check` and `Isolated database integration` passed on the
+final commit, a `CLAUDE.md` update). The user asked for two
 departments under the V.C Office: **TetFund Desk Office** and **Mail Office**,
 both Offices on Keffi (Main), names spelt as the user gave them. Codes are the
 `derive_short_code` result, stated outright in the migration: **TED** and
