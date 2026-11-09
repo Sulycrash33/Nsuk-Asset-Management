@@ -350,6 +350,13 @@ can differ. Live on 9 Nov: 5 Faulty of 442. Tested in `verify-register.mjs`;
 the card was rendered in Chromium, but the filtered list has not been opened
 signed in.
 
+**Migration file names follow the live version (9 Nov).** #90's file was
+committed as `20261109120000_…` while the live database recorded the migration
+as `20261109085834`; it was renamed to match, which also puts it before HOI's
+`20261109100229`, the order it was applied live. When applying with
+`apply_migration`, read the version back from `list_migrations` and name the
+file after it.
+
 **CI during a GitHub outage (9 Nov).** GitHub had an incident with Actions and
 Webhooks from 10:00 UTC. #92's first push at 10:02 created no workflow run at
 all, and none appeared later; the run started only with the next push (10:19).
@@ -367,7 +374,7 @@ scripts run under `node --experimental-strip-types`, which cannot resolve the
 from `scripts/`; test the functions it calls instead.
 
 **9 November — merged in #90** (migration
-`20261109120000_tetfund_desk_and_mail_offices`, applied live before the merge
+`20261109085834_tetfund_desk_and_mail_offices`, applied live before the merge
 and committed; the user said "merge it when it pass", and it was squash-merged
 at 09:04 UTC once `check` and `Isolated database integration` passed on the
 final commit, a `CLAUDE.md` update). The user asked for two
