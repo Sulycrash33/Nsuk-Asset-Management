@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditAssetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { profile, isAdmin, isAuditor, scopedUnitIds, units, campuses } = await requireSession();
+  const { profile, isAdmin, isAuditor, scopedUnitIds, units } = await requireSession();
   const supabase = await createClient();
 
   const [{ data: asset }, { data: categories }, { data: accountingLocked, error: accountingError }] = await Promise.all([
@@ -47,9 +47,6 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
         accountingLocked={accountingLocked === true}
         initialPhotoSource={await signedAssetPhoto(supabase, asset.photo_url, process.env.NEXT_PUBLIC_SUPABASE_URL!)}
         scopedUnitIds={scopedUnitIds}
-        isAdmin={isAdmin}
-        campusId={profile.campus_id}
-        campuses={campuses}
       />
     </div>
   );
