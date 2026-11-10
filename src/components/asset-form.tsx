@@ -30,7 +30,6 @@ import {
   CONDITIONS,
   type Asset,
   type AssetCategory,
-  type Campus,
   type Condition,
   type OrgUnit,
 } from "@/lib/types";
@@ -99,9 +98,6 @@ export default function AssetForm({
   asset = null,
   initialPhotoSource = null,
   scopedUnitIds,
-  isAdmin,
-  campusId,
-  campuses,
   accountingLocked = false,
 }: {
   units: OrgUnit[];
@@ -109,9 +105,6 @@ export default function AssetForm({
   asset?: Asset | null;
   initialPhotoSource?: string | null;
   scopedUnitIds: string[];
-  isAdmin: boolean;
-  campusId: string | null;
-  campuses: Campus[];
   accountingLocked?: boolean;
 }) {
   const router = useRouter();
@@ -536,9 +529,7 @@ export default function AssetForm({
             units={units}
             value={form.org_unit_id || null}
             onChange={(id) => set("org_unit_id", id)}
-            allowCreate={isAdmin}
-            campuses={campuses}
-            campusId={campusId}
+            allowCreate
             onUnitCreated={(u) => setUnits((prev) => [...prev, u])}
           />
         </div>

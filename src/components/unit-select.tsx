@@ -4,19 +4,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Loader2, Plus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { buildTree, flattenTree, unitPath } from "@/lib/tree";
-import type { Campus, OrgUnit } from "@/lib/types";
+import Modal from "@/components/ui/modal";
+import { UNIT_TYPES, type OrgUnit } from "@/lib/types";
+
+/** Kinds a new unit can be. Faculties and schools are the top of the tree. */
+const NEW_UNIT_TYPES = UNIT_TYPES.filter((t) => t !== "Faculty" && t !== "School");
 
 /**
- * Typeahead over the org tree. Indentation shows nesting, and administrators can
- * create a missing unit inline rather than leaving the form to go and add it.
+ * Typeahead over the org tree. Indentation shows nesting. With `allowCreate`,
+ * the last option in the list adds a missing unit beneath a parent the person
+ * picks, through `add_org_unit`, which any signed-in account may call and which
+ * chooses a short code no other unit in that tree uses.
  */
 export default function UnitSelect({
   units,
   value,
   onChange,
   allowCreate = false,
-  campuses = [],
-  campusId,
   onUnitCreated,
   placeholder = "Select a unit",
   restrictTo,
@@ -26,10 +30,6 @@ export default function UnitSelect({
   value: string | null;
   onChange: (unitId: string) => void;
   allowCreate?: boolean;
-  /** Campuses a newly created unit can belong to. */
-  campuses?: Campus[];
-  /** Preselected campus for inline creation. Administrators have none. */
-  campusId?: string | null;
   onUnitCreated?: (unit: OrgUnit) => void;
   placeholder?: string;
   /** When given, only these unit ids are selectable (staff scoping). */
@@ -38,19 +38,13 @@ export default function UnitSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newParent, setNewParent] = useState<string | null>(null);
+  const [newType, setNewType] = useState<string>("Department");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-
-  // An administrator has no campus of their own, so inline creation asks which
-  // campus the new unit belongs to rather than guessing.
-  const [newUnitCampus, setNewUnitCampus] = useState(
-    () =>
-      campusId ??
-      campuses.find((c) => c.name.startsWith("Keffi"))?.id ??
-      campuses[0]?.id ??
-      "",
-  );
 
   const ordered = useMemo(() => flattenTree(buildTree(units)), [units]);
   const allowed = useMemo(
@@ -83,34 +77,46 @@ export default function UnitSelect({
   const selectedLabel = value ? unitPath(value, units) : "";
   const exactExists = matches.some((u) => u.name.toLowerCase() === term.trim().toLowerCase());
 
+  function startAdding() {
+    setNewName(term.trim());
+    // A unit is usually missing next to the one already chosen.
+    setNewParent(value ? (units.find((u) => u.id === value)?.parent_id ?? value) : null);
+    setNewType("Department");
+    setError(null);
+    setOpen(false);
+    setAdding(true);
+  }
+
   async function createUnit() {
-    const name = term.trim();
-    if (!name) return;
-    if (!newUnitCampus) {
-      setError("Add a campus first. Every unit must belong to one.");
+    const name = newName.trim();
+    if (!name) {
+      setError("Type the unit's name.");
+      return;
+    }
+    if (!newParent) {
+      setError("Choose the faculty, directorate or office it belongs under.");
       return;
     }
     setCreating(true);
     setError(null);
-    const supabase = createClient();
-    const { data, error: insertError } = await supabase
-      .from("org_units")
-      .insert({ name, campus_id: newUnitCampus, parent_id: null, unit_type: "Other" })
-      .select("*")
+    const { data, error: rpcError } = await createClient()
+      .rpc("add_org_unit", { p_name: name, p_parent_id: newParent, p_unit_type: newType })
       .single();
     setCreating(false);
 
-    if (insertError || !data) {
-      setError(insertError?.message ?? "Could not create the unit.");
+    if (rpcError || !data) {
+      setError(rpcError?.message ?? "Could not add the unit.");
       return;
     }
-    onUnitCreated?.(data as OrgUnit);
-    onChange(data.id);
+    const unit = data as OrgUnit;
+    onUnitCreated?.(unit);
+    onChange(unit.id);
     setTerm("");
-    setOpen(false);
+    setAdding(false);
   }
 
   return (
+    <>
     <div ref={boxRef} className="relative">
       <button
         id={id}
@@ -165,43 +171,95 @@ export default function UnitSelect({
             )}
           </ul>
 
-          {allowCreate && term.trim() && !exactExists && (
-            <div className="border-t border-nsuk-line p-2">
-              {campuses.length > 1 && (
-                <label className="mb-2 flex items-center gap-2 px-1 text-xs text-nsuk-muted">
-                  <span className="shrink-0">Campus</span>
-                  <select
-                    value={newUnitCampus}
-                    onChange={(e) => setNewUnitCampus(e.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-nsuk-line bg-white px-2 py-1.5 text-sm outline-none focus:border-nsuk-blue"
-                  >
-                    {campuses.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+          {allowCreate && (
+            <div className="border-t border-nsuk-line p-1">
               <button
                 type="button"
-                onClick={createUnit}
-                disabled={creating}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm font-semibold text-nsuk-green hover:bg-nsuk-cream disabled:opacity-60"
+                onClick={startAdding}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm font-semibold text-nsuk-green hover:bg-nsuk-cream"
               >
-                {creating ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4 shrink-0" />
-                )}
-                <span className="truncate">Add new unit “{term.trim()}”</span>
+                <Plus className="h-4 w-4 shrink-0" />
+                <span className="truncate">
+                  {term.trim() && !exactExists ? `Add “${term.trim()}” as a new unit` : "Add a unit"}
+                </span>
               </button>
             </div>
           )}
-
-          {error && <p className="px-3 py-2 text-xs text-nsuk-danger">{error}</p>}
         </div>
       )}
     </div>
+
+    {allowCreate && (
+      <Modal
+        open={adding}
+        onClose={() => setAdding(false)}
+        title="Add a unit"
+        description="It goes under the unit you choose, and its asset codes are built from both, so pick the right one."
+        tall
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setAdding(false)} className="btn-ghost">
+              Cancel
+            </button>
+            <button type="button" onClick={createUnit} className="btn-green" disabled={creating}>
+              {creating && <Loader2 className="h-4 w-4 animate-spin" />} Add unit
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4 pb-2">
+          <div>
+            <label className="label" htmlFor={`${id ?? "unit"}-new-name`}>
+              Unit name *
+            </label>
+            <input
+              id={`${id ?? "unit"}-new-name`}
+              className="field"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              // The picker sits inside the asset form; Enter must add the
+              // unit, not save the asset.
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void createUnit();
+                }
+              }}
+              placeholder="e.g. Store Office"
+              maxLength={120}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor={`${id ?? "unit"}-new-parent`}>
+              Belongs under *
+            </label>
+            <UnitSelect
+              id={`${id ?? "unit"}-new-parent`}
+              units={units}
+              value={newParent}
+              onChange={setNewParent}
+              placeholder="Select the faculty, directorate or office"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor={`${id ?? "unit"}-new-type`}>
+              Type
+            </label>
+            <select
+              id={`${id ?? "unit"}-new-type`}
+              className="field"
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+            >
+              {NEW_UNIT_TYPES.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          {error && <p className="text-sm text-nsuk-danger">{error}</p>}
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
