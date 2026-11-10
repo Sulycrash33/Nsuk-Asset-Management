@@ -23,7 +23,9 @@ in the dashboard (~09:28 UTC); all that is left is a 0-byte
 
 The unit tree is the University's own as of migration 22 — 191 units across all
 four campuses, 194 since 9 Nov 2026 (#90 and #92 added three offices under
-the Vice-Chancellor's Office at the University's request). Six accounts exist (3 Nov 2026): two administrators and four
+the Vice-Chancellor's Office at the University's request). Since #96 (10 Nov)
+any account can add a unit itself from the unit picker, so the count will
+drift; 194 when #96 merged. Six accounts exist (3 Nov 2026): two administrators and four
 staff, and none of the four staff has a unit assigned. That no longer stops them
 recording (see below). The next step is the people: ten officers who will record
 assets across the institution. Supabase is on the **Pro plan** since 2 Nov 2026.
@@ -131,6 +133,23 @@ assets, not places to put assets. Units the University asks for later are
 added by migration, outside the document: so far TetFund Desk Office (TED),
 Mail Office (MAI) (#90) and Head Operation and Investment Division (HOI, #92),
 all under the Vice-Chancellor's Office.
+
+**Any account adds a unit, and only through `add_org_unit`** (since #96, 10 Nov
+2026, asked for because officers kept finding units missing while tagging). The
+user chose **every account** (auditors too) and **always under a parent the
+person picks**. The unit picker ends with "Add a unit" wherever `allowCreate`
+is set, which today is the asset form only (Add and Edit). The dialog asks
+name, *Belongs under* and type; the campus comes from the parent. The
+`org_units` table stays administrator-only (`org_units_write`): the function is
+`SECURITY DEFINER`, granted to `authenticated` only, and nobody but an
+administrator can rename, recode, move or remove a unit, so typos and
+duplicates are tidied on `/units`. The function picks the short code: the
+`derive_short_code` result when no other unit under the same top unit has it,
+otherwise the nearest free three-letter variant, under an advisory lock per
+tree. Same name twice under one parent is refused; Faculty and School are not
+offered beneath a unit. Test: `supabase/tests/add_org_unit.sql`. Auditors may
+add but never open the asset form, so in practice they cannot yet; the
+importer's default-unit picker does not offer it. Neither was asked for.
 
 **Two units under one faculty must not abbreviate alike.** The asset code is
 built from the faculty's code and the unit's, and `asset_seq` counts per unit,
@@ -312,7 +331,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–9 November 2026 (#66–#94)
+## Handoff: changes on 1–10 November 2026 (#66–#96)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -324,6 +343,41 @@ covers the PR it was said about, not the next one. The user often relays the
 University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
+
+**10 November — merged in #96: any account adds a unit** (migrations
+`20261110143431_any_account_adds_a_unit` and
+`20261110143922_add_org_unit_taken_codes_fix`, both applied live before the
+merge and committed under their live versions). Asked as "Add unit should be
+under the last options of units … any one should be able to add unit"; the two
+choices were put as one question and answered: every account, under a chosen
+parent. See the rule under "The things that are easy to get wrong". The user
+said "Merge when pass"; squash-merged at 14:45 UTC once `check` and
+`Isolated database integration` passed on the final commit (`299d712`), as
+`9b60c6b`, and Vercel production was READY on it within a minute.
+
+- **CI caught two faults, both before anything called the function.** The
+  first version built its list of taken codes with `v_taken || 'GEN'`: an
+  untyped literal beside an array is read as another array, so every call
+  failed with "malformed array literal". Fixed live with `array_append` (the
+  second migration; the body is otherwise identical). Then the test itself
+  called `derive_short_code` and `next_barcode` while acting as an account,
+  and neither is granted to `authenticated`: assert a literal (`ZZS`) and
+  issue codes as the owner, after `reset role`, in the same transaction.
+  Lessons: append to a `text[]` with `array_append`, and a test running as
+  `authenticated` may call only what that role is granted.
+- **Vercel preview flake again:** the first preview build failed on
+  `next/font/google` fetching JetBrains Mono ("queries have exactly one
+  entry"), as on #86, in `src/app/layout.tsx`, which #96 did not touch. One
+  redeploy passed, and so did every later push. Seen twice now; if it starts
+  failing production builds, self-host the font.
+- **Verified:** `npm run check` locally; the test failing on the first commit
+  (control) and passing in CI on the last; live, `add_org_unit` has
+  `search_path=public`, is not executable by `anon`, and the security
+  advisor added only its expected `authenticated` row. The picker and dialog
+  were rendered in Chromium at phone size from the live unit list and sent
+  to the user; the parent search works inside the dialog.
+- **Not yet seen:** adding a unit signed in on the deployed app, as staff or
+  as an administrator. Register size seen that day: 929 assets.
 
 **9 November — merged in #92: Head Operation and Investment Division**
 (migration `20261109100229_head_operation_and_investment_division`, applied
@@ -821,7 +875,9 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
   in #80. Offered and not asked for: removing a photo that is only cleared with
   ✕, with nothing put in its place (kept today).
 
-**Not yet confirmed on a real phone or printer**: whether any of the real
+**Not yet confirmed on a real phone or printer**: from #96, adding a unit
+from the asset form, and the new unit then showing in other pickers after a
+reload. Earlier: whether any of the real
 assets' labels have been printed and stuck, and in particular whether the 25
 re-coded in #88 had stickers (old ones still scan; new labels are needed).
 From #88: Issue new code, an old sticker in `/scan` and in a stock count, and
