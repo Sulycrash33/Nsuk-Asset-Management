@@ -18,7 +18,7 @@ set local role authenticated;
 do $$
 declare admin_id uuid:=auth.uid(); staff_id uuid; root public.org_units; child uuid;
  a public.org_units; b public.org_units; c public.org_units; aud public.org_units;
- asset_code text; affected integer; codes integer; issued integer;
+ asset_code text; affected integer;
 begin
  select id into staff_id from public.profiles where id<>admin_id limit 1;
  select r.* into root from public.org_units r
@@ -32,7 +32,8 @@ begin
  if a.name<>'Zzqtest Store' then raise exception 'Name not tidied: %', a.name; end if;
  if a.parent_id<>root.id or a.campus_id<>root.campus_id then raise exception 'Not placed under its parent'; end if;
  if a.unit_type<>'Office' then raise exception 'Type not kept'; end if;
- if a.short_code<>public.derive_short_code('Zzqtest Store') then raise exception 'Free derived code not used: %', a.short_code; end if;
+ -- derive_short_code('Zzqtest Store'): two words, so two letters and one.
+ if a.short_code<>'ZZS' then raise exception 'Free derived code not used: %', a.short_code; end if;
 
  -- It is immediately usable for recording, and its code names the unit.
  insert into public.assets(name,org_unit_id,barcode,qr_payload) values('In a new unit',a.id,'','')
@@ -53,15 +54,6 @@ begin
  -- A grandchild of the new unit, same name again: a third distinct code.
  c := public.add_org_unit('Zzqtest Store', b.id, 'Other');
  if c.short_code in (a.short_code,b.short_code) then raise exception 'Clash at depth: %', c.short_code; end if;
-
- -- Proved by issuing, not by reading: every unit under the top unit, one code each.
- perform set_config('request.jwt.claim.sub',admin_id::text,true);
- with recursive d as (select id from public.org_units where parent_id=root.id
-  union all select o.id from public.org_units o join d on o.parent_id=d.id)
- -- Compared without the running number, which differs per unit and would hide a clash.
- select count(*), count(distinct regexp_replace(public.next_barcode(id),'/[0-9]+$','')) into issued, codes from d;
- if codes<>issued then raise exception 'Units under one top unit issue the same code (% of %)', codes, issued; end if;
- perform set_config('request.jwt.claim.sub',staff_id::text,true);
 
  -- Refusals with readable reasons.
  begin perform public.add_org_unit('   ', root.id); raise exception 'Blank name accepted';
@@ -94,6 +86,23 @@ begin
  perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
  begin perform public.add_org_unit('Ghost unit', root.id); raise exception 'No-profile identity added a unit';
  exception when insufficient_privilege then null; end;
+end $$;
+
+-- Proved by issuing, not by reading: every unit under that top unit gives a
+-- code of its own. next_barcode is not granted to accounts, so this runs as the
+-- owner, on the units the block above added (still in this transaction).
+reset role;
+do $$
+declare root uuid; codes integer; issued integer;
+begin
+ select parent_id into strict root from public.org_units
+  where name='Zzqtest Store' and parent_id in (select id from public.org_units where parent_id is null);
+ with recursive d as (select id from public.org_units where parent_id=root
+  union all select o.id from public.org_units o join d on o.parent_id=d.id)
+ -- Compared without the running number, which differs per unit and would hide a clash.
+ select count(*), count(distinct regexp_replace(public.next_barcode(id),'/[0-9]+$','')) into issued, codes from d;
+ if issued<4 then raise exception 'Added units missing from the tree (% units)', issued; end if;
+ if codes<>issued then raise exception 'Units under one top unit issue the same code (% of %)', codes, issued; end if;
 end $$;
 select 'add unit assertions passed' as result;
 rollback;
