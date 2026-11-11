@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Activity,
   Boxes,
@@ -18,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { lockPageScroll } from "@/lib/scroll-lock";
 import { ASSET_WITH_REFS, CONDITION_STYLES, formatNaira, type AssetWithRefs } from "@/lib/types";
 
 /** Stable empty list, so a term with no rows yet does not remount the results. */
@@ -85,7 +87,9 @@ export default function CommandPalette({ isAdmin, readOnly = false }: { isAdmin:
   }, [close]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    if (!open) return;
+    inputRef.current?.focus();
+    return lockPageScroll();
   }, [open]);
 
   const needle = term.trim();
@@ -156,7 +160,9 @@ export default function CommandPalette({ isAdmin, readOnly = false }: { isAdmin:
         </kbd>
       </button>
 
-      {open && (
+      {/* Rendered into the body: the palette's button sits in the top bar, whose
+          blurred background would otherwise pin this overlay to the bar. */}
+      {open && createPortal(
         <div className="no-print fixed inset-0 z-[70] flex items-start justify-center p-4 pt-[8vh]">
           <button
             aria-label="Close search"
@@ -281,7 +287,8 @@ export default function CommandPalette({ isAdmin, readOnly = false }: { isAdmin:
               </span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
