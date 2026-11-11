@@ -205,6 +205,16 @@ body {
 }
 
 /* ---- Animation utilities ---------------------------------------------- */
+/*
+ * Entrances fill "backwards", never "both" or "forwards". A transform animation
+ * that is still filling counts as a transform, and an element with a transform
+ * pins every position: fixed descendant to itself instead of to the screen.
+ * With "both", <main> kept that hold for as long as the page was open, so
+ * dialogs inside it stretched to the page's full height and their buttons
+ * could not be reached. "backwards" still hides the element during any delay,
+ * then lets go once the animation has played; the final frame matches the
+ * element's own styles, so nothing visibly changes.
+ */
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
@@ -254,7 +264,7 @@ body {
 }
 
 .animate-fade-up {
-  animation: fade-up 0.45s var(--ease-out-soft) both;
+  animation: fade-up 0.45s var(--ease-out-soft) backwards;
 }
 
 .animate-fade-in {
@@ -262,16 +272,16 @@ body {
 }
 
 .animate-sheet-up {
-  animation: sheet-up 0.28s var(--ease-out-soft) both;
+  animation: sheet-up 0.28s var(--ease-out-soft) backwards;
 }
 
 .animate-pop-in {
-  animation: pop-in 0.22s var(--ease-spring) both;
+  animation: pop-in 0.22s var(--ease-spring) backwards;
 }
 
 /* Staggers a list so rows arrive in sequence rather than all at once. */
 .stagger > * {
-  animation: fade-up 0.4s var(--ease-out-soft) both;
+  animation: fade-up 0.4s var(--ease-out-soft) backwards;
 }
 .stagger > *:nth-child(1) { animation-delay: 0.02s; }
 .stagger > *:nth-child(2) { animation-delay: 0.05s; }

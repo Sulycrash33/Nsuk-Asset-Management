@@ -27,6 +27,7 @@ import { createClient } from "@/lib/supabase/client";
 import ToastProvider from "@/components/ui/toast";
 import ConfirmProvider from "@/components/ui/confirm";
 import CommandPalette from "@/components/command-palette";
+import { lockPageScroll } from "@/lib/scroll-lock";
 
 type NavItem = { href: string; label: string; icon: typeof Boxes; adminOnly?: boolean };
 
@@ -99,11 +100,10 @@ export default function AppShell({
     setMenuOpen(false);
   }
 
+  // The shared lock, so the menu and a dialog never undo each other's lock.
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    if (!menuOpen) return;
+    return lockPageScroll();
   }, [menuOpen]);
 
   const isActive = (href: string) => {
