@@ -200,6 +200,29 @@ sticker reads as unknown. The asset page lists previous codes and offers
 (`src/lib/asset-code.ts`, which mirrors `next_barcode` and is not the
 authority). Test: `supabase/tests/reissue_asset_code.sql`.
 
+**Overlays render into the body, and nothing keeps a transform** (since
+#98). A `position: fixed` element is placed against the screen only while no
+ancestor has a transform, filter or backdrop filter; inside one it is placed
+against that ancestor. The page fade-in (`animate-fade-up` on `<main>`) used
+to fill `both`, which holds the last keyframe's `transform` for as long as the
+page is open, so every dialog opened inside a page stretched to the page's
+full height. On the asset form, Add a unit sank below the screen and under
+the bottom tab bar, with the page scroll-locked: officers reported "no place
+to scroll down to see the add". The button was never missing. Three rules
+follow. `Modal` and the search palette render through `createPortal(...,
+document.body)`, and any new overlay must too. Entrance animations fill
+`backwards`, never `both` or `forwards`. The top bar's `backdrop-blur` is
+exactly such an ancestor, so nothing fixed may live inside it. Page scroll is
+locked only through `lockPageScroll()` (`src/lib/scroll-lock.ts`,
+reference-counted): writing `body.style.overflow` directly let two
+overlapping overlays leave the page locked until a reload. Dialogs size from
+the visual viewport (`useVisibleHeight`) so, with a phone keyboard open, the
+footer and its button stay above the keyboard; `100dvh` does not shrink for
+the keyboard on most Android browsers. Test:
+`scripts/verify-scroll-lock.mjs`. Measure an overlay by rendering it on a
+long page at phone size and reading its button's position. Reading the
+component shows nothing wrong: the fault is in an ancestor.
+
 **Labels are QR, not barcodes.** Phones are the only scanners this University
 will own. The Code 128 encoder (`src/lib/code128.ts`) and `BarcodeImage` are
 kept but unused — the payload is unchanged, so restoring a printed barcode is
@@ -331,7 +354,7 @@ raises it again.
 The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–10 November 2026 (#66–#96)
+## Handoff: changes on 1–11 November 2026 (#66–#98)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -343,6 +366,48 @@ covers the PR it was said about, not the next one. The user often relays the
 University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
+
+**11 November — merged in #98: every dialog on screen, every page
+scrollable.** Field staff complained, on phones and laptops, that they could
+not scroll to the end of the page, and that on Add a unit there was "no place
+to scroll down to see the add". Asked first what the issue was, the cause
+was explained before any change (the user said "tell me what the issue is
+first"), then "go ahead"; asked mid-way whether the button was missing or
+it was the scrolling, the answer was the scrolling. See the rule under "The
+things that are easy to get wrong". No database change. The user said "merge
+when it pass"; squash-merged at 10:45 UTC once `check` and `Isolated database
+integration` passed on `9bac11d`, as `9a2ce76`, and Vercel production was
+READY on it within two minutes.
+
+- **Measured, before and after** (Chromium, Pixel 7 viewport 839 px, the real
+  `AppShell` and `AssetForm` with the live 194 units, on a temporary
+  `/scroll-harness` page that was never committed): the Add unit button sat
+  at 1040–1088 px before, off screen and under the tab bar, and at 779–827
+  px after. With the parent picker open it was the same. With a keyboard
+  simulated by shrinking the visual viewport to 509 px, it sat at 449–497
+  px. Laptop 1366 × 768: the search palette's backdrop was 77 px tall
+  (trapped in the top bar) before and 768 px after. A before/after picture
+  was sent to the user.
+- **Not verified:** a real on-screen keyboard. The simulation replaces
+  `window.visualViewport`, which tests the sizing logic, not a phone. The
+  preview link was given to the user for an officer to try. Also not
+  measured one by one: the other pages' dialogs (Transfer, Users, Units).
+  They share `Modal`, so the fix applies to them.
+- **Left as they are, not raised:** short scrolling lists inside a page (the
+  `/labels` picker at 26rem, the users unit picker, the units catalogue) are
+  deliberate pickers and do scroll; they were not part of the complaint.
+- **How it was run here:** `npm install` with `xlsx` removed from
+  `package.json` (restored after), a typed `xlsx` stand-in in `node_modules`,
+  and `next dev` with dummy Supabase variables, with the harness path
+  temporarily added to `PUBLIC_PATHS`. `next dev` again rewrote `CLAUDE.md`
+  and `next-env.d.ts`; both were reverted before committing.
+
+**Live register, 11 Nov morning** (read-only, before #98): 1,005 assets, 233
+recorded in the previous 24 hours, the latest at 15:36 UTC on 10 Nov; no
+duplicate codes; 39 assets without an accounting record; 194 units, none
+added yet through `add_org_unit`; 6 accounts, still none with a unit; no
+stock count ever run. The user also asked for, and got, a chat summary of
+this handoff.
 
 **10 November — merged in #96: any account adds a unit** (migrations
 `20261110143431_any_account_adds_a_unit` and
@@ -875,7 +940,9 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
   in #80. Offered and not asked for: removing a photo that is only cleared with
   ✕, with nothing put in its place (kept today).
 
-**Not yet confirmed on a real phone or printer**: from #96, adding a unit
+**Not yet confirmed on a real phone or printer**: from #98, Add a unit
+with the phone keyboard open (the button should stay above it), and the
+laptop search palette. From #96, adding a unit
 from the asset form, and the new unit then showing in other pickers after a
 reload. Earlier: whether any of the real
 assets' labels have been printed and stuck, and in particular whether the 25
