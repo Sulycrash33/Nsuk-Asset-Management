@@ -10,8 +10,13 @@ and the date available for use. Blank cost is unknown; any cost above zero is kn
 automatic as soon as the asset has an active cost-model class, a known cost and a start date
 outside finalized periods. The start date is the date available for use, or the acquisition
 date when that is blank (1 January for a year-only acquisition). Otherwise the administrator
-report flags the asset for review. Once recognized, these facts are locked and only an
-administrator adjusts them. Administrators also see each asset's cost, annual and year-to-date
+report flags the asset for review. Once recognized, the category is locked. Cost and dates
+stay correctable by anyone who may edit the asset while its only event is the automatic
+acquisition and no finalized year covers it: the edit replaces that event as if the asset had
+been saved with the new figures, at the rate it was first charged, and the replacement's
+evidence says it was recalculated. After any administrator event (opening, correction,
+impairment, revaluation) or once the year is finalized, the facts are locked and only an
+administrator adjusts them (since #100, 18 Nov 2026). Administrators also see each asset's cost, annual and year-to-date
 depreciation, accumulated depreciation and book value on its own page (`asset_depreciation`).
 
 ## Institutional classifications
@@ -63,6 +68,8 @@ than assigned an equipment rate.
 
 ## Verification
 
+`supabase/tests/editors_correct_cost_and_dates.sql` checks the recalculation, the kept rate,
+the category lock, and that an administrator event or a finalized year locks the facts again.
 `supabase/tests/automatic_depreciation.sql` checks the start-date fallback, typed and unknown
 costs, a confirmed zero, recognition on a later edit, and that the asset page figures match the
 report and are refused to staff. `supabase/tests/accounting.sql` runs rollback-only assertions for full/leap years, rate
