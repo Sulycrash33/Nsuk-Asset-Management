@@ -21,7 +21,11 @@ begin
  select * into event from public.accounting_events where asset_id=a_id;
  if event.id is null or event.annual_charge<>250000 then raise exception 'Automatic cost recognition failed'; end if;
  if public.accounting_amount(event,'2020-12-31')<>750000 or public.accounting_amount(event,'2028-12-31')<>0 then raise exception 'Annual amount or depreciation cap failed'; end if;
- begin update public.assets set value=900000 where id=a_id; raise exception 'Locked cost accepted'; exception when raise_exception then if sqlerrm='Locked cost accepted' then raise; end if; end;
+ -- While the automatic record is all there is, a cost edit recalculates it.
+ update public.assets set value=900000 where id=a_id;
+ select * into event from public.accounting_events where asset_id=a_id;
+ if event.original_cost<>900000 or event.annual_charge<>225000 then raise exception 'Cost edit was not recalculated: %',to_jsonb(event); end if;
+ update public.assets set value=1000000 where id=a_id;
  perform public.set_accounting_rate(class_id,20,'Rollback policy change');
  select * into event from public.accounting_events where asset_id=a_id;
  if event.annual_charge<>250000 then raise exception 'Rate change rewrote financial history'; end if;
@@ -33,6 +37,8 @@ begin
  select * into event from public.accounting_events where asset_id=a_id order by effective_date desc limit 1;
  if event.original_cost<>1000000 or event.gross_amount<>800000 or public.accounting_amount(event,'2022-01-01')<>800000 then raise exception 'Revaluation cost preservation failed'; end if;
  if public.accounting_amount(event,'2040-12-31')<>100000 then raise exception 'Residual cap failed'; end if;
+ -- After an administrator's revaluation the facts are locked again.
+ begin update public.assets set value=900000 where id=a_id; raise exception 'Locked cost accepted'; exception when raise_exception then if sqlerrm='Locked cost accepted' then raise; end if; end;
  if public.accounting_year_charge(a_id,'2022-12-31')<>100410.96 then raise exception 'Year charges lost pre-revaluation depreciation'; end if;
  report:=public.accounting_report('2021-12-31');
  if not exists(select 1 from jsonb_array_elements(report->'rows') r where r->>'id'=a_id::text and r->>'status'='Valued' and (r->>'carrying_amount')::numeric=500000) then raise exception 'Historical report failed'; end if;

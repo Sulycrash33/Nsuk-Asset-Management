@@ -80,6 +80,8 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   const canEdit =
     !isAuditor &&
     (isAdmin || record.created_by === profile.id || scopedUnitIds.includes(record.org_unit_id));
+  // Staff delete only what they recorded; the delete policy says the same.
+  const canDelete = !isAuditor && (isAdmin || record.created_by === profile.id);
 
   const details: [string, string][] = [
     ["Category", record.asset_categories?.name ?? "—"],
@@ -176,6 +178,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           units={units}
           isAdmin={isAdmin}
           canEdit={canEdit}
+          canDelete={canDelete}
           codeOutOfDate={codeOutOfDate}
         />
       </div>

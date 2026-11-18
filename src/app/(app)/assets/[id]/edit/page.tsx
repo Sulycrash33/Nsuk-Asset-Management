@@ -15,13 +15,19 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
   const { profile, isAdmin, isAuditor, scopedUnitIds, units } = await requireSession();
   const supabase = await createClient();
 
-  const [{ data: asset }, { data: categories }, { data: accountingLocked, error: accountingError }] = await Promise.all([
+  const [
+    { data: asset },
+    { data: categories },
+    { data: accountingLocked, error: accountingError },
+    { data: figuresLocked, error: figuresError },
+  ] = await Promise.all([
     supabase.from("assets").select("*").eq("id", id).maybeSingle(),
     supabase.from("asset_categories").select("*").eq("active", true).order("name"),
     supabase.rpc("asset_accounting_locked", { p_asset: id }),
+    supabase.rpc("asset_figures_locked", { p_asset: id }),
   ]);
 
-  if (accountingError) throw new Error("Unable to load accounting status. Please try again.");
+  if (accountingError || figuresError) throw new Error("Unable to load accounting status. Please try again.");
   if (!asset) notFound();
   if (isAuditor) redirect(`/assets/${id}`);
   const ownRecord = asset.created_by === profile.id;
@@ -45,6 +51,7 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
         categories={(categories ?? []) as AssetCategory[]}
         asset={asset as Asset}
         accountingLocked={accountingLocked === true}
+        figuresLocked={figuresLocked === true}
         initialPhotoSource={await signedAssetPhoto(supabase, asset.photo_url, process.env.NEXT_PUBLIC_SUPABASE_URL!)}
         scopedUnitIds={scopedUnitIds}
       />

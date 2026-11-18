@@ -34,8 +34,9 @@ begin
  if (select created_by from public.assets where id=own)<>staff_id then raise exception 'Recorder was rewritten'; end if;
  update public.assets set name='Forbidden' where id=foreign_a; get diagnostics affected=row_count;
  if affected<>0 then raise exception 'Foreign asset edited'; end if;
- delete from public.assets where id=own; get diagnostics affected=row_count;
- if affected<>0 then raise exception 'Staff deleted an asset'; end if;
+ -- Staff delete only what they recorded (staff_delete_own_assets).
+ delete from public.assets where id=foreign_a; get diagnostics affected=row_count;
+ if affected<>0 then raise exception 'Staff deleted another person''s asset'; end if;
 
  -- Photo on an own record in an unassigned unit stays readable to its recorder.
  insert into storage.objects(bucket_id,name,owner_id) values('asset-photos',photo_key,staff_id::text);

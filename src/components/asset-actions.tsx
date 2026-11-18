@@ -17,19 +17,21 @@ import type { AssetWithRefs, OrgUnit } from "@/lib/types";
 /**
  * Print label (anyone who can see the asset, since every account reads the
  * whole register), transfer to another unit (those who may edit it), and
- * delete (administrators).
+ * delete (administrators, and staff for the assets they recorded).
  */
 export default function AssetActions({
   asset,
   units,
   isAdmin,
   canEdit,
+  canDelete,
   codeOutOfDate = false,
 }: {
   asset: AssetWithRefs;
   units: OrgUnit[];
   isAdmin: boolean;
   canEdit: boolean;
+  canDelete: boolean;
   /** The code names a unit or item type the asset no longer has. */
   codeOutOfDate?: boolean;
 }) {
@@ -159,7 +161,7 @@ export default function AssetActions({
         </button>
       )}
 
-      {canEdit && isAdmin && (
+      {canDelete && (
         <button onClick={remove} disabled={busy} className="btn-danger">
           <Trash2 className="h-4 w-4" /> Delete asset
         </button>

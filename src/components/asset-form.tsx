@@ -99,13 +99,18 @@ export default function AssetForm({
   initialPhotoSource = null,
   scopedUnitIds,
   accountingLocked = false,
+  figuresLocked = false,
 }: {
   units: OrgUnit[];
   categories: AssetCategory[];
   asset?: Asset | null;
   initialPhotoSource?: string | null;
   scopedUnitIds: string[];
+  /** The asset has an accounting record: the category is fixed. */
   accountingLocked?: boolean;
+  /** Cost and dates are fixed too: an administrator recorded an adjustment,
+   * or the year is closed. Otherwise an edit recalculates depreciation. */
+  figuresLocked?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -579,7 +584,7 @@ export default function AssetForm({
             </label>
             <input
               id="value"
-              disabled={accountingLocked}
+              disabled={figuresLocked}
               className="field tabular"
               value={form.value}
               onChange={(e) =>
@@ -639,7 +644,7 @@ export default function AssetForm({
           {form.acquisition_year_only ? (
             <input
               id="acquired"
-              disabled={accountingLocked}
+              disabled={figuresLocked}
               className="field tabular"
               value={form.acquisition_year}
               onChange={(e) =>
@@ -652,7 +657,7 @@ export default function AssetForm({
           ) : (
             <input
               id="acquired"
-              disabled={accountingLocked}
+              disabled={figuresLocked}
               type="date"
               className="field"
               value={form.acquisition_date}
@@ -663,7 +668,7 @@ export default function AssetForm({
             <input
               type="checkbox"
               checked={form.acquisition_year_only}
-              disabled={accountingLocked}
+              disabled={figuresLocked}
               onChange={(e) => {
                 const yearOnly = e.target.checked;
                 setForm((f) => ({
@@ -684,7 +689,7 @@ export default function AssetForm({
           <input
             type="checkbox"
             checked={form.cost_known || costTyped}
-            disabled={accountingLocked || costTyped}
+            disabled={figuresLocked || costTyped}
             onChange={(e) => set("cost_known", e.target.checked)}
           />
           Purchase cost is known (including a confirmed zero cost)
@@ -701,7 +706,7 @@ export default function AssetForm({
           {form.available_year_only ? (
             <input
               id="available"
-              disabled={accountingLocked}
+              disabled={figuresLocked}
               className="field tabular"
               value={form.available_year}
               onChange={(e) =>
@@ -716,7 +721,7 @@ export default function AssetForm({
               id="available"
               type="date"
               className="field"
-              disabled={accountingLocked}
+              disabled={figuresLocked}
               value={form.available_for_use_date}
               onChange={(e) => set("available_for_use_date", e.target.value)}
             />
@@ -725,7 +730,7 @@ export default function AssetForm({
             <input
               type="checkbox"
               checked={form.available_year_only}
-              disabled={accountingLocked}
+              disabled={figuresLocked}
               onChange={(e) => {
                 const yearOnly = e.target.checked;
                 setForm((f) => ({
@@ -747,12 +752,18 @@ export default function AssetForm({
               : "Use the date the item was ready to operate. If left blank, depreciation counts from the acquisition date."}
           </p>
         </div>
-        {accountingLocked && (
+        {figuresLocked ? (
           <p className="text-sm text-nsuk-muted">
             Cost, classification and dates have an accounting record. An
             administrator must record financial adjustments in Asset accounting.
           </p>
-        )}
+        ) : accountingLocked ? (
+          <p className="text-sm text-nsuk-muted">
+            Depreciation has started. You can still correct the cost and dates,
+            and it is recalculated when you save. The category stays fixed; an
+            administrator changes it in Asset accounting.
+          </p>
+        ) : null}
       </section>
 
       <section className="card space-y-4">
