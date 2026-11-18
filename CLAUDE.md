@@ -25,7 +25,8 @@ The unit tree is the University's own as of migration 22 — 191 units across al
 four campuses, 194 since 9 Nov 2026 (#90 and #92 added three offices under
 the Vice-Chancellor's Office at the University's request). Since #96 (10 Nov)
 any account can add a unit itself from the unit picker, so the count will
-drift; 194 when #96 merged. Six accounts exist (3 Nov 2026): two administrators and four
+drift; 194 when #96 merged, 217 on 18 Nov after officers added 23, and 219
+once #100 added Special Education. Six accounts exist (3 Nov 2026): two administrators and four
 staff, and none of the four staff has a unit assigned. That no longer stops them
 recording (see below). The next step is the people: ten officers who will record
 assets across the institution. Supabase is on the **Pro plan** since 2 Nov 2026.
@@ -107,7 +108,11 @@ units (`user_units`; a faculty's unit covers the departments under it via
 `my_unit_ids()`) plus the assets they recorded themselves (`created_by =
 auth.uid()`). `created_by` therefore grants edit access, so the insert trigger
 always sets it from the caller and the update trigger never lets it change — do
-not loosen either. Auditors edit nothing; only administrators delete. An edit must
+not loosen either. Auditors edit nothing. Deleting is narrower than editing
+(since #100, 18 Nov): administrators delete any asset, staff only the assets
+they recorded themselves (`assets_delete`: `created_by = auth.uid()`), never
+one in their unit that someone else recorded; the asset page shows Delete only
+when `canDelete`. Test: `supabase/tests/staff_delete_own_assets.sql`. An edit must
 also leave the asset inside the editor's scope, so staff cannot transfer an
 asset to a unit they do not hold: `assets_update`'s `with check` states that
 scope (migration `keep_asset_edits_in_scope`). Before the read widened this held
@@ -132,7 +137,9 @@ document is not in the tree on purpose: generators, a water pump and a tank are
 assets, not places to put assets. Units the University asks for later are
 added by migration, outside the document: so far TetFund Desk Office (TED),
 Mail Office (MAI) (#90) and Head Operation and Investment Division (HOI, #92),
-all under the Vice-Chancellor's Office.
+all under the Vice-Chancellor's Office; and a top-level directorate,
+Special Education (SPE), with Center for Disability Studies and Support
+Services (DSS) under it, on Keffi (Main) (#100).
 
 **Any account adds a unit, and only through `add_org_unit`** (since #96, 10 Nov
 2026, asked for because officers kept finding units missing while tagging). The
@@ -351,10 +358,10 @@ raises it again.
 
 ## Accounting scope update (14 October 2026)
 
-The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked. No general-ledger journal/disposal workflow has been introduced.
+The user expanded scope to include valuation/depreciation using the supplied policy. Administrator accounting controls and the nine document classifications (plus Land at 0%, added 2 Nov 2026, never depreciated) supersede earlier depreciation exclusions. See docs/ACCOUNTING.md. Staff only supply acquisition facts; financial events are immutable and period-locked, with one exception since #100 (18 Nov 2026): while an asset's only event is the automatic acquisition and no finalized year covers it, an edit to its cost or dates replaces that event (see the 18 November handoff entry). No general-ledger journal/disposal workflow has been introduced.
 
 
-## Handoff: changes on 1–11 November 2026 (#66–#98)
+## Handoff: changes on 1–18 November 2026 (#66–#100)
 
 **How the user works.** Do only what is asked. Anything extra — even an obvious
 improvement — is described first and waits for approval. Where a request leaves
@@ -366,6 +373,96 @@ covers the PR it was said about, not the next one. The user often relays the
 University's wishes ("they said…") and refines them over several messages:
 build the latest instruction exactly, drop what it supersedes, and send a
 rendered picture of anything visual so they can judge it before merging.
+
+**18 November — merged in #100: staff delete their own records, editors
+correct cost and dates, Special Education.** Three things asked for in one
+message ("allowing the users to delete only what they uploaded and they
+should be able to edit the figures as well the amount", and "add a
+directorate called special education and the unit is center for disability
+studies and support services"). Four questions were put as one, and the
+user took every recommended option. Migrations
+`20261118200004_staff_delete_own_assets`,
+`20261118200048_editors_correct_cost_and_dates` and
+`20261118200107_special_education_directorate`, applied live **after** CI
+passed on the code and committed under their live versions. The user said
+"merge it when it pass"; squash-merged at 20:06 UTC once `check` and
+`Isolated database integration` passed on `6d24622`, as `82636c9`, and
+Vercel production was READY on it within about three minutes.
+
+- **Delete: own records only.** Rejected: own records plus assigned units.
+  A deletion leaves what an administrator's does (activity log entry,
+  accounting events kept, stock-count scans nulled).
+- **Cost and dates: recalculate.** Rejected: change the cost and keep the
+  old charge. Fields: cost (with cost known), acquisition date, date
+  available for use; rejected: cost only, and cost plus category. The
+  category stays locked once any accounting event exists.
+  `accounting_capture()` now, on an update that changes those fields,
+  deletes the asset's automatic event and recognises it again from the new
+  row, **only** when `asset_figures_recalculable(asset)` holds: exactly one
+  event, `kind = 'acquisition'` and `reason = 'Automatic initial cost
+  recognition'`, and no `accounting_reports.period_end` on or after its
+  date. Otherwise the old "Accounting facts are locked" refusal stands.
+  Details that matter:
+  - The replacement keeps the rate first charged (`annual_charge * 100 /
+    original_cost`), falling back to the class rate for a ₦0 cost, so an
+    administrator's later rate change is not applied by an edit.
+  - Its evidence reads "Asset entry, recalculated after an edit"; its reason
+    is unchanged, so it stays recalculable. The old event is not kept: the
+    old cost and acquisition date survive only in `asset_logs` (which does
+    not track `available_for_use_date`).
+  - Clearing the cost (the form sends `value = 0`, `cost_known = false`;
+    `assets.value` is not null) removes the event, as a fresh save would.
+  - A change that would land in a closed year, or under a class that no
+    longer takes automatic recognition, is refused rather than losing the
+    event.
+  - `assets_cost_known_from_value()` now applies after recognition too: a
+    cost above zero can never be marked unknown.
+  - The edit form has two locks: `accountingLocked` (category; from
+    `asset_accounting_locked`) and `figuresLocked` (cost and dates; from the
+    new `asset_figures_locked`, granted to `authenticated` only).
+- **Special Education**: a top-level Directorate beside Bursary and
+  Registry, on Keffi (Main), code SPE, and the Centre "Center for Disability
+  Studies and Support Services" (spelt as given), code DSS. Codes issue as
+  `NSU/SPE/DSS/OE/001`. Two other places to keep apart: the officers'
+  own "Special Education and Rehabilitation Sciences" and "HOD Special
+  Education and Rehabilitation Sciences" under the Faculty of Education
+  (added through `add_org_unit` that morning).
+- **CI caught one fault in the new test**, not the feature: it cleared the
+  cost with `value = null`, which the not-null column refused. Fixed to
+  clear it as the form does. Existing tests changed because they encoded
+  the old rules: `accounting.sql` (a cost edit on the automatic event now
+  recalculates; the lock assertion moved after the revaluation) and
+  `staff_record_any_unit.sql` (staff may not delete another's asset).
+- **Verified:** `npm run check` locally; all three new tests
+  (`staff_delete_own_assets`, `editors_correct_cost_and_dates`,
+  `special_education_directorate`) and the changed ones in CI. Live after
+  applying: delete policy as intended, 219 units, the new functions pinned
+  to `search_path=public`, `asset_figures_locked` not executable by `anon`
+  and `asset_figures_recalculable` not by `authenticated`, none of the 1,615
+  depreciated assets locked (no administrator adjustment and no finalized
+  year exists yet), 1,615 events untouched. The security advisor added only
+  `asset_figures_locked`, an expected `authenticated` row.
+- **Not yet seen in the running app:** a staff member deleting their own
+  record (and its photo leaving Storage), editing the cost of a depreciated
+  asset and seeing the administrator's Depreciation panel follow, and the
+  new directorate in the unit picker.
+
+**Health check, 18 Nov ~19:55 UTC** (asked for as item 7 of a list, before
+#100 was applied). Vercel: production READY on #99's code, no runtime errors
+in 24 hours (the 7-day query failed to load). Supabase: 1,673 assets, 170 in
+the past 24 hours, 575 in 7 days, the latest at 15:57 UTC; no duplicate codes
+or serials; no running number behind the codes it issued (one asset coded
+under the Faculty of Education's Dean's office now sits in Board Room after a
+move, which is expected); 1,615 accounting events, each matching its asset's
+cost and start date, and no asset that qualifies left unvalued; 61 assets
+without an accounting record; 35 with no category and 42 codes with `XX`; 3
+events whose asset was deleted earlier (kept by design); 217 units, 23 added
+by officers since #96, no sibling duplicates by name or code, though
+"Department of Science Education" (from the document) and "Department of
+Science Technology and Mathematics Education" (added 17 Nov) may be one
+department; 6 accounts, still none with a unit; no stock count ever run; the
+security advisor shows only the known list; every live migration had its
+file.
 
 **11 November — merged in #98: every dialog on screen, every page
 scrollable.** Field staff complained, on phones and laptops, that they could
@@ -611,7 +708,9 @@ before the merge because officers were still recording, and committed):
      Rejected: showing it to everyone, or keeping it on `/accounting` only.
 - **Consequence to know:** an asset recognised from its acquisition date is
   locked as before, so a date available for use found later is an
-  administrator correction, not an officer edit.
+  administrator correction, not an officer edit. *Superseded by #100 (18
+  Nov): an editor may now correct cost and dates and the automatic record is
+  recalculated; see the 18 November entry.*
 - **Live after the migration:** 61 assets, 50 valued, 11 flagged "Needs
   accounting details" (7 with no date at all, 3 with no cost, 1 with no
   category). Totals on 4 Nov: cost ₦15.70M, accumulated ₦15.57M, book
@@ -940,7 +1039,9 @@ Items 7–9 of that answer (label size, backups, trial data) were dealt with on
   in #80. Offered and not asked for: removing a photo that is only cleared with
   ✕, with nothing put in its place (kept today).
 
-**Not yet confirmed on a real phone or printer**: from #98, Add a unit
+**Not yet confirmed on a real phone or printer**: from #100, staff
+deleting their own record, correcting a depreciated asset's cost or dates,
+and Special Education in the picker. From #98, Add a unit
 with the phone keyboard open (the button should stay above it), and the
 laptop search palette. From #96, adding a unit
 from the asset form, and the new unit then showing in other pickers after a
