@@ -56,8 +56,9 @@ begin
  update public.assets set value=200000 where id=a;
  if (select annual_charge from public.accounting_events where asset_id=a)<>40000 then raise exception 'Edit applied the new rate'; end if;
 
- -- Clearing the cost is saved as it would be on a new record: no depreciation.
- update public.assets set value=null, cost_known=false where id=a;
+ -- Clearing the cost (stored as 0, not known) is saved as it would be on a new
+ -- record: no depreciation.
+ update public.assets set value=0, cost_known=false where id=a;
  if exists(select 1 from public.accounting_events where asset_id=a) then raise exception 'Unknown cost still depreciated'; end if;
  if public.asset_figures_locked(a) or public.asset_accounting_locked(a) then raise exception 'Nothing should be locked without a record'; end if;
 
